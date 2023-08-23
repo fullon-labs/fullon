@@ -1,0 +1,341 @@
+{
+  "name": "testnet_",
+  "ssh_helper": {
+    "ssh_cmd": "/usr/bin/ssh",
+    "scp_cmd": "/usr/bin/scp",
+    "ssh_identity": "",
+    "ssh_args": ""
+  },
+  "nodes": {
+      "bios":{
+        "name": "bios",
+        "keys": [
+          {
+            "privkey":"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+            "pubkey":"EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+          }
+        ],
+        "peers": [],
+        "producers": [
+          "eosio"
+        ],
+        "dont_start": false
+      },
+      "testnet_00":{
+        "name": "testnet_00",
+        "keys": [
+          {
+            "privkey":"5Jf4sTk7vwX1MYpLJ2eQFanVvKYXFqGBrCyANPukuP2BJ5WAAKZ",
+            "pubkey":"EOS58B33q9S7oNkgeFfcoW3VJYu4obfDiqn5RHGE2ige6jVjUhymR"
+          }
+        ],
+        "peers": [
+          "bios"
+        ],
+        "producers": [
+          "defproducera"
+        ],
+        "dont_start": false
+      },
+      "testnet_01":{
+        "name": "testnet_01",
+        "keys": [
+          {
+            "privkey":"5HviUPkTEtvF2B1nm8aZUnjma2TzgpKRjuXjwHyy3FME4xDbkZF",
+            "pubkey":"EOS5CbcTDgbks2ptTxvyCbT9HFbzX7PDHUY2wN4DDnVBhhQr2ZNDE"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerb"
+        ],
+        "dont_start": false
+      },
+      "testnet_02":{
+        "name": "testnet_02",
+        "keys": [
+          {
+            "privkey":"5KkQbdxFHr8Pg1N3DEMDdU7emFgUTwQvh99FDJrodFhUbbsAtQT",
+            "pubkey":"EOS6Tkpf8kcDfa32WA9B4nTcEJ64ZdDMSNioDcaL6rzdMwnpzaWJB"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerc"
+        ],
+        "dont_start": false
+      },
+      "testnet_03":{
+        "name": "testnet_03",
+        "keys": [
+          {
+            "privkey":"5JxTJJegQBpEL1p77TzkN1ompMB9gDwAfjM9chPzFCB4chxmwrE",
+            "pubkey":"EOS52ntDHqA2qj4xVo7KmxdezMRhvvBqpZBuKYJCsgihisxmywpAx"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerd"
+        ],
+        "dont_start": false
+      },
+      "testnet_04":{
+        "name": "testnet_04",
+        "keys": [
+          {
+            "privkey":"5K3h9XiAmrx9EuqD8CRxHgQwEVDaWpqrhrnpdvwHtVzwJFMhNmE",
+            "pubkey":"EOS7K5pQCk22ojetRdyumrqp6nJX6eiQiTWWcGkZAMGhoBxgcsxhK"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducere"
+        ],
+        "dont_start": false
+      },
+      "testnet_05":{
+        "name": "testnet_05",
+        "keys": [
+          {
+            "privkey":"5KNxJ5cGoMeDiPi7raQMx1oqkuB8afJSDa5UdwrkCSC5qqt6Lbf",
+            "pubkey":"EOS6kAMMmvYK9etVhffMBHXXZ16B1WPKLmUZ92iY9SMPWY2vwxutH"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerf"
+        ],
+        "dont_start": false
+      },
+      "testnet_06":{
+        "name": "testnet_06",
+        "keys": [
+          {
+            "privkey":"5KWn533nXMjUv6tYoNyV6U6UGgvC2hBprGvYhoR9Xr6cE6dJAKX",
+            "pubkey":"EOS5g9Db5mR5rhhEewywW79XAYzqhzt7FQcV765xwqGnwBntif9dT"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerg"
+        ],
+        "dont_start": false
+      },
+      "testnet_07":{
+        "name": "testnet_07",
+        "keys": [
+          {
+            "privkey":"5JLyZdVL9GyhhnmFZNXB6xLWVWivsMCtxTQmDRMGj9scNebDynq",
+            "pubkey":"EOS6npG3MJ3UD2Dom5UCpZQ1ezJ7rZSJ9AX4cQjJvsHU23jNVGWja"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerh"
+        ],
+        "dont_start": false
+      },
+      "testnet_08":{
+        "name": "testnet_08",
+        "keys": [
+          {
+            "privkey":"5Jjkwz2aSsq6cVW74rifqQzDzs85gAEQh6MhL3stEeoY8idnwG2",
+            "pubkey":"EOS8NybfYVLoS2iN7oaVwxqbkfcze19enjv1HMPpg4RisF9EsSuY6"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproduceri"
+        ],
+        "dont_start": false
+      },
+      "testnet_09":{
+        "name": "testnet_09",
+        "keys": [
+          {
+            "privkey":"5K233w6Hb74Q5Cz3ocRnu3svompUd7XyNmcpNkJjJRdfJmKeVM7",
+            "pubkey":"EOS7ay3hqpGCXn8JaDQEsYBJ12SgnkuKx2gz66o5cJmzTUZ7x5GDo"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerj"
+        ],
+        "dont_start": false
+      },
+      "testnet_10":{
+        "name": "testnet_10",
+        "keys": [
+          {
+            "privkey":"5K3T3rhvCHyL4SkiMvkehgLwo9iwwqGhYdDmM6aQKpJYkm1p65N",
+            "pubkey":"EOS63XTEVf3PSjNxRE7boZz3E35s1GDv2TzXfX1iapa7SJRi7T3ay"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerk"
+        ],
+        "dont_start": false
+      },
+      "testnet_11":{
+        "name": "testnet_11",
+        "keys": [
+          {
+            "privkey":"5KFMjaCKHrTEKRNk9UTrxz3cu1vdNcVo9PsmaUX3JhNWNYmg7Ak",
+            "pubkey":"EOS5faXpYaxXSQM8B71jowJGTPRFiWSuemzN13mcPUBbYxk1b1VEU"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerl"
+        ],
+        "dont_start": false
+      },
+      "testnet_12":{
+        "name": "testnet_12",
+        "keys": [
+          {
+            "privkey":"5KgUZEsvsiBrmBXvaK4GefQkhtwXKmEpjj4ChhBcyhbZkiLJ4gV",
+            "pubkey":"EOS7SaD1iNagvRTsAf6mAF42cEGRiLKoQZ5gtsjoUejamW4kEmddG"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerm"
+        ],
+        "dont_start": false
+      },
+      "testnet_13":{
+        "name": "testnet_13",
+        "keys": [
+          {
+            "privkey":"5KAKiYtrxrhZzeiF2tb2kgyupdStyPcnZ7dfPQDUc9BLG6vigjc",
+            "pubkey":"EOS8gxmMjQD55oZmTfD5yBD2yPYQ4bRrJ16VVMkguRXroJK2FVWrt"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducern"
+        ],
+        "dont_start": false
+      },
+      "testnet_14":{
+        "name": "testnet_14",
+        "keys": [
+          {
+            "privkey":"5HsYvqVcuHkddyZF9h7iR4YxUMUmvoz3CRetNb4GveiRkehNpK6",
+            "pubkey":"EOS5JcdUMhAgBTiXpry8xzFNeMhJH36ULjLYCe3Gj8Fy4r2kEJW52"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducero"
+        ],
+        "dont_start": false
+      },
+      "testnet_15":{
+        "name": "testnet_15",
+        "keys": [
+          {
+            "privkey":"5KA9YksaqmuwAU4WRUFEuHHbm2oXURZWNi5EmHXow4MrzZakAUf",
+            "pubkey":"EOS6dG5iBiVUenpni6FMCa5KPjYF2DcTXVbUTywAnQx9XQwz58Wg5"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerp"
+        ],
+        "dont_start": false
+      },
+      "testnet_16":{
+        "name": "testnet_16",
+        "keys": [
+          {
+            "privkey":"5JUV8ELodV2N31nYpfkzjyzNTqSSJEW7A33yvC9vfcFEDsV2UJj",
+            "pubkey":"EOS5S4ECoqLgv1GK4NrAhdnv2TzteLEquGnurCbHX74v4mn4Z3bgY"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerq"
+        ],
+        "dont_start": false
+      },
+      "testnet_17":{
+        "name": "testnet_17",
+        "keys": [
+          {
+            "privkey":"5KAx38nXk4Rck1XefFW8w7vPgzELVeieYUuCjeZJfPoi2jh2s2C",
+            "pubkey":"EOS5z4bsFKN14vJesR86ARJ2AvMaS4n39eE7ngKM3B38bYBCrLbZn"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerr"
+        ],
+        "dont_start": false
+      },
+      "testnet_18":{
+        "name": "testnet_18",
+        "keys": [
+          {
+            "privkey":"5KhyQJFLkqtxrFyKtpEng9c8N5dD7gB4Q5q8LQL78e8J12LCiTz",
+            "pubkey":"EOS67KLwTrR9QYnUP6ETCcp4HyTits5VKALouRcnBkCuaRv7m6zg5"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducers"
+        ],
+        "dont_start": false
+      },
+      "testnet_19":{
+        "name": "testnet_19",
+        "keys": [
+          {
+            "privkey":"5KRT1XwAy8RPFwH2SkwZdzACt6JaeFRefVTy4aBBLj9VtRzdcqH",
+            "pubkey":"EOS5tDpQJoHc4Y6cy4FapHdUCEXmZ4qwq3EF9q94c63dN2bNQWvj5"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducert"
+        ],
+        "dont_start": false
+      },
+      "testnet_20":{
+        "name": "testnet_20",
+        "keys": [
+          {
+            "privkey":"5J7Jg9E17ae1dAunZSMMtDKE1r1XtrmBKWmU4DGa7atZXCpy1RE",
+            "pubkey":"EOS5NhoG6oyNdGdbujArjVPMTviym3ygrYJ7ttBRcfCJdrxLrXqAV"
+          }
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproduceru"
+        ],
+        "dont_start": false
+      }
+  }
+}
