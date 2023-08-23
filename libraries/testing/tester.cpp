@@ -13,7 +13,7 @@
 
 #include <contracts.hpp>
 #include <contracts.hpp>
-#ifdef EOSIO_EOS_VM_RUNTIME_ENABLED
+#if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 #include <eosio/vm/signals.hpp>
 #endif//AMAX_EOS_VM_RUNTIME_ENABLED
 
@@ -287,8 +287,8 @@ namespace eosio { namespace testing {
          }
       }
 
-#ifdef EOSIO_EOS_VM_RUNTIME_ENABLED
-      if (cfg.wasm_runtime == chain::wasm_interface::vm_type::eos_vm) {
+#if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
+      if (cfg.wasm_runtime == chain::wasm_interface::vm_type::eos_vm || cfg.wasm_runtime == chain::wasm_interface::vm_type::eos_vm_jit) {
          eosio::vm::setup_signal_handler();
          struct sigaction vm_signal_handler = {};
          sigaction(SIGBUS, NULL, &vm_signal_handler);
