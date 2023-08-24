@@ -27,13 +27,13 @@ public:
    [[eosio::action]]
    void setowner( eosio::name owner, uint32_t delay );
 
-   [[eosio::on_notify("eosio.token::transfer")]]
+   [[eosio::on_notify("gax.token::transfer")]]
    void on_transfer( eosio::name        from,
                      eosio::name        to,
                      eosio::asset       quantity,
                      const std::string& memo );
 
-   [[eosio::on_notify("eosio::onerror")]]
+   [[eosio::on_notify("gax::onerror")]]
    void on_error( uint128_t sender_id, eosio::ignore<std::vector<char>> sent_trx );
 
    struct [[eosio::table]] config {

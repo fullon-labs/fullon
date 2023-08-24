@@ -447,9 +447,8 @@ BOOST_FIXTURE_TEST_CASE( test_proxy, currency_tester ) try {
    }
 
    produce_block();
-   #warning "need to check pushaction"
-   // BOOST_REQUIRE_EQUAL(get_balance( "proxy"_n), asset::from_string("0.0000 CUR"));
-   // BOOST_REQUIRE_EQUAL(get_balance( "alice"_n),   asset::from_string("5.0000 CUR"));
+   BOOST_REQUIRE_EQUAL(get_balance( "proxy"_n), asset::from_string("0.0000 CUR"));
+   BOOST_REQUIRE_EQUAL(get_balance( "alice"_n),   asset::from_string("5.0000 CUR"));
 
 } FC_LOG_AND_RETHROW() /// test_currency
 
@@ -495,8 +494,7 @@ BOOST_FIXTURE_TEST_CASE( test_deferred_failure, currency_tester ) try {
       ("memo", "fund Proxy")
    );
    fc::time_point expected_delivery = control->pending_block_time() + fc::seconds(10);
-   #warning "need to check"
-   // BOOST_REQUIRE_EQUAL(1, index.size());
+   BOOST_REQUIRE_EQUAL(1, index.size());
    auto deferred_id = index.begin()->trx_id;
    BOOST_REQUIRE_EQUAL(false, chain_has_transaction(deferred_id));
 
@@ -504,7 +502,7 @@ BOOST_FIXTURE_TEST_CASE( test_deferred_failure, currency_tester ) try {
       produce_block();
       BOOST_REQUIRE_EQUAL(get_balance( "proxy"_n), asset::from_string("5.0000 CUR"));
       BOOST_REQUIRE_EQUAL(get_balance( "bob"_n),   asset::from_string("0.0000 CUR"));
-      // BOOST_REQUIRE_EQUAL(1, index.size());
+      BOOST_REQUIRE_EQUAL(1, index.size());
       BOOST_REQUIRE_EQUAL(false, chain_has_transaction(deferred_id));
    }
 
@@ -512,9 +510,8 @@ BOOST_FIXTURE_TEST_CASE( test_deferred_failure, currency_tester ) try {
    // First deferred transaction should be retired in this block.
    // It will fail, and its onerror handler will reschedule the transaction for 10 seconds later.
    produce_block();
-   #warning "need to check"
-   // BOOST_REQUIRE_EQUAL(1, index.size()); // Still one because the first deferred transaction retires but the second is created at the same time.
-   // BOOST_REQUIRE_EQUAL(get_transaction_receipt(deferred_id).status, transaction_receipt::soft_fail);
+   BOOST_REQUIRE_EQUAL(1, index.size()); // Still one because the first deferred transaction retires but the second is created at the same time.
+   BOOST_REQUIRE_EQUAL(get_transaction_receipt(deferred_id).status, transaction_receipt::soft_fail);
    auto deferred2_id = index.begin()->trx_id;
 
    // set up alice owner
@@ -543,11 +540,11 @@ BOOST_FIXTURE_TEST_CASE( test_deferred_failure, currency_tester ) try {
       BOOST_REQUIRE_EQUAL(get_balance( "proxy"_n), asset::from_string("5.0000 CUR"));
       BOOST_REQUIRE_EQUAL(get_balance( "alice"_n),   asset::from_string("0.0000 CUR"));
       BOOST_REQUIRE_EQUAL(get_balance( "bob"_n),   asset::from_string("0.0000 CUR"));
-      // BOOST_REQUIRE_EQUAL(1, index.size());
+      BOOST_REQUIRE_EQUAL(1, index.size());
       BOOST_REQUIRE_EQUAL(false, chain_has_transaction(deferred2_id));
    }
 
-   // BOOST_REQUIRE_EQUAL(1, index.size());
+   BOOST_REQUIRE_EQUAL(1, index.size());
 
    // Second deferred transaction should be retired in this block and should succeed,
    // which should move tokens from the proxy contract to the bob contract, thereby trigger the bob contract to
@@ -556,10 +553,10 @@ BOOST_FIXTURE_TEST_CASE( test_deferred_failure, currency_tester ) try {
    // after in the same block (note that this is the current deferred transaction scheduling policy in tester and it may change).
    produce_block();
    BOOST_REQUIRE_EQUAL(0, index.size());
-   //BOOST_REQUIRE_EQUAL(get_transaction_receipt(deferred2_id).status, transaction_receipt::executed);
+   BOOST_REQUIRE_EQUAL(get_transaction_receipt(deferred2_id).status, transaction_receipt::executed);
 
-   //BOOST_REQUIRE_EQUAL(get_balance( "proxy"_n), asset::from_string("0.0000 CUR"));
-   //BOOST_REQUIRE_EQUAL(get_balance( "alice"_n), asset::from_string("5.0000 CUR"));
+   BOOST_REQUIRE_EQUAL(get_balance( "proxy"_n), asset::from_string("0.0000 CUR"));
+   BOOST_REQUIRE_EQUAL(get_balance( "alice"_n), asset::from_string("5.0000 CUR"));
    BOOST_REQUIRE_EQUAL(get_balance( "bob"_n),   asset::from_string("0.0000 CUR"));
 
 } FC_LOG_AND_RETHROW() /// test_currency
