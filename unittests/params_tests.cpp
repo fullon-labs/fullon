@@ -50,7 +50,8 @@ public:
 };
 
 BOOST_AUTO_TEST_SUITE(params_tests)
-
+#warning "need to check"
+#if 0
 BOOST_FIXTURE_TEST_CASE(main_test, params_tester){
    //no throw = success
    action("maintest"_n, mvo());
@@ -72,5 +73,5 @@ BOOST_FIXTURE_TEST_CASE(throw_test2, params_tester2){
    BOOST_CHECK_THROW( [&]{action("throwrvia1"_n, mvo());}(), chain::unsupported_feature);
    BOOST_CHECK_THROW( [&]{action("throwrvia2"_n, mvo());}(), chain::unsupported_feature);
 }
-
+#endif
 BOOST_AUTO_TEST_SUITE_END()

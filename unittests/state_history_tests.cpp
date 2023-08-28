@@ -520,7 +520,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
 
       std::multiset<std::string> expected_contract_row_table_names {"abihash", "abihash", "hashobjs", "hashobjs", "hashobjs", "numobjs", "numobjs", "numobjs"};
 
-      std::multiset<uint64_t> expected_contract_row_table_primary_keys {6138663577826885632U,14605619288908759040U, 0, 1 ,2, 0, 1, 2};
+      std::multiset<uint64_t> expected_contract_row_table_primary_keys {7041940967347191808U,14605619288908759040U, 0, 1 ,2, 0, 1, 2};
       std::multiset<std::string> result_contract_row_table_names;
       std::multiset<uint64_t> result_contract_row_table_primary_keys;
       for(auto &contract_row : contract_rows) {
@@ -528,8 +528,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
          result_contract_row_table_primary_keys.insert(contract_row.primary_key);
       }
       BOOST_REQUIRE(expected_contract_row_table_names == result_contract_row_table_names);
-      #warning "need to check"
-      // BOOST_REQUIRE(expected_contract_row_table_primary_keys == result_contract_row_table_primary_keys);
+      BOOST_REQUIRE(expected_contract_row_table_primary_keys == result_contract_row_table_primary_keys);
 
       chain.produce_block();
 
