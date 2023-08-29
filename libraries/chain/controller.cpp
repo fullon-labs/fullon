@@ -32,6 +32,7 @@
 #include <fc/log/logger_config.hpp>
 #include <fc/scoped_exit.hpp>
 #include <fc/variant_object.hpp>
+#include <eosio/chain/database_manager.hpp>
 
 #include <new>
 #include <shared_mutex>
@@ -64,8 +65,11 @@ using contract_database_index_set = index_set<
    index_long_double_index
 >;
 
+template<typename DatabaseType>
 class maybe_session {
    public:
+      typedef typename DatabaseType::session SessionType;
+
       maybe_session() = default;
 
       maybe_session( maybe_session&& other)
@@ -73,7 +77,7 @@ class maybe_session {
       {
       }
 
-      explicit maybe_session(database& db) {
+      explicit maybe_session(DatabaseType& db) {
          _session.emplace(db.start_undo_session(true));
       }
 
@@ -106,8 +110,11 @@ class maybe_session {
       };
 
    private:
-      std::optional<database::session>     _session;
+      std::optional<SessionType>     _session;
 };
+
+using dbm_maybe_session = maybe_session<database_manager>;
+using db_maybe_session = maybe_session<database>;
 
 struct building_block {
    building_block( const block_header_state& prev,
@@ -146,7 +153,7 @@ struct completed_block {
 using block_stage_type = std::variant<building_block, assembled_block, completed_block>;
 
 struct pending_state {
-   pending_state( maybe_session&& s, const block_header_state& prev,
+   pending_state( dbm_maybe_session&& s, const block_header_state& prev,
                   block_timestamp_type when,
                   uint16_t num_prev_blocks_to_confirm,
                   const vector<digest_type>& new_protocol_feature_activations )
@@ -154,7 +161,7 @@ struct pending_state {
    ,_block_stage( building_block( prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations ) )
    {}
 
-   maybe_session                      _db_session;
+   dbm_maybe_session                  _db_session;
    block_stage_type                   _block_stage;
    controller::block_status           _block_status = controller::block_status::ephemeral;
    std::optional<block_id_type>       _producer_block_id;
@@ -226,7 +233,7 @@ struct controller_impl {
    reset_new_handler               rnh; // placed here to allow for this to be set before constructing the other fields
    controller&                     self;
    std::function<void()>           shutdown;
-   chainbase::database             db;
+   database_manager                dbm;
    block_log                       blog;
    std::optional<pending_state>    pending;
    block_state_ptr                 head;
@@ -274,7 +281,7 @@ struct controller_impl {
 
       head = prev;
 
-      db.undo();
+      dbm.undo();
 
       protocol_features.popped_blocks_to( prev->block_num );
    }
@@ -301,20 +308,20 @@ struct controller_impl {
    controller_impl( const controller::config& cfg, controller& s, protocol_feature_set&& pfs, const chain_id_type& chain_id )
    :rnh(),
     self(s),
-    db( cfg.state_dir,
+    dbm( cfg.state_dir,
         cfg.read_only ? database::read_only : database::read_write,
         cfg.state_size, false, cfg.db_map_mode ),
     blog( cfg.blocks_dir, cfg.blog ),
     fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
-    resource_limits( db, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
-    authorization( s, db ),
+    resource_limits( dbm.main_db(), [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
+    authorization( s, dbm.main_db() ),
     protocol_features( std::move(pfs), [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); } ),
     conf( cfg ),
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
     main_thread_id( std::this_thread::get_id() ),
-    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
+    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, dbm.main_db(), conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -457,7 +464,7 @@ struct controller_impl {
             blog.append( (*bitr)->block, (*bitr)->id, it->get() );
             ++it;
 
-            db.commit( (*bitr)->block_num );
+            dbm.commit( (*bitr)->block_num );
             root_id = (*bitr)->id;
          }
       } catch( std::exception& ) {
@@ -467,7 +474,7 @@ struct controller_impl {
          throw;
       }
 
-      //db.commit( fork_head->dpos_irreversible_blocknum ); // redundant
+      //dbm.commit( fork_head->dpos_irreversible_blocknum ); // redundant
 
       if( root_id != fork_db.root()->id ) {
          branch.emplace_back(fork_db.root());
@@ -500,7 +507,7 @@ struct controller_impl {
       static_cast<block_header_state&>(*head) = genheader;
       head->activated_protocol_features = std::make_shared<protocol_feature_activation_set>();
       head->block = std::make_shared<signed_block>(genheader.header);
-      db.set_revision( head->block_num );
+      dbm.set_revision( head->block_num );
       initialize_database(genesis);
    }
 
@@ -554,7 +561,7 @@ struct controller_impl {
          // if the irreverible log is played without undo sessions enabled, we need to sync the
          // revision ordinal to the appropriate expected value here.
          if( self.skip_db_sessions( controller::block_status::irreversible ) )
-            db.set_revision( head->block_num );
+            dbm.set_revision( head->block_num );
       } else {
          ilog( "no irreversible blocks need to be replayed" );
       }
@@ -618,7 +625,7 @@ struct controller_impl {
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis) {
-      EOS_ASSERT( db.revision() < 1, database_exception, "This version of controller::startup only works with a fresh state database." );
+      EOS_ASSERT( dbm.revision() < 1, database_exception, "This version of controller::startup only works with a fresh state database." );
       const auto& genesis_chain_id = genesis.compute_chain_id();
       EOS_ASSERT( genesis_chain_id == chain_id, chain_id_type_exception,
                   "genesis state provided to startup corresponds to a chain ID (${genesis_chain_id}) that does not match the chain ID that controller was constructed with (${controller_chain_id})",
@@ -651,7 +658,7 @@ struct controller_impl {
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
-      EOS_ASSERT( db.revision() >= 1, database_exception, "This version of controller::startup does not work with a fresh state database." );
+      EOS_ASSERT( dbm.revision() >= 1, database_exception, "This version of controller::startup does not work with a fresh state database." );
       EOS_ASSERT( fork_db.head(), fork_database_exception, "No existing fork database despite existing chain state. Replay required." );
 
       this->shutdown = shutdown;
@@ -695,10 +702,11 @@ struct controller_impl {
    }
 
    void init(std::function<bool()> check_shutdown) {
-      auto header_itr = validate_db_version( db );
+      auto header_itr = validate_db_version( dbm.main_db() );
+      // TODO: need to check shared_db and all sub shard db?
 
       {
-         const auto& state_chain_id = db.get<global_property_object>().chain_id;
+         const auto& state_chain_id = dbm.main_db().get<global_property_object>().chain_id;
          EOS_ASSERT( state_chain_id == chain_id, chain_id_type_exception,
                      "chain ID in state (${state_chain_id}) does not match the chain ID that controller was constructed with (${controller_chain_id})",
                      ("state_chain_id", state_chain_id)("controller_chain_id", chain_id)
@@ -707,30 +715,33 @@ struct controller_impl {
 
       // upgrade to the latest compatible version
       if (header_itr->version != database_header_object::current_version) {
-         db.modify(*header_itr, [](auto& header) {
+         // TODO: modify shared_db() instead?
+         dbm.main_db().modify(*header_itr, [](auto& header) {
             header.version = database_header_object::current_version;
          });
       }
 
       // At this point head != nullptr
-      EOS_ASSERT( db.revision() >= head->block_num, fork_database_exception,
+      EOS_ASSERT( dbm.revision() >= head->block_num, fork_database_exception,
                   "fork database head (${head}) is inconsistent with state (${db})",
-                  ("db",db.revision())("head",head->block_num) );
+                  ("db",dbm.revision())("head",head->block_num) );
 
-      if( db.revision() > head->block_num ) {
+      if( dbm.revision() > head->block_num ) {
          wlog( "database revision (${db}) is greater than head block number (${head}), "
                "attempting to undo pending changes",
-               ("db",db.revision())("head",head->block_num) );
+               ("db",dbm.revision())("head",head->block_num) );
       }
-      while( db.revision() > head->block_num ) {
-         db.undo();
+      while( dbm.revision() > head->block_num ) {
+         dbm.undo();
       }
 
-      protocol_features.init( db );
+      // TODO: shared_db() instead?
+      protocol_features.init( dbm.main_db() );
 
       // At startup, no transaction specific logging is possible
       if (auto dm_logger = get_deep_mind_logger(false)) {
-         dm_logger->on_startup(db, head->block_num);
+         // TODO: shared_db()?
+         dm_logger->on_startup(dbm.main_db(), head->block_num);
       }
 
       if( conf.integrity_hash_on_start )
@@ -771,16 +782,15 @@ struct controller_impl {
    }
 
    void add_indices() {
-      controller_index_set::add_indices(db);
-      contract_database_index_set::add_indices(db);
-
-      authorization.add_indices();
-      resource_limits.add_indices();
+      dbm.add_indices_to_shard_db<controller_index_set>();
+      dbm.add_indices_to_shard_db<contract_database_index_set>();
+      dbm.add_indices_to_shard_db<authorization_manager>();
+      dbm.add_indices_to_shard_db<resource_limits_manager>();
    }
 
    void clear_all_undo() {
       // Rewind the database to the last irreversible block
-      db.undo_all();
+      dbm.undo_all();
       /*
       FC_ASSERT(db.revision() == self.head_block_num(),
                   "Chainbase revision does not match head block num",
@@ -788,14 +798,14 @@ struct controller_impl {
                   */
    }
 
-   void add_contract_tables_to_snapshot( const snapshot_writer_ptr& snapshot ) const {
-      snapshot->write_section("contract_tables", [this]( auto& section ) {
-         index_utils<table_id_multi_index>::walk(db, [this, &section]( const table_id_object& table_row ){
+   void add_contract_tables_to_snapshot( database& db, const snapshot_writer_ptr& snapshot ) const {
+      snapshot->write_section("contract_tables", [&db]( auto& section ) {
+         index_utils<table_id_multi_index>::walk(db, [&db, &section]( const table_id_object& table_row ){
             // add a row for the table
             section.add_row(table_row, db);
 
             // followed by a size row and then N data rows for each type of table
-            contract_database_index_set::walk_indices([this, &section, &table_row]( auto utils ) {
+            contract_database_index_set::walk_indices([&db, &section, &table_row]( auto utils ) {
                using utils_t = decltype(utils);
                using value_t = typename decltype(utils)::index_t::value_type;
                using by_table_id = object_to_table_id_tag_t<value_t>;
@@ -806,7 +816,7 @@ struct controller_impl {
                unsigned_int size = utils_t::template size_range<by_table_id>(db, tid_key, next_tid_key);
                section.add_row(size, db);
 
-               utils_t::template walk_range<by_table_id>(db, tid_key, next_tid_key, [this, &section]( const auto &row ) {
+               utils_t::template walk_range<by_table_id>(db, tid_key, next_tid_key, [&db, &section]( const auto &row ) {
                   section.add_row(row, db);
                });
             });
@@ -814,26 +824,26 @@ struct controller_impl {
       });
    }
 
-   void read_contract_tables_from_snapshot( const snapshot_reader_ptr& snapshot ) {
-      snapshot->read_section("contract_tables", [this]( auto& section ) {
+   void read_contract_tables_from_snapshot( database& db, const snapshot_reader_ptr& snapshot ) {
+      snapshot->read_section("contract_tables", [&db]( auto& section ) {
          bool more = !section.empty();
          while (more) {
             // read the row for the table
             table_id_object::id_type t_id;
-            index_utils<table_id_multi_index>::create(db, [this, &section, &t_id](auto& row) {
+            index_utils<table_id_multi_index>::create(db, [&db, &section, &t_id](auto& row) {
                section.read_row(row, db);
                t_id = row.id;
             });
 
             // read the size and data rows for each type of table
-            contract_database_index_set::walk_indices([this, &section, &t_id, &more](auto utils) {
+            contract_database_index_set::walk_indices([&db, &section, &t_id, &more](auto utils) {
                using utils_t = decltype(utils);
 
                unsigned_int size;
                more = section.read_row(size, db);
 
                for (size_t idx = 0; idx < size.value; idx++) {
-                  utils_t::create(db, [this, &section, &more, &t_id](auto& row) {
+                  utils_t::create(db, [&db, &section, &more, &t_id](auto& row) {
                      row.t_id = t_id;
                      more = section.read_row(row, db);
                   });
@@ -846,16 +856,18 @@ struct controller_impl {
    void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
       // clear in case the previous call to clear did not finish in time of deadline
       clear_expired_input_transactions( fc::time_point::maximum() );
+      // TODO: write shared_db and every shard db to snapshot
 
-      snapshot->write_section<chain_snapshot_header>([this]( auto &section ){
+      auto& db = dbm.main_db();
+      snapshot->write_section<chain_snapshot_header>([&db]( auto &section ){
          section.add_row(chain_snapshot_header(), db);
       });
 
-      snapshot->write_section<block_state>([this]( auto &section ){
+      snapshot->write_section<block_state>([&db, this]( auto &section ){
          section.template add_row<block_header_state>(*head, db);
       });
 
-      controller_index_set::walk_indices([this, &snapshot]( auto utils ){
+      controller_index_set::walk_indices([&db, &snapshot]( auto utils ){
          using value_t = typename decltype(utils)::index_t::value_type;
 
          // skip the table_id_object as its inlined with contract tables section
@@ -868,15 +880,16 @@ struct controller_impl {
             return;
          }
 
-         snapshot->write_section<value_t>([this]( auto& section ){
-            decltype(utils)::walk(db, [this, &section]( const auto &row ) {
+         snapshot->write_section<value_t>([&db]( auto& section ){
+            decltype(utils)::walk(db, [&db, &section]( const auto &row ) {
                section.add_row(row, db);
             });
          });
       });
 
-      add_contract_tables_to_snapshot(snapshot);
+      add_contract_tables_to_snapshot(db, snapshot);
 
+      // TODO: shared_db and sub shard db
       authorization.add_to_snapshot(snapshot);
       resource_limits.add_to_snapshot(snapshot);
    }
@@ -895,8 +908,10 @@ struct controller_impl {
    }
 
    void read_from_snapshot( const snapshot_reader_ptr& snapshot, uint32_t blog_start, uint32_t blog_end ) {
+      // TODO: global_db and sub shard db
+      auto& db = dbm.main_db();
       chain_snapshot_header header;
-      snapshot->read_section<chain_snapshot_header>([this, &header]( auto &section ){
+      snapshot->read_section<chain_snapshot_header>([&db, &header]( auto &section ){
          section.read_row(header, db);
          header.validate();
       });
@@ -906,13 +921,13 @@ struct controller_impl {
          using v2 = legacy::snapshot_block_header_state_v2;
 
          if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
-            snapshot->read_section<block_state>([this, &head_header_state]( auto &section ) {
+            snapshot->read_section<block_state>([&db, &head_header_state]( auto &section ) {
                legacy::snapshot_block_header_state_v2 legacy_header_state;
                section.read_row(legacy_header_state, db);
                head_header_state = block_header_state(std::move(legacy_header_state));
             });
          } else {
-            snapshot->read_section<block_state>([this,&head_header_state]( auto &section ){
+            snapshot->read_section<block_state>([&db,&head_header_state]( auto &section ){
                section.read_row(head_header_state, db);
             });
          }
@@ -930,7 +945,7 @@ struct controller_impl {
          static_cast<block_header_state&>(*head) = head_header_state;
       }
 
-      controller_index_set::walk_indices([this, &snapshot, &header]( auto utils ){
+      controller_index_set::walk_indices([&db, &snapshot, &header]( auto utils ){
          using value_t = typename decltype(utils)::index_t::value_type;
 
          // skip the table_id_object as its inlined with contract tables section
@@ -954,7 +969,7 @@ struct controller_impl {
                EOS_ASSERT( genesis, snapshot_exception,
                            "Snapshot indicates chain_snapshot_header version 2, but does not contain a genesis_state. "
                            "It must be corrupted.");
-               snapshot->read_section<global_property_object>([&db=this->db,gs_chain_id=genesis->compute_chain_id()]( auto &section ) {
+               snapshot->read_section<global_property_object>([&db,gs_chain_id=genesis->compute_chain_id()]( auto &section ) {
                   v2 legacy_global_properties;
                   section.read_row(legacy_global_properties, db);
 
@@ -967,7 +982,7 @@ struct controller_impl {
             }
 
             if (std::clamp(header.version, v3::minimum_version, v3::maximum_version) == header.version ) {
-               snapshot->read_section<global_property_object>([&db=this->db]( auto &section ) {
+               snapshot->read_section<global_property_object>([&db]( auto &section ) {
                   v3 legacy_global_properties;
                   section.read_row(legacy_global_properties, db);
 
@@ -980,7 +995,7 @@ struct controller_impl {
             }
 
             if (std::clamp(header.version, v4::minimum_version, v4::maximum_version) == header.version) {
-               snapshot->read_section<global_property_object>([&db = this->db](auto& section) {
+               snapshot->read_section<global_property_object>([&db](auto& section) {
                   v4 legacy_global_properties;
                   section.read_row(legacy_global_properties, db);
 
@@ -992,17 +1007,17 @@ struct controller_impl {
             }
          }
 
-         snapshot->read_section<value_t>([this]( auto& section ) {
+         snapshot->read_section<value_t>([&db]( auto& section ) {
             bool more = !section.empty();
             while(more) {
-               decltype(utils)::create(db, [this, &section, &more]( auto &row ) {
+               decltype(utils)::create(db, [&db, &section, &more]( auto &row ) {
                   more = section.read_row(row, db);
                });
             }
          });
       });
 
-      read_contract_tables_from_snapshot(snapshot);
+      read_contract_tables_from_snapshot(db, snapshot);
 
       authorization.read_from_snapshot(snapshot);
       resource_limits.read_from_snapshot(snapshot);
@@ -1029,6 +1044,8 @@ struct controller_impl {
    }
 
    void create_native_account( const fc::time_point& initial_timestamp, account_name name, const authority& owner, const authority& active, bool is_privileged = false ) {
+      auto& db = dbm.main_db();
+      // TODO: write to shared_db
       db.create<account_object>([&](auto& a) {
          a.name = name;
          a.creation_date = initial_timestamp;
@@ -1067,6 +1084,7 @@ struct controller_impl {
 
    void initialize_database(const genesis_state& genesis) {
       // create the database header sigil
+      auto& db = dbm.main_db();
       db.create<database_header_object>([&]( auto& header ){
          // nothing to do for now
       });
@@ -1240,9 +1258,10 @@ struct controller_impl {
       }
 
       int64_t ram_delta = -(config::billable_size_v<generated_transaction_object> + gto.packed_trx.size());
+      // TODO: must run in main shard
       resource_limits.add_pending_ram_usage( gto.payer, ram_delta, false ); // false for doing dm logging
       // No need to verify_account_ram_usage since we are only reducing memory
-
+      auto& db = dbm.main_db();
       db.remove( gto );
       return ram_delta;
    }
@@ -1276,6 +1295,7 @@ struct controller_impl {
                                                      fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    {
+      auto& db = dbm.main_db();
       const auto& idx = db.get_index<generated_transaction_multi_index,by_trx_id>();
       auto itr = idx.find( trxid );
       EOS_ASSERT( itr != idx.end(), unknown_transaction_exception, "unknown transaction" );
@@ -1286,12 +1306,13 @@ struct controller_impl {
                                                      fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    { try {
-
+      // TODO: run in main shard only
+      auto& db = dbm.main_db();
       auto start = fc::time_point::now();
       const bool validating = !self.is_speculative_block();
       EOS_ASSERT( !validating || explicit_billed_cpu_time, transaction_exception, "validating requires explicit billing" );
 
-      maybe_session undo_session;
+      db_maybe_session undo_session;
       if ( !self.skip_db_sessions() )
          undo_session = maybe_session(db);
 
@@ -1712,12 +1733,12 @@ struct controller_impl {
       });
 
       if (!self.skip_db_sessions(s)) {
-         EOS_ASSERT( db.revision() == head->block_num, database_exception, "db revision is not on par with head block",
-                     ("db.revision()", db.revision())("controller_head_block", head->block_num)("fork_db_head_block", fork_db.head()->block_num) );
+         EOS_ASSERT( dbm.revision() == head->block_num, database_exception, "db revision is not on par with head block",
+                     ("db.revision()", dbm.revision())("controller_head_block", head->block_num)("fork_db_head_block", fork_db.head()->block_num) );
 
-         pending.emplace( maybe_session(db), *head, when, confirm_block_count, new_protocol_feature_activations );
+         pending.emplace( dbm_maybe_session(dbm), *head, when, confirm_block_count, new_protocol_feature_activations );
       } else {
-         pending.emplace( maybe_session(), *head, when, confirm_block_count, new_protocol_feature_activations );
+         pending.emplace( dbm_maybe_session(), *head, when, confirm_block_count, new_protocol_feature_activations );
       }
 
       pending->_block_status = s;
@@ -1725,12 +1746,13 @@ struct controller_impl {
 
       auto& bb = std::get<building_block>(pending->_block_stage);
       const auto& pbhs = bb._pending_block_header_state;
+      auto& main_db = dbm.main_db(); // TODO: shared_db?
 
       // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
       // speculative incomplete block (otherwise we need clean state for head mode, ephemeral block)
       if ( pending->_block_status != controller::block_status::ephemeral )
       {
-         const auto& pso = db.get<protocol_state_object>();
+         const auto& pso = main_db.get<protocol_state_object>();
 
          auto num_preactivated_protocol_features = pso.preactivated_protocol_features.size();
          bool handled_all_preactivated_features = (num_preactivated_protocol_features == 0);
@@ -1785,7 +1807,7 @@ struct controller_impl {
          );
 
          if( new_protocol_feature_activations.size() > 0 ) {
-            db.modify( pso, [&]( auto& ps ) {
+            main_db.modify( pso, [&]( auto& ps ) {
                ps.preactivated_protocol_features.clear();
 
                ps.activated_protocol_features.reserve( ps.activated_protocol_features.size()
@@ -1815,7 +1837,7 @@ struct controller_impl {
                         producer_schedule_exception, "wrong producer schedule version specified" );
 
             std::get<building_block>(pending->_block_stage)._new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
-            db.modify( gpo, [&]( auto& gp ) {
+            main_db.modify( gpo, [&]( auto& gp ) {
                gp.proposed_schedule_block_num = std::optional<block_num_type>();
                gp.proposed_schedule.version=0;
                gp.proposed_schedule.producers.clear();
@@ -2319,7 +2341,7 @@ struct controller_impl {
             emit( self.irreversible_block, bsp );
 
             if (!self.skip_db_sessions(s)) {
-               db.commit(bsp->block_num);
+               dbm.commit(bsp->block_num);
             }
 
          } else {
@@ -2440,6 +2462,8 @@ struct controller_impl {
 
    void update_producers_authority() {
       const auto& producers = pending->get_pending_block_header_state().active_schedule.producers;
+      // TODO: shared_db() ?
+      auto& db = dbm.main_db();
 
       auto update_permission = [&]( auto& permission, auto threshold ) {
          auto auth = authority( threshold, {}, {});
@@ -2477,6 +2501,8 @@ struct controller_impl {
    void create_block_summary(const block_id_type& id) {
       auto block_num = block_header::num_from_id(id);
       auto sid = block_num & 0xffff;
+      // TODO: shared_db()?
+      auto& db = dbm.main_db();
       db.modify( db.get<block_summary_object,by_id>(sid), [&](block_summary_object& bso ) {
           bso.block_id = id;
       });
@@ -2485,6 +2511,8 @@ struct controller_impl {
 
    void clear_expired_input_transactions(const fc::time_point& deadline) {
       //Look for expired transactions in the deduplication list, and remove them.
+      // TODO: shared_db()?
+      auto& db = dbm.main_db();
       auto& transaction_idx = db.get_mutable_index<transaction_multi_index>();
       const auto& dedupe_index = transaction_idx.indices().get<by_expiration>();
       auto now = self.is_building_block() ? self.pending_block_time() : self.head_block_time();
@@ -2703,6 +2731,8 @@ struct controller_impl {
       else
 #endif
       {
+         // TODO: readonly threads, must supply shared_db and sub shard db
+         auto& db = dbm.main_db();
          std::lock_guard g(threaded_wasmifs_mtx);
          // Non-EOSVMOC needs a wasmif per thread
          threaded_wasmifs[std::this_thread::get_id()]  = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
@@ -2814,9 +2844,14 @@ void controller::startup(std::function<void()> shutdown, std::function<bool()> c
    my->startup(shutdown, check_shutdown);
 }
 
-const chainbase::database& controller::db()const { return my->db; }
+// TODO: change to main_db()?
+const chainbase::database& controller::db()const { return my->dbm.main_db(); }
 
-chainbase::database& controller::mutable_db()const { return my->db; }
+chainbase::database& controller::mutable_db()const { return my->dbm.main_db(); }
+
+
+const database_manager& controller::db()const { return my->dbm; }
+database_manager& controller::mutable_dbm()const { return my->dbm; };
 
 const fork_database& controller::fork_db()const { return my->fork_db; }
 
@@ -2891,7 +2926,9 @@ void controller::preactivate_feature( const digest_type& feature_digest, bool is
                ("digest", feature_digest)
    );
 
-   const auto& pso = my->db.get<protocol_state_object>();
+   // TODO: shared_db?
+   auto& db = my->dbm.main_db();
+   const auto& pso = db.get<protocol_state_object>();
 
    EOS_ASSERT( std::find( pso.preactivated_protocol_features.begin(),
                           pso.preactivated_protocol_features.end(),
@@ -2923,13 +2960,15 @@ void controller::preactivate_feature( const digest_type& feature_digest, bool is
       dm_logger->on_preactivate_feature(feature);
    }
 
-   my->db.modify( pso, [&]( auto& ps ) {
+   db.modify( pso, [&]( auto& ps ) {
       ps.preactivated_protocol_features.push_back( feature_digest );
    } );
 }
 
 vector<digest_type> controller::get_preactivated_protocol_features()const {
-   const auto& pso = my->db.get<protocol_state_object>();
+   // TODO: shared_db()?
+   auto& db = my->dbm.main_db();
+   const auto& pso = db.get<protocol_state_object>();
 
    if( pso.preactivated_protocol_features.size() == 0 ) return {};
 
@@ -3176,10 +3215,12 @@ time_point controller::last_irreversible_block_time() const {
 
 
 const dynamic_global_property_object& controller::get_dynamic_global_properties()const {
-  return my->db.get<dynamic_global_property_object>();
+  // TODO: shared_db()?
+  return my->dbm.main_db().get<dynamic_global_property_object>();
 }
 const global_property_object& controller::get_global_properties()const {
-  return my->db.get<global_property_object>();
+  // TODO: shared_db()?
+  return my->dbm.main_db().get<global_property_object>();
 }
 
 signed_block_ptr controller::fetch_block_by_id( const block_id_type& id )const {
@@ -3253,6 +3294,7 @@ void controller::write_snapshot( const snapshot_writer_ptr& snapshot ) {
 }
 
 int64_t controller::set_proposed_producers( vector<producer_authority> producers ) {
+   // TODO: must get from main_db()?
    const auto& gpo = get_global_properties();
    auto cur_block_num = head_block_num() + 1;
 
@@ -3296,7 +3338,8 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
 
    ilog( "proposed producer schedule with version ${v}", ("v", version) );
 
-   my->db.modify( gpo, [&]( auto& gp ) {
+   auto& db = my->dbm.main_db();
+   db.modify( gpo, [&]( auto& gp ) {
       gp.proposed_schedule_block_num = cur_block_num;
       gp.proposed_schedule = sch.to_shared(gp.proposed_schedule.producers.get_allocator());
    });
@@ -3429,7 +3472,9 @@ wasm_interface& controller::get_wasm_interface() {
 
 const account_object& controller::get_account( account_name name )const
 { try {
-   return my->db.get<account_object, by_name>(name);
+   // TODO: get from shared_db()?
+   auto& db = my->dbm.main_db();
+   return db.get<account_object, by_name>(name);
 } FC_CAPTURE_AND_RETHROW( (name) ) }
 
 bool controller::sender_avoids_whitelist_blacklist_enforcement( account_name sender )const {
@@ -3487,7 +3532,9 @@ void controller::validate_expiration( const transaction& trx )const { try {
 } FC_CAPTURE_AND_RETHROW((trx)) }
 
 void controller::validate_tapos( const transaction& trx )const { try {
-   const auto& tapos_block_summary = db().get<block_summary_object>((uint16_t)trx.ref_block_num);
+   // TODO: shared_db?
+   auto& db = my->dbm.main_db();
+   const auto& tapos_block_summary = db.get<block_summary_object>((uint16_t)trx.ref_block_num);
 
    //Verify TaPoS block summary has correct ID prefix, and that this block's time is not past the expiration
    EOS_ASSERT(trx.verify_reference_block(tapos_block_summary.block_id), invalid_ref_block_exception,
@@ -3496,8 +3543,11 @@ void controller::validate_tapos( const transaction& trx )const { try {
 } FC_CAPTURE_AND_RETHROW() }
 
 void controller::validate_db_available_size() const {
-   const auto free = db().get_segment_manager()->get_free_memory();
+   // TODO: shared_db?
+   auto& db = my->dbm.main_db();
+   const auto free = db.get_segment_manager()->get_free_memory();
    const auto guard = my->conf.state_guard_size;
+   // TODO: check all db available size...
    EOS_ASSERT(free >= guard, database_guard_exception, "database free: ${f}, guard size: ${g}", ("f", free)("g",guard));
 }
 
@@ -3520,7 +3570,9 @@ bool controller::is_builtin_activated( builtin_protocol_feature_t f )const {
 }
 
 bool controller::is_known_unexpired_transaction( const transaction_id_type& id) const {
-   return db().find<transaction_object, by_trx_id>(id);
+   // TODO: shared_db()?
+   auto& db = my->dbm.main_db();
+   return db.find<transaction_object, by_trx_id>(id);
 }
 
 void controller::set_subjective_cpu_leeway(fc::microseconds leeway) {
@@ -3563,13 +3615,15 @@ const flat_set<account_name> &controller::get_resource_greylist() const {
 
 
 void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes ) {
-   auto ptr = my->db.find<account_ram_correction_object, by_name>( account );
+   // TODO: shoud move to apply_context??
+   auto& db = my->dbm.main_db();
+   auto ptr = db.find<account_ram_correction_object, by_name>( account );
    if( ptr ) {
-      my->db.modify<account_ram_correction_object>( *ptr, [&]( auto& rco ) {
+      db.modify<account_ram_correction_object>( *ptr, [&]( auto& rco ) {
          rco.ram_correction += ram_bytes;
       } );
    } else {
-      ptr = &my->db.create<account_ram_correction_object>( [&]( auto& rco ) {
+      ptr = &db.create<account_ram_correction_object>( [&]( auto& rco ) {
          rco.name = account;
          rco.ram_correction = ram_bytes;
       } );
@@ -3656,7 +3710,9 @@ chain_id_type controller::extract_chain_id(snapshot_reader& snapshot) {
 
 std::optional<chain_id_type> controller::extract_chain_id_from_db( const path& state_dir ) {
    try {
-      chainbase::database db( state_dir, chainbase::database::read_only );
+      // TODO: shared_db()?
+      // TODO: main db dir
+      chainbase::database db( state_dir / "main", chainbase::database::read_only );
 
       db.add_index<database_header_multi_index>();
       db.add_index<global_property_multi_index>();
@@ -3698,12 +3754,14 @@ void controller::replace_producer_keys( const public_key_type& key ) {
 }
 
 void controller::replace_account_keys( name account, name permission, const public_key_type& key ) {
+   // TODO: move to apply_contrext??
+   auto& db = my->dbm.main_db();
    auto& rlm = get_mutable_resource_limits_manager();
-   auto* perm = db().find<permission_object, by_owner>(boost::make_tuple(account, permission));
+   auto* perm = db.find<permission_object, by_owner>(boost::make_tuple(account, permission));
    if (!perm)
       return;
    int64_t old_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
-   mutable_db().modify(*perm, [&](auto& p) {
+   db.modify(*perm, [&](auto& p) {
       p.auth = authority(key);
    });
    int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
@@ -3712,14 +3770,17 @@ void controller::replace_account_keys( name account, name permission, const publ
 }
 
 void controller::set_db_read_only_mode() {
+   // TODO: set readonly mod to all db?
    mutable_db().set_read_only_mode();
 }
 
 void controller::unset_db_read_only_mode() {
+   // TODO: unset readonly mod to all db?
    mutable_db().unset_read_only_mode();
 }
 
 void controller::init_thread_local_data() {
+   // TODO: init_thread_local_data to all db?
    my->init_thread_local_data();
 }
 
@@ -3738,9 +3799,10 @@ void controller::code_block_num_last_used(const digest_type& code_hash, uint8_t 
 }
 
 /// Protocol feature activation handlers:
-
+// TODO: on_activation on shared_db()??
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::preactivate_feature>() {
+   auto& db = dbm.main_db();
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "preactivate_feature" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "is_feature_activated" );
@@ -3749,6 +3811,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::preactivate_feat
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::get_sender>() {
+   auto& db = dbm.main_db();
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_sender" );
    } );
@@ -3756,6 +3819,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::get_sender>() {
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred>() {
+   auto& db = dbm.main_db();
    const auto& indx = db.get_index<account_ram_correction_index, by_id>();
    for( auto itr = indx.begin(); itr != indx.end(); itr = indx.begin() ) {
       int64_t current_ram_usage = resource_limits.get_account_ram_usage( itr->name );
@@ -3778,6 +3842,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::webauthn_key>() {
+   auto& db = dbm.main_db();
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       ps.num_supported_key_types = 3;
    } );
@@ -3785,6 +3850,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::webauthn_key>() 
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::wtmsig_block_signatures>() {
+   auto& db = dbm.main_db();
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "set_proposed_producers_ex" );
    } );
@@ -3792,6 +3858,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::wtmsig_block_sig
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::action_return_value>() {
+   auto& db = dbm.main_db();
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "set_action_return_value" );
    } );
@@ -3799,6 +3866,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::action_return_va
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::configurable_wasm_limits>() {
+   auto& db = dbm.main_db();
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "set_wasm_parameters_packed" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_wasm_parameters_packed" );
@@ -3807,6 +3875,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::configurable_was
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::blockchain_parameters>() {
+   auto& db = dbm.main_db();
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_parameters_packed" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "set_parameters_packed" );
@@ -3815,6 +3884,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::blockchain_param
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::get_code_hash>() {
+   auto& db = dbm.main_db();
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_code_hash" );
    } );
@@ -3822,6 +3892,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::get_code_hash>()
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::get_block_num>() {
+   auto& db = dbm.main_db();
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_block_num" );
    } );
@@ -3829,6 +3900,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::get_block_num>()
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::crypto_primitives>() {
+   auto& db = dbm.main_db();
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "alt_bn128_add" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "alt_bn128_mul" );

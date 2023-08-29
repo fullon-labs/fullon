@@ -24,8 +24,8 @@ namespace eosio { namespace chain {
    authorization_manager::authorization_manager(controller& c, database& d)
    :_control(c),_db(d){}
 
-   void authorization_manager::add_indices() {
-      authorization_index_set::add_indices(_db);
+   void authorization_manager::add_indices(chainbase::database& db) {
+      authorization_index_set::add_indices(db);
    }
 
    void authorization_manager::initialize_database() {
@@ -365,7 +365,7 @@ namespace eosio { namespace chain {
                   "the owner of the linked permission needs to be the actor of the declared authorization" );
 
       if( link.code == config::system_account_name
-            || !_control.is_builtin_activated( builtin_protocol_feature_t::fix_linkauth_restriction ) ) 
+            || !_control.is_builtin_activated( builtin_protocol_feature_t::fix_linkauth_restriction ) )
       {
          EOS_ASSERT( link.type != updateauth::get_name(),  action_validate_exception,
                      "Cannot link eosio::updateauth to a minimum permission" );

@@ -24,6 +24,7 @@ namespace eosio { namespace vm { class wasm_allocator; }}
 namespace eosio { namespace chain {
 
    class authorization_manager;
+   class database_manager;
 
    namespace resource_limits {
       class resource_limits_manager;
@@ -186,6 +187,7 @@ namespace eosio { namespace chain {
          boost::asio::io_context& get_thread_pool();
 
          const chainbase::database& db()const;
+         const database_manager& dbm()const;
 
          const fork_database& fork_db()const;
 
@@ -384,6 +386,7 @@ namespace eosio { namespace chain {
          friend class transaction_context;
 
          chainbase::database& mutable_db()const;
+         database_manager& mutable_dbm()const;
 
          std::unique_ptr<controller_impl> my;
 

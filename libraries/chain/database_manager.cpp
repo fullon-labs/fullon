@@ -71,7 +71,7 @@ namespace eosio { namespace chain {
       _main_db.undo_all();
    }
 
-   database_manager::session_manager database_manager::start_undo_session( bool enabled )
+   database_manager::session database_manager::start_undo_session( bool enabled )
    {
       if ( _read_only_mode )
          BOOST_THROW_EXCEPTION( std::logic_error( "attempting to start_undo_session in read-only mode" ) );
@@ -81,9 +81,9 @@ namespace eosio { namespace chain {
          _db_sessions.reserve( 2 );
          _db_sessions.push_back(std::make_unique<database::session>(_shared_db.start_undo_session(enabled)));
          _db_sessions.push_back(std::make_unique<database::session>(_main_db.start_undo_session(enabled)));
-         return session_manager( std::move( _db_sessions ) );
+         return session( std::move( _db_sessions ) );
       } else {
-         return session_manager();
+         return session();
       }
    }
 

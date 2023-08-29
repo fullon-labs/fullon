@@ -31,14 +31,14 @@ namespace eosio{ namespace chain {
          const database& main_db() const { return _main_db; }
          database& main_db() { return _main_db; }
 
-         struct session_manager {
+         struct session {
             public:
-               session_manager( session_manager&& s ):_db_sessions( std::move(s._db_sessions) ){}
-               session_manager( std::vector<std::unique_ptr<database::session>>&& s ):_db_sessions( std::move(s) )
+               session( session&& s ):_db_sessions( std::move(s._db_sessions) ){}
+               session( std::vector<std::unique_ptr<database::session>>&& s ):_db_sessions( std::move(s) )
                {
                }
 
-               ~session_manager() {
+               ~session() {
                   undo();
                }
 
@@ -62,12 +62,12 @@ namespace eosio{ namespace chain {
 
             private:
                friend class database_manager;
-               session_manager(){}
+               session(){}
 
                std::vector< std::unique_ptr<database::session> > _db_sessions;
          };
 
-         session_manager start_undo_session( bool enabled );
+         session start_undo_session( bool enabled );
 
          int64_t revision()const {
             return _main_db.revision();
@@ -94,6 +94,12 @@ namespace eosio{ namespace chain {
          void add_index() {
              _shared_db.add_index<MultiIndexType>();
              _main_db.add_index<MultiIndexType>();
+         }
+
+         template<typename IndexSetType>
+         void add_indices_to_shard_db() {
+            IndexSetType::add_indices(_main_db);
+            // TODO: add index set to every sub shard db
          }
 
          void set_read_only_mode() {
