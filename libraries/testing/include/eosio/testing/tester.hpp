@@ -540,6 +540,19 @@ namespace eosio { namespace testing {
          init(def_conf.first, def_conf.second);
          execute_setup_policy(setup_policy::full);
       }
+      
+      validating_tester( eosio::testing::setup_policy policy,const flat_set<account_name>& trusted_producers = flat_set<account_name>(),deep_mind_handler* dmlog = nullptr) {
+         auto def_conf = default_config(tempdir);
+
+         vcfg = def_conf.first;
+         config_validator(vcfg);
+         vcfg.trusted_producers = trusted_producers;
+
+         validating_node = create_validating_node(vcfg, def_conf.second, true, dmlog);
+
+         init(def_conf.first, def_conf.second);
+         execute_setup_policy(policy);
+      }
 
       static void config_validator(controller::config& vcfg) {
          FC_ASSERT( vcfg.blocks_dir.filename().generic_string() != "."

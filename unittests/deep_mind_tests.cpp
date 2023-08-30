@@ -45,7 +45,7 @@ struct deep_mind_log_fixture
 
 struct deep_mind_tester : deep_mind_log_fixture, validating_tester
 {
-   deep_mind_tester() : validating_tester({}, &deep_mind_logger) {}
+   deep_mind_tester() : validating_tester(setup_policy::preactivate_feature_only,{}, &deep_mind_logger) {}
 };
 
 namespace {

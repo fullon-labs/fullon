@@ -135,7 +135,7 @@ namespace eosio::chain {
 
       fc_dlog(_logger, "APPLIED_TRANSACTION ${block} ${traces}",
          ("block", block_num)
-         /*("traces", fc::to_hex(packed_trace))*/
+         ("traces", fc::to_hex(packed_trace))
       );
    }
 
