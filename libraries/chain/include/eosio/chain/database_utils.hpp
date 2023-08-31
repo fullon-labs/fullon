@@ -50,6 +50,45 @@ namespace eosio { namespace chain {
          static void create( chainbase::database& db, F cons ) {
             db.create<typename index_t::value_type>(cons);
          }
+
+         static void copy_data(const chainbase::database& from_db, chainbase::database& to_db) {
+            const auto& from_idx = from_db.get_index<index_t>();
+            auto& to_idx = to_db.get_mutable_index<index_t>();
+            for (auto from_itr = from_idx.begin(); from_itr != from_idx.end(); from_itr++) {
+               to_idx.emplace([&from_itr]( auto& row ) {
+                  assert(row.id == from_itr->id);
+                  row = *from_itr;
+               } );
+            }
+         }
+
+         static void copy_changes(const chainbase::database& from_db, chainbase::database& to_db) {
+
+            const auto& from_idx = from_db.get_index<index_t>();
+            auto& to_idx = to_db.get_mutable_index<index_t>();
+
+            auto from_undo = from_idx.last_undo_session();
+
+            for (auto& old : from_undo.old_values) {
+               const auto& from_row = from_idx.get(old.id);
+               const auto& to_row = to_idx.get(from_row.id);
+               to_idx.modify(to_row, [&from_row](auto& row){
+                  row = from_row;
+               });
+            }
+
+            for (auto& removed : from_undo.removed_values) {
+               const auto& to_row = to_idx.get(removed.id);
+               to_idx.remove(to_row);
+            }
+
+            for (auto& new_value : from_undo.new_values) {
+               to_idx.emplace([&new_value](auto& row) {
+                  assert(row.id == new_value.id);
+                  row = new_value;
+               });
+            }
+         }
    };
 
    template<typename Index>
@@ -63,6 +102,15 @@ namespace eosio { namespace chain {
       static void walk_indices( F function ) {
          function( index_utils<Index>() );
       }
+
+      static void copy_data( const chainbase::database& from_db, chainbase::database& to_db ) {
+         index_utils<Index>::copy_data(from_db, to_db);
+      }
+
+      static void copy_changes( const chainbase::database& from_db, chainbase::database& to_db ) {
+         index_utils<Index>::copy_changes(from_db, to_db);
+      }
+
    };
 
    template<typename FirstIndex, typename ...RemainingIndices>
@@ -142,10 +190,10 @@ namespace fc {
 
    inline
    void to_variant( const float128_t& f, variant& v ) {
-      // Assumes platform is little endian and hex representation of 128-bit integer is in little endian order.	
+      // Assumes platform is little endian and hex representation of 128-bit integer is in little endian order.
       char as_bytes[sizeof(eosio::chain::uint128_t)];
       memcpy(as_bytes, &f, sizeof(as_bytes));
-      std::string s = "0x";	
+      std::string s = "0x";
       s.append( to_hex( as_bytes, sizeof(as_bytes) ) );
       v = s;
    }
@@ -155,11 +203,11 @@ namespace fc {
       // Temporarily hold the binary in uint128_t before casting it to float128_t
       char temp[sizeof(eosio::chain::uint128_t)];
       memset(temp, 0, sizeof(temp));
-      auto s = v.as_string();	
-      FC_ASSERT( s.size() == 2 + 2 * sizeof(temp) && s.find("0x") == 0,	"Failure in converting hex data into a float128_t");	
+      auto s = v.as_string();
+      FC_ASSERT( s.size() == 2 + 2 * sizeof(temp) && s.find("0x") == 0,	"Failure in converting hex data into a float128_t");
       auto sz = from_hex( s.substr(2), temp, sizeof(temp) );
-      // Assumes platform is little endian and hex representation of 128-bit integer is in little endian order.	
-      FC_ASSERT( sz == sizeof(temp), "Failure in converting hex data into a float128_t" );	
+      // Assumes platform is little endian and hex representation of 128-bit integer is in little endian order.
+      FC_ASSERT( sz == sizeof(temp), "Failure in converting hex data into a float128_t" );
       memcpy(&f, temp, sizeof(f));
    }
 

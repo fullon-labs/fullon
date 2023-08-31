@@ -65,6 +65,18 @@ using contract_database_index_set = index_set<
    index_long_double_index
 >;
 
+using shared_index_set = index_set<
+   account_index
+   // TODO: shared index set
+   // account_metadata_index,
+   // account_ram_correction_index,
+   // global_property_multi_index,
+   // protocol_state_multi_index,
+   // dynamic_global_property_multi_index,
+   // block_summary_multi_index,
+   // code_index,
+>;
+
 template<typename DatabaseType>
 class maybe_session {
    public:
@@ -786,6 +798,9 @@ struct controller_impl {
       dbm.add_indices_to_shard_db<contract_database_index_set>();
       dbm.add_indices_to_shard_db<authorization_manager>();
       dbm.add_indices_to_shard_db<resource_limits_manager>();
+
+      // add indices to shared db
+      shared_index_set::add_indices(dbm.shared_db());
    }
 
    void clear_all_undo() {
@@ -1141,6 +1156,7 @@ struct controller_impl {
                                                                              false,
                                                                              genesis.initial_timestamp );
 
+      shared_index_set::copy_data(dbm.main_db(), dbm.shared_db());
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
@@ -1913,6 +1929,9 @@ struct controller_impl {
          {EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct), chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
       );
       resource_limits.process_block_usage(pbhs.block_num);
+
+      // apply shared changes of main_db to shared_db
+      shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
 
       // Create (unsigned) block:
       auto block_ptr = std::make_shared<signed_block>( pbhs.make_block_header(
@@ -2850,7 +2869,7 @@ const chainbase::database& controller::db()const { return my->dbm.main_db(); }
 chainbase::database& controller::mutable_db()const { return my->dbm.main_db(); }
 
 
-const database_manager& controller::db()const { return my->dbm; }
+const database_manager& controller::dbm()const { return my->dbm; }
 database_manager& controller::mutable_dbm()const { return my->dbm; };
 
 const fork_database& controller::fork_db()const { return my->fork_db; }

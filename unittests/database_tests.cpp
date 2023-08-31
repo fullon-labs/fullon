@@ -1,5 +1,6 @@
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/database_header_object.hpp>
+#include <eosio/chain/database_manager.hpp>
 #include <eosio/testing/tester.hpp>
 
 #include <fc/crypto/digest.hpp>
@@ -16,6 +17,60 @@ using namespace eosio::chain;
 using namespace chainbase;
 using namespace eosio::testing;
 namespace bfs = boost::filesystem;
+
+
+bool include_delta(const account_metadata_object& old, const account_metadata_object& curr) {
+   return
+      old.name != curr.name ||
+      old.recv_sequence != curr.recv_sequence ||
+      old.is_privileged() != curr.is_privileged() ||
+      old.last_code_update != curr.last_code_update ||
+      old.vm_type != curr.vm_type ||
+      old.vm_version != curr.vm_version ||
+      old.code_hash != curr.code_hash;
+}
+
+bool is_equal(const account_object& a, const account_object& b) {
+   wdump(   (a.id == b.id)
+            (a.name == b.name)
+            (a.creation_date == b.creation_date)
+            (a.abi == b.abi) );
+   account_object c = a;
+   wdump((a.abi.size())(b.abi.size())(c.abi.size())(a.abi == c.abi));
+   // wdump((a.abi)(b.abi));
+   return   a.id == b.id &&
+            a.name == b.name &&
+            a.creation_date == b.creation_date &&
+            a.abi == b.abi;
+}
+
+template<typename ObjectType>
+bool is_equal(const std::vector<ObjectType>& a, std::vector<ObjectType>& b) {
+   if (a.size() != b.size()) {
+      wdump((a.size())(b.size()));
+      return false;
+   }
+
+   for (size_t i = 0; i < a.size(); i++) {
+      if (!is_equal(a[i], b[i])) {
+         wdump((i)(a[i].id)(a[i])(b[i].id)(b[i]));
+         return false;
+      }
+   }
+   return true;
+}
+
+template<typename IndexType>
+struct index_helper {
+   using value_type = typename IndexType::value_type;
+   static std::vector<value_type> get_rows(const chainbase::database& db) {
+      std::vector<value_type> ret;
+      index_utils<IndexType>::walk(db, [&ret]( const auto& table_row ){
+         ret.push_back(table_row);
+      });
+      return ret;
+   }
+};
 
 BOOST_AUTO_TEST_SUITE(database_tests)
 
@@ -102,18 +157,6 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          });
          db.commit(2);
       } FC_LOG_AND_RETHROW()
-   }
-
-
-   bool include_delta(const account_metadata_object& old, const account_metadata_object& curr) {
-      return                                               //
-         old.name != curr.name ||                         //
-         old.recv_sequence != curr.recv_sequence ||   //
-         old.is_privileged() != curr.is_privileged() ||   //
-         old.last_code_update != curr.last_code_update || //
-         old.vm_type != curr.vm_type ||                   //
-         old.vm_version != curr.vm_version ||             //
-         old.code_hash != curr.code_hash;
    }
 
    template<typename index_type>
@@ -213,6 +256,7 @@ BOOST_AUTO_TEST_SUITE(database_tests)
             obj.name = "acct2"_n;
             obj.recv_sequence = 3;
          });
+         BOOST_REQUIRE_EQUAL( acct2_1.recv_sequence, 3 );
          BOOST_REQUIRE_EQUAL( idx.size(), 4 );
          db.modify( acct4, [&]( auto& obj ) {
             obj.recv_sequence++;
@@ -230,6 +274,61 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          print_last_undo(idx);
 
          db.commit(2);
+
+      } FC_LOG_AND_RETHROW()
+   }
+
+   // Simple tests of undo infrastructure
+   BOOST_AUTO_TEST_CASE(shared_db_test) {
+      try {
+         TESTER test;
+
+         auto& control = *test.control;
+         const auto& dbm = control.dbm();
+         const auto& main_db = dbm.main_db();
+         const auto& shared_db = dbm.shared_db();
+
+         test.produce_blocks();
+         wdump((control.head_block_num() ));
+
+         const auto& main_acct_idx = main_db.get_index<account_index>();
+         const auto& shared_acct_idx = shared_db.get_index<account_index>();
+         // wdump((main_acct_idx.size()));
+         // wdump((shared_acct_idx.size()));
+         BOOST_REQUIRE_EQUAL( main_acct_idx.size(), shared_acct_idx.size() );
+         BOOST_REQUIRE_EQUAL( shared_acct_idx.size(), 3 );
+
+         using acct_idx_helper = index_helper<account_index>;
+         // wdump(("main db")(acct_idx_helper::get_rows(main_db)));
+         // wdump(("shared db")(acct_idx_helper::get_rows(shared_db)));
+         auto main_accts = acct_idx_helper::get_rows(main_db);
+         auto shared_accts = acct_idx_helper::get_rows(shared_db);
+         // wdump((main_accts));
+         // wdump((shared_accts));
+         BOOST_REQUIRE( is_equal(main_accts, shared_accts) );
+
+         BOOST_REQUIRE_EQUAL( shared_accts[0].name, config::system_account_name );
+         BOOST_REQUIRE( bool(shared_db.find<account_object, by_name>(config::system_account_name)) );
+         BOOST_REQUIRE_EQUAL( shared_accts[1].name, config::null_account_name );
+         BOOST_REQUIRE( bool(shared_db.find<account_object, by_name>(config::null_account_name)) );
+         BOOST_REQUIRE_EQUAL( shared_accts[2].name, config::producers_account_name );
+         BOOST_REQUIRE( bool(shared_db.find<account_object, by_name>(config::producers_account_name)) );
+
+
+         test.create_accounts( {"alice"_n, "bob"_n, "carol"_n} );
+         test.produce_blocks();
+
+         BOOST_REQUIRE_EQUAL( main_acct_idx.size(), shared_acct_idx.size() );
+         BOOST_REQUIRE_EQUAL( shared_acct_idx.size(), 6 );
+         main_accts = acct_idx_helper::get_rows(main_db);
+         shared_accts = acct_idx_helper::get_rows(shared_db);
+         BOOST_REQUIRE( is_equal(main_accts, shared_accts) );
+         BOOST_REQUIRE_EQUAL( shared_accts[3].name, "alice"_n );
+         BOOST_REQUIRE( bool(shared_db.find<account_object,by_name>("alice"_n)) );
+         BOOST_REQUIRE_EQUAL( shared_accts[4].name, "bob"_n );
+         BOOST_REQUIRE( bool(shared_db.find<account_object,by_name>("bob"_n)) );
+         BOOST_REQUIRE_EQUAL( shared_accts[5].name, "carol"_n );
+         BOOST_REQUIRE( bool(shared_db.find<account_object,by_name>("carol"_n)) );
 
       } FC_LOG_AND_RETHROW()
    }

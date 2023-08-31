@@ -17,6 +17,15 @@ namespace eosio { namespace chain {
       block_timestamp_type creation_date;
       shared_blob          abi;
 
+      account_object& operator=(const account_object& a) {
+         id             = a.id;
+         name           = a.name;
+         creation_date  = a.creation_date;
+         abi.assign(a.abi.data(), a.abi.size());
+         wdump((abi.size())(a.abi.size())(abi == a.abi));
+         return *this;
+      }
+
       void set_abi( const eosio::chain::abi_def& a ) {
          abi.resize_and_fill( fc::raw::pack_size( a ), [&a](char* data, std::size_t size) {
             fc::datastream<char*> ds( data, size );
