@@ -34,6 +34,7 @@ BOOST_VER=1.70.0
 LLVM_VER=7.1.0
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 START_DIR="$(pwd)"
+CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-"Release"}
 
 
 pushdir() {
@@ -131,7 +132,7 @@ pushdir "${LEAP_DIR}"
 
 # build Leap
 echo "Building Leap ${SCRIPT_DIR}"
-try cmake -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX=${LEAP_PINNED_INSTALL_PREFIX:-/usr/local} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${LLVM_DIR}/lib/cmake" -DCMAKE_PREFIX_PATH="${BOOST_DIR}/bin" "${SCRIPT_DIR}/.."
+try cmake -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX=${LEAP_PINNED_INSTALL_PREFIX:-/usr/local} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_PREFIX_PATH="${LLVM_DIR}/lib/cmake" -DCMAKE_PREFIX_PATH="${BOOST_DIR}/bin" "${SCRIPT_DIR}/.."
 
 try make -j "${JOBS}"
 try cpack
