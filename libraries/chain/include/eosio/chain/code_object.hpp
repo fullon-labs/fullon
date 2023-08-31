@@ -16,6 +16,17 @@ namespace eosio { namespace chain {
       uint32_t     first_block_used;
       uint8_t      vm_type = 0; //< vm_type should not be changed within a chainbase modifier lambda
       uint8_t      vm_version = 0; //< vm_version should not be changed within a chainbase modifier lambda
+
+      code_object& operator=(const code_object& a) {
+         id                = a.id;
+         code_hash         = a.code_hash;
+         code.assign(a.code.data(), a.code.size());
+         code_ref_count    = a.code_ref_count;
+         first_block_used  = a.first_block_used;
+         vm_type           = a.vm_type;
+         vm_version        = a.vm_version;
+         return *this;
+      }
    };
 
    struct by_code_hash;

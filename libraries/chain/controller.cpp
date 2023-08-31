@@ -66,15 +66,15 @@ using contract_database_index_set = index_set<
 >;
 
 using shared_index_set = index_set<
-   account_index
+   account_index,
    // TODO: shared index set
-   // account_metadata_index,
+   account_metadata_index,
    // account_ram_correction_index,
-   // global_property_multi_index,
-   // protocol_state_multi_index,
+   global_property_multi_index,
+   protocol_state_multi_index,
    // dynamic_global_property_multi_index,
    // block_summary_multi_index,
-   // code_index,
+   code_index
 >;
 
 template<typename DatabaseType>

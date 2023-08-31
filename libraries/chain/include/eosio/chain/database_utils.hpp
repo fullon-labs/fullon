@@ -126,6 +126,16 @@ namespace eosio { namespace chain {
          index_set<FirstIndex>::walk_indices(function);
          index_set<RemainingIndices...>::walk_indices(function);
       }
+
+      static void copy_data( const chainbase::database& from_db, chainbase::database& to_db ) {
+         index_set<FirstIndex>::copy_data(from_db, to_db);
+         index_set<RemainingIndices...>::copy_data(from_db, to_db);
+      }
+
+      static void copy_changes( const chainbase::database& from_db, chainbase::database& to_db ) {
+         index_set<FirstIndex>::copy_changes(from_db, to_db);
+         index_set<RemainingIndices...>::copy_changes(from_db, to_db);
+      }
    };
 
    template<typename DataStream>
