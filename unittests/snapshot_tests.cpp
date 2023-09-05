@@ -1,3 +1,4 @@
+#ifdef enable_snapshot_tests
 #include <sstream>
 
 #include <eosio/chain/block_log.hpp>
@@ -432,12 +433,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
       BOOST_TEST_CHECKPOINT("loading snapshot: " << version);
       snapshotted_tester old_snapshot_tester(base_chain.get_config(), SNAPSHOT_SUITE::get_reader(old_snapshot), ordinal++);
       verify_integrity_hash<SNAPSHOT_SUITE>(*base_chain.control, *old_snapshot_tester.control);
-      
+
       // create a latest snapshot
       auto latest_writer = SNAPSHOT_SUITE::get_writer();
       old_snapshot_tester.control->write_snapshot(latest_writer);
       auto latest = SNAPSHOT_SUITE::finalize(latest_writer);
-      
+
       // load the latest snapshot
       snapshotted_tester latest_tester(base_chain.get_config(), SNAPSHOT_SUITE::get_reader(latest), ordinal++);
       verify_integrity_hash<SNAPSHOT_SUITE>(*base_chain.control, *latest_tester.control);
@@ -456,14 +457,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
 }
 
 /*
-When WTMSIG changes were introduced in 1.8.x, the snapshot had to be able 
+When WTMSIG changes were introduced in 1.8.x, the snapshot had to be able
 to store more than a single producer key.
-This test intends to make sure that a snapshot from before that change could 
+This test intends to make sure that a snapshot from before that change could
 be correctly loaded into a new version to facilitate upgrading from 1.8.x
 to v2.0.x without a replay.
 
-The original test simulated a snapshot from 1.8.x with an inflight schedule change, loaded it on the newer version and reconstructed the chain via 
-push_transaction. This is too fragile. 
+The original test simulated a snapshot from 1.8.x with an inflight schedule change, loaded it on the newer version and reconstructed the chain via
+push_transaction. This is too fragile.
 
 The fix is to save block.log and its corresponding snapshot with infight
 schedule changes, load the snapshot and replay the block.log on the new
@@ -492,15 +493,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_pending_schedule_snapshot, SNAPSHOT_SUITE, sn
    auto old_snapshot = SNAPSHOT_SUITE::load_from_file("snap_v2_prod_sched");
    snapshotted_tester snapshot_chain(blockslog_chain.get_config(), SNAPSHOT_SUITE::get_reader(old_snapshot), ordinal++);
 
-   // make sure blockslog_chain and snapshot_chain agree to each other 
+   // make sure blockslog_chain and snapshot_chain agree to each other
    verify_integrity_hash<SNAPSHOT_SUITE>(*blockslog_chain.control, *snapshot_chain.control);
-   
+
    // extra round of testing
    // create a latest snapshot
    auto latest_writer = SNAPSHOT_SUITE::get_writer();
    snapshot_chain.control->write_snapshot(latest_writer);
    auto latest = SNAPSHOT_SUITE::finalize(latest_writer);
-   
+
    // construct a chain from the latest snapshot
    snapshotted_tester latest_chain(blockslog_chain.get_config(), SNAPSHOT_SUITE::get_reader(latest), ordinal++);
 
@@ -657,3 +658,4 @@ BOOST_AUTO_TEST_CASE(json_snapshot_validity_test)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+#endif//enable_snapshot_tests

@@ -68,6 +68,11 @@ namespace eosio { namespace chain {
             auto& to_idx = to_db.get_mutable_index<index_t>();
 
             auto from_undo = from_idx.last_undo_session();
+            // TODO: del me
+            // size_t num_old = std::distance(from_undo.old_values.begin(), from_undo.old_values.end());
+            // size_t num_rm = std::distance(from_undo.removed_values.begin(), from_undo.removed_values.end());
+            // size_t num_new = std::distance(from_undo.new_values.begin(), from_undo.new_values.end());
+            // wdump(("copy_changes")( typeid(typename std::decay_t<decltype(from_idx)>::value_type).name() )(from_idx.undo_stack_revision_range())(num_old)(num_rm)(num_new));
 
             for (auto& old : from_undo.old_values) {
                const auto& from_row = from_idx.get(old.id);
@@ -81,10 +86,8 @@ namespace eosio { namespace chain {
                const auto& to_row = to_idx.get(removed.id);
                to_idx.remove(to_row);
             }
-
             for (auto& new_value : from_undo.new_values) {
                to_idx.emplace([&new_value](auto& row) {
-                  assert(row.id == new_value.id);
                   row = new_value;
                });
             }

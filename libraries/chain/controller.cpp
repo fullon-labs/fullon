@@ -1931,6 +1931,14 @@ struct controller_impl {
       resource_limits.process_block_usage(pbhs.block_num);
 
       // apply shared changes of main_db to shared_db
+      // TODO: del me
+      // wdump(("copy block state changes from main to shared db")(pbhs.block_num));
+      // auto& acct_idx = dbm.main_db().get_index<account_index>();
+      // auto acct_undo = acct_idx.last_undo_session();
+      // size_t num_old = std::distance(acct_undo.old_values.begin(), acct_undo.old_values.end());
+      // size_t num_rm = std::distance(acct_undo.removed_values.begin(), acct_undo.removed_values.end());
+      // size_t num_new = std::distance(acct_undo.new_values.begin(), acct_undo.new_values.end());
+      // wdump((pbhs.block_num)(acct_idx.undo_stack_revision_range())(num_old)(num_rm)(num_new));
       shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
 
       // Create (unsigned) block:
@@ -3433,10 +3441,12 @@ bool controller::skip_trx_checks() const {
 }
 
 bool controller::skip_db_sessions( block_status bs ) const {
-   bool consider_skipping = bs == block_status::irreversible;
-   return consider_skipping
-      && !my->conf.disable_replay_opts
-      && !my->in_trx_requiring_checks;
+   return false; // shared_db must use db session for copying changes data from main db
+   // TODO: skip_db_sessions
+   // bool consider_skipping = bs == block_status::irreversible;
+   // return consider_skipping
+   //    && !my->conf.disable_replay_opts
+   //    && !my->in_trx_requiring_checks;
 }
 
 bool controller::skip_db_sessions() const {
