@@ -58,6 +58,12 @@ namespace eosio { namespace chain {
       uint8_t                max_cpu_usage_ms    = 0; /// upper limit on the total CPU time billed for this transaction
       fc::unsigned_int       delay_sec           = 0UL; /// number of seconds to delay this transaction for during which it may be canceled.
 
+      name                   shard_name;
+      uint8_t                shard_type = 0;
+
+      const name& get_shard_name() const { return shard_name; }
+      void set_shard_name(const name& shard_name) { this->shard_name = shard_name; }
+
       /**
        * @return the absolute block number given the relative ref_block_num
        */
@@ -213,7 +219,7 @@ namespace eosio { namespace chain {
 
 FC_REFLECT(eosio::chain::deferred_transaction_generation_context, (sender_trx_id)(sender_id)(sender) )
 FC_REFLECT( eosio::chain::transaction_header, (expiration)(ref_block_num)(ref_block_prefix)
-                                              (max_net_usage_words)(max_cpu_usage_ms)(delay_sec) )
+                                              (max_net_usage_words)(max_cpu_usage_ms)(delay_sec)(shard_name)(shard_type) )
 FC_REFLECT_DERIVED( eosio::chain::transaction, (eosio::chain::transaction_header), (context_free_actions)(actions)(transaction_extensions) )
 FC_REFLECT_DERIVED( eosio::chain::signed_transaction, (eosio::chain::transaction), (signatures)(context_free_data) )
 FC_REFLECT_ENUM( eosio::chain::packed_transaction::compression_type, (none)(zlib))
