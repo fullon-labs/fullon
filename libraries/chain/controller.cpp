@@ -340,7 +340,10 @@ struct controller_impl {
                             const vector<digest_type>& new_features )
                            { check_protocol_features( timestamp, cur_features, new_features ); }
       );
-
+      //TODO: validator node create shard_db that is cared about, and producer node create all shard_db.
+      dbm.create_shard_db( "shard1"_n, cfg.state_dir,
+        cfg.read_only ? database::read_only : database::read_write,
+        cfg.state_size, false, cfg.db_map_mode );
       thread_pool.start( cfg.thread_pool_size, [this]( const fc::exception& e ) {
          elog( "Exception in chain thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          if( shutdown ) shutdown();

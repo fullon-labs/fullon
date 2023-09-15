@@ -332,5 +332,39 @@ BOOST_AUTO_TEST_SUITE(database_tests)
 
       } FC_LOG_AND_RETHROW()
    }
+   
+   BOOST_AUTO_TEST_CASE(sub_shard_db_test) {
+      try {
+         TESTER test;
+         controller&  control = *test.control;
+         const auto&      dbm = control.dbm();
+         BOOST_REQUIRE_NO_THROW( dbm.shard_db("shard1"_n) );
+         
+         eosio::chain::database_manager& dbm2 = const_cast<eosio::chain::database_manager&>( dbm );
+         auto& db = dbm2.shard_db("shard1"_n);
+         // Create an account
+         db.create<account_object>([](account_object &a) {
+            a.name = name("billy");
+         });
+
+         // Make sure we can retrieve that account by name
+         auto ptr = db.find<account_object, by_name>(name("billy"));
+         BOOST_TEST(ptr != nullptr);
+         
+         //modify object
+         auto& idx = db.get_index<account_index>();
+         db.modify( *ptr, [&]( auto& obj ) {
+            obj.name = "gax"_n;
+         });
+         BOOST_REQUIRE_EQUAL( idx.size(), 1 );
+         auto ptr2 = db.find<account_object, by_name>(name("gax"));
+         BOOST_TEST(ptr2 != nullptr);
+         
+         //delete account object
+         db.remove(*ptr);
+         BOOST_REQUIRE_EQUAL( idx.size(), 0 );
+         //TODO test shard_db session undo 
+      } FC_CAPTURE_AND_RETHROW()
+   }
 
 BOOST_AUTO_TEST_SUITE_END()
