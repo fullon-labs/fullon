@@ -44,6 +44,9 @@ namespace eosio { namespace chain {
          BOOST_THROW_EXCEPTION( std::logic_error( "attempting to undo in read-only mode" ) );
       _shared_db.undo();
       _main_db.undo();
+      for ( auto& db : _shard_db_map ) {
+         db.second.undo();
+      }
    }
 
    void database_manager::squash()
@@ -52,6 +55,9 @@ namespace eosio { namespace chain {
          BOOST_THROW_EXCEPTION( std::logic_error( "attempting to squash in read-only mode" ) );
       _shared_db.squash();
       _main_db.squash();
+      for( auto& db: _shard_db_map ) {
+         db.second.squash();
+      }
    }
 
    void database_manager::commit( int64_t revision )
@@ -60,6 +66,9 @@ namespace eosio { namespace chain {
          BOOST_THROW_EXCEPTION( std::logic_error( "attempting to commit in read-only mode" ) );
       _shared_db.commit( revision );
       _main_db.commit( revision );
+      for ( auto& db : _shard_db_map ) {
+         db.second.commit( revision );
+      }
    }
 
    void database_manager::undo_all()
@@ -69,6 +78,9 @@ namespace eosio { namespace chain {
 
       _shared_db.undo_all();
       _main_db.undo_all();
+      for ( auto& db : _shard_db_map ) {
+         db.second.undo_all();
+      }
    }
 
    database_manager::session database_manager::start_undo_session( bool enabled )
@@ -77,14 +89,22 @@ namespace eosio { namespace chain {
          BOOST_THROW_EXCEPTION( std::logic_error( "attempting to start_undo_session in read-only mode" ) );
       if( enabled ) {
          std::vector< std::unique_ptr<database::session> > _db_sessions;
-
-         _db_sessions.reserve( 2 );
+         _db_sessions.reserve( 2 + _shard_db_map.size() );
          _db_sessions.push_back(std::make_unique<database::session>(_shared_db.start_undo_session(enabled)));
          _db_sessions.push_back(std::make_unique<database::session>(_main_db.start_undo_session(enabled)));
+         for( auto& db : _shard_db_map ) {
+            _db_sessions.push_back(std::make_unique<database::session>(db.second.start_undo_session(enabled)));
+         }
          return session( std::move( _db_sessions ) );
       } else {
          return session();
       }
+   }
+   
+   void database_manager::create_shard_db(db_name shard_name, const path& dir, open_flags flag , uint64_t shared_file_size , bool allow_dirty ,
+                  pinnable_mapped_file::map_mode db_map_mode){              
+      _shard_db_map.emplace(std::piecewise_construct,std::forward_as_tuple(shard_name), std::forward_as_tuple(dir/shard_name.to_string(), flag, shared_file_size, allow_dirty, db_map_mode));
+      _read_only_mode = flag == open_flags::read_only;
    }
 
 }}  // namespace eosio::chain
