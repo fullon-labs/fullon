@@ -1,7 +1,7 @@
 #pragma once
 
 #include <chainbase/chainbase.hpp>
-
+#include <eosio/chain/types.hpp>
 namespace eosio{ namespace chain {
 
    /**
@@ -30,6 +30,11 @@ namespace eosio{ namespace chain {
 
          const database& main_db() const { return _main_db; }
          database& main_db() { return _main_db; }
+         
+         void create_shard_db( db_name shard_name, const path& dir, open_flags flag = open_flags::read_only, uint64_t shared_file_size = 0, bool allow_dirty = false,
+                  pinnable_mapped_file::map_mode db_map_mode = pinnable_mapped_file::map_mode::mapped);
+         const database& shard_db(db_name shard_name)  const { return _shard_db_map.at(shard_name);}
+         database& shard_db( db_name shard_name) { return _shard_db_map.at(shard_name);}
 
          struct session {
             public:
@@ -72,7 +77,11 @@ namespace eosio{ namespace chain {
          int64_t revision()const {
             return _main_db.revision();
          }
-
+         
+         int64_t shard_revision( db_name shard_name ) const {
+            return _shard_db_map.at(shard_name).revision();
+         }
+         
          void undo();
          void squash();
          void commit( int64_t revision );
@@ -86,8 +95,10 @@ namespace eosio{ namespace chain {
              }
              _shared_db.set_revision(revision);
              _main_db.set_revision(revision);
-            // TODO: shards db set_revision
-            //  for( auto i : _index_list ) i->set_revision( revision );
+            //shards db set_revision
+            for ( auto& db : _shard_db_map ) {
+               db.second.set_revision( revision );
+            }
          }
 
          template<typename MultiIndexType>
@@ -99,14 +110,20 @@ namespace eosio{ namespace chain {
          template<typename IndexSetType>
          void add_indices_to_shard_db() {
             IndexSetType::add_indices(_main_db);
-            // TODO: add index set to every sub shard db
+            //add index set to every sub shard db
+            for ( auto& db : _shard_db_map ) {
+               IndexSetType::add_indices(db.second);
+            }
          }
 
          void set_read_only_mode() {
             _read_only_mode = true;
             _shared_db.set_read_only_mode();
             _main_db.set_read_only_mode();
-            // TODO: shard dbs
+            // set every shard_db to read only mode
+            for ( auto& db : _shard_db_map ) {
+               db.second.unset_read_only_mode();
+            }
          }
 
          void unset_read_only_mode() {
@@ -115,13 +132,15 @@ namespace eosio{ namespace chain {
             _read_only_mode = false;
             _shared_db.unset_read_only_mode();
             _main_db.unset_read_only_mode();
-            // TODO: shard dbs
+            for ( auto& db : _shard_db_map ) {
+               db.second.unset_read_only_mode();
+            }
          }
 
       private:
          database                                                    _shared_db;
          database                                                    _main_db;
-         // TODO: map<database> _shard_db_map
+         std::map<db_name, database>                                 _shard_db_map;
          bool                                                        _read_only = false;
 
          /**
