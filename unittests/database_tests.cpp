@@ -362,8 +362,25 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          
          //delete account object
          db.remove(*ptr);
-         BOOST_REQUIRE_EQUAL( idx.size(), 0 );
-         //TODO test shard_db session undo 
+         BOOST_REQUIRE_EQUAL( idx.size(), 0 ); 
+         
+         auto ses = db.start_undo_session(true);
+
+         // Create an account
+         db.create<account_object>([](account_object &a) {
+            a.name = name("gax");
+         });
+
+         // Make sure we can retrieve that account by name
+         auto ptr3 = db.find<account_object, by_name>(name("gax"));
+         BOOST_TEST(ptr3 != nullptr);
+
+         // Undo creation of the account
+         ses.undo();
+
+         // Make sure we can no longer find the account
+         ptr3 = db.find<account_object, by_name>(name("gax"));
+         BOOST_TEST(ptr3 == nullptr);
       } FC_CAPTURE_AND_RETHROW()
    }
 
