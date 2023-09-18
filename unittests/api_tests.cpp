@@ -1505,7 +1505,8 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
    }
 
    // test test_transaction_size
-   CALL_TEST_FUNCTION(*this, "test_transaction", "test_transaction_size", fc::raw::pack(54) ); // TODO: Need a better way to test this.
+   // TODO: if transaction struct changed, must modify this size value
+   CALL_TEST_FUNCTION(*this, "test_transaction", "test_transaction_size", fc::raw::pack(63) ); // TODO: Need a better way to test this.
 
    // test test_read_transaction
    // this is a bit rough, but I couldn't figure out a better way to compare the hashes
