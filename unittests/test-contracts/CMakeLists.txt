@@ -2,6 +2,7 @@ cmake_minimum_required( VERSION 3.8 )
 project(test_contracts)
 
 if( EOSIO_COMPILE_TEST_CONTRACTS )
+   set(CMAKE_BUILD_TYPE "Release")
    set(EOSIO_WASM_OLD_BEHAVIOR "Off")
    if(USE_EOSIO_CDT_1_7_X OR USE_EOSIO_CDT_1_8_X)
       find_package( eosio.cdt REQUIRED )

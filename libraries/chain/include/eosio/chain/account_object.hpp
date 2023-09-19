@@ -22,7 +22,6 @@ namespace eosio { namespace chain {
          name           = a.name;
          creation_date  = a.creation_date;
          abi.assign(a.abi.data(), a.abi.size());
-         wdump((abi.size())(a.abi.size())(abi == a.abi));
          return *this;
       }
 

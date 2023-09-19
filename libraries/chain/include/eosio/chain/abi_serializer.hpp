@@ -595,7 +595,7 @@ namespace impl {
       template<typename Resolver>
       static void add( mutable_variant_object &out, const char* name, const transaction& trx, Resolver resolver, abi_traverse_context& ctx )
       {
-         static_assert(fc::reflector<transaction>::total_member_count == 9);
+         static_assert(fc::reflector<transaction>::total_member_count == 11);
          auto h = ctx.enter_scope();
          mutable_variant_object mvo;
          mvo("expiration", trx.expiration);
@@ -604,6 +604,8 @@ namespace impl {
          mvo("max_net_usage_words", trx.max_net_usage_words);
          mvo("max_cpu_usage_ms", trx.max_cpu_usage_ms);
          mvo("delay_sec", trx.delay_sec);
+         mvo("shard_name", trx.shard_name); // TODO: may be change to trx ext
+         mvo("shard_type", trx.shard_type); // TODO: may be change to trx ext
          add(mvo, "context_free_actions", trx.context_free_actions, resolver, ctx);
          add(mvo, "actions", trx.actions, resolver, ctx);
 

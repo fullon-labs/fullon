@@ -30,39 +30,32 @@ bool include_delta(const account_metadata_object& old, const account_metadata_ob
       old.code_hash != curr.code_hash;
 }
 
-bool is_equal(const account_object& a, const account_object& b) {
-   wdump(   (a.id == b.id)
-            (a.name == b.name)
-            (a.creation_date == b.creation_date)
-            (a.abi == b.abi) );
-   account_object c = a;
-   wdump((a.abi.size())(b.abi.size())(c.abi.size())(a.abi == c.abi));
-   // wdump((a.abi)(b.abi));
-   return   a.id == b.id &&
-            a.name == b.name &&
-            a.creation_date == b.creation_date &&
-            a.abi == b.abi;
-}
+struct account_object_info {
 
-template<typename ObjectType>
-bool is_equal(const std::vector<ObjectType>& a, std::vector<ObjectType>& b) {
-   if (a.size() != b.size()) {
-      wdump((a.size())(b.size()));
-      return false;
+   int64_t              id = 0;
+   account_name         name; //< name should not be changed within a chainbase modifier lambda
+   block_timestamp_type creation_date;
+   std::string          abi;
+
+   account_object_info() {}
+   account_object_info(const account_object& a):
+      id(a.id._id),
+      name(a.name),
+      creation_date(a.creation_date),
+      abi(a.abi.data(), a.abi.size())
+      {}
+   bool operator==(const account_object_info& other) const {
+      return id == other.id &&
+             name == other.name &&
+             creation_date == other.creation_date &&
+             abi == other.abi;
    }
+};
+FC_REFLECT(account_object_info, (id)(name)(creation_date)(abi))
 
-   for (size_t i = 0; i < a.size(); i++) {
-      if (!is_equal(a[i], b[i])) {
-         wdump((i)(a[i].id)(a[i])(b[i].id)(b[i]));
-         return false;
-      }
-   }
-   return true;
-}
-
-template<typename IndexType>
+template<typename IndexType, typename value_type>
 struct index_helper {
-   using value_type = typename IndexType::value_type;
+   // using value_type = typename IndexType::value_type;
    static std::vector<value_type> get_rows(const chainbase::database& db) {
       std::vector<value_type> ret;
       index_utils<IndexType>::walk(db, [&ret]( const auto& table_row ){
@@ -71,6 +64,8 @@ struct index_helper {
       return ret;
    }
 };
+
+using acct_idx_helper = index_helper<account_index, account_object_info>;
 
 BOOST_AUTO_TEST_SUITE(database_tests)
 
@@ -281,7 +276,7 @@ BOOST_AUTO_TEST_SUITE(database_tests)
    // Simple tests of undo infrastructure
    BOOST_AUTO_TEST_CASE(shared_db_test) {
       try {
-         TESTER test;
+         tester test;
 
          auto& control = *test.control;
          const auto& dbm = control.dbm();
@@ -298,14 +293,13 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          BOOST_REQUIRE_EQUAL( main_acct_idx.size(), shared_acct_idx.size() );
          BOOST_REQUIRE_EQUAL( shared_acct_idx.size(), 3 );
 
-         using acct_idx_helper = index_helper<account_index>;
          // wdump(("main db")(acct_idx_helper::get_rows(main_db)));
          // wdump(("shared db")(acct_idx_helper::get_rows(shared_db)));
          auto main_accts = acct_idx_helper::get_rows(main_db);
          auto shared_accts = acct_idx_helper::get_rows(shared_db);
          // wdump((main_accts));
          // wdump((shared_accts));
-         BOOST_REQUIRE( is_equal(main_accts, shared_accts) );
+         BOOST_REQUIRE( main_accts == shared_accts );
 
          BOOST_REQUIRE_EQUAL( shared_accts[0].name, config::system_account_name );
          BOOST_REQUIRE( bool(shared_db.find<account_object, by_name>(config::system_account_name)) );
@@ -322,7 +316,7 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          BOOST_REQUIRE_EQUAL( shared_acct_idx.size(), 6 );
          main_accts = acct_idx_helper::get_rows(main_db);
          shared_accts = acct_idx_helper::get_rows(shared_db);
-         BOOST_REQUIRE( is_equal(main_accts, shared_accts) );
+         BOOST_REQUIRE( main_accts == shared_accts );
          BOOST_REQUIRE_EQUAL( shared_accts[3].name, "alice"_n );
          BOOST_REQUIRE( bool(shared_db.find<account_object,by_name>("alice"_n)) );
          BOOST_REQUIRE_EQUAL( shared_accts[4].name, "bob"_n );
@@ -330,6 +324,42 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          BOOST_REQUIRE_EQUAL( shared_accts[5].name, "carol"_n );
          BOOST_REQUIRE( bool(shared_db.find<account_object,by_name>("carol"_n)) );
 
+         // auto head = control.head_block_header();
+
+         test.close();
+         auto cfg = test.get_config();
+         cfg.disable_replay_opts = true;
+         {
+            auto genesis = block_log::extract_genesis_state(cfg.blocks_dir);
+            BOOST_REQUIRE(genesis);
+
+            // remove the state files to make sure we are starting from block log & fork_db.dat
+            auto state_dir = cfg.state_dir;
+            remove_all(state_dir);
+            fc::create_directories(state_dir);
+
+            tester from_block_log_chain(cfg, *genesis);
+
+            auto& control2 = *from_block_log_chain.control;
+            const auto& dbm2 = control2.dbm();
+            const auto& main_db2 = dbm2.main_db();
+            const auto& shared_db2 = dbm2.shared_db();
+            const auto& main_acct_idx2 = main_db2.get_index<account_index>();
+            const auto& shared_acct_idx2 = shared_db2.get_index<account_index>();
+
+            // wdump((head));
+            // wdump((control2.head_block_header()));
+
+            BOOST_REQUIRE_EQUAL( main_acct_idx2.size(), shared_acct_idx2.size() );
+            BOOST_REQUIRE_EQUAL( shared_acct_idx2.size(), 6 );
+            auto main_accts2 = acct_idx_helper::get_rows(main_db2);
+            auto shared_accts2 = acct_idx_helper::get_rows(shared_db2);
+
+            BOOST_REQUIRE( main_accts2 == main_accts );
+            // wdump((main_accts2));
+            // wdump((shared_accts2));
+            BOOST_REQUIRE( shared_accts2 == main_accts2 );
+         }
       } FC_LOG_AND_RETHROW()
    }
    

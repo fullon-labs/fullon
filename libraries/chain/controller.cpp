@@ -66,15 +66,15 @@ using contract_database_index_set = index_set<
 >;
 
 using shared_index_set = index_set<
-   account_index
+   account_index,
    // TODO: shared index set
-   // account_metadata_index,
+   account_metadata_index,
    // account_ram_correction_index,
-   // global_property_multi_index,
-   // protocol_state_multi_index,
+   global_property_multi_index,
+   protocol_state_multi_index,
    // dynamic_global_property_multi_index,
    // block_summary_multi_index,
-   // code_index,
+   code_index
 >;
 
 template<typename DatabaseType>
@@ -263,6 +263,8 @@ struct controller_impl {
    uint32_t                        snapshot_head_block = 0;
    struct chain; // chain is a namespace so use an embedded type for the named_thread_pool tag
    named_thread_pool<chain>        thread_pool;
+   struct shard; // shard is a namespace so use an embedded type for the named_thread_pool tag
+   named_thread_pool<shard>        shard_thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
 
@@ -332,6 +334,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
+    shard_thread_pool(),
     main_thread_id( std::this_thread::get_id() ),
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, dbm.main_db(), conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
@@ -348,6 +351,18 @@ struct controller_impl {
          elog( "Exception in chain thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          if( shutdown ) shutdown();
       } );
+
+      // TODO: add cfg.shard_thread_pool_size
+      size_t shard_thread_pool_size = 8;
+      shard_thread_pool.start( shard_thread_pool_size, [this]( const fc::exception& e ) {
+            elog( "Exception in shard thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+            if( shutdown ) shutdown();
+         },
+         [&]() {
+            init_thread_local_data();
+         }
+      );
+
 
       set_activation_handler<builtin_protocol_feature_t::preactivate_feature>();
       set_activation_handler<builtin_protocol_feature_t::replace_deferred>();
@@ -789,6 +804,7 @@ struct controller_impl {
    }
 
    ~controller_impl() {
+      shard_thread_pool.stop();
       thread_pool.stop();
       pending.reset();
       //only log this not just if configured to, but also if initialization made it to the point we'd log the startup too
@@ -1934,6 +1950,14 @@ struct controller_impl {
       resource_limits.process_block_usage(pbhs.block_num);
 
       // apply shared changes of main_db to shared_db
+      // TODO: del me
+      // wdump(("copy block state changes from main to shared db")(pbhs.block_num));
+      // auto& acct_idx = dbm.main_db().get_index<account_index>();
+      // auto acct_undo = acct_idx.last_undo_session();
+      // size_t num_old = std::distance(acct_undo.old_values.begin(), acct_undo.old_values.end());
+      // size_t num_rm = std::distance(acct_undo.removed_values.begin(), acct_undo.removed_values.end());
+      // size_t num_new = std::distance(acct_undo.new_values.begin(), acct_undo.new_values.end());
+      // wdump((pbhs.block_num)(acct_idx.undo_stack_revision_range())(num_old)(num_rm)(num_new));
       shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
 
       // Create (unsigned) block:
@@ -2119,10 +2143,16 @@ struct controller_impl {
          const bool skip_auth_checks = self.skip_auth_check();
          std::vector<std::tuple<transaction_metadata_ptr, recover_keys_future>> trx_metas;
          bool use_bsp_cached = false;
+         trx_metas.reserve( b->transactions.size() );
          if( pub_keys_recovered || (skip_auth_checks && existing_trxs_metas) ) {
             use_bsp_cached = true;
+            for( size_t i = 0; i < b->transactions.size(); i++ ) {
+               if( std::holds_alternative<packed_transaction>(b->transactions[i].trx)) {
+                  trx_metas.emplace_back( bsp->trxs_metas().at( i ), recover_keys_future{} );
+               }
+            }
          } else {
-            trx_metas.reserve( b->transactions.size() );
+            // trx_metas.reserve( b->transactions.size() );
             for( const auto& receipt : b->transactions ) {
                if( std::holds_alternative<packed_transaction>(receipt.trx)) {
                   const auto& pt = std::get<packed_transaction>(receipt.trx);
@@ -2145,45 +2175,50 @@ struct controller_impl {
             }
          }
 
-         transaction_trace_ptr trace;
-
-         size_t packed_idx = 0;
          const auto& trx_receipts = std::get<building_block>(pending->_block_stage)._pending_trx_receipts;
-         for( const auto& receipt : b->transactions ) {
-            auto num_pending_receipts = trx_receipts.size();
-            if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-               const auto& trx_meta = ( use_bsp_cached ? bsp->trxs_metas().at( packed_idx )
-                                                       : ( !!std::get<0>( trx_metas.at( packed_idx ) ) ?
-                                                             std::get<0>( trx_metas.at( packed_idx ) )
-                                                             : std::get<1>( trx_metas.at( packed_idx ) ).get() ) );
-               trace = push_transaction( trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
-               ++packed_idx;
-            } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
-               trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
-            } else {
-               EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
-            }
+         const auto& transactions = b->transactions;
 
-            bool transaction_failed =  trace && trace->except;
-            bool transaction_can_fail = receipt.status == transaction_receipt_header::hard_fail && std::holds_alternative<transaction_id_type>(receipt.trx);
-            if( transaction_failed && !transaction_can_fail) {
-               edump((*trace));
-               throw *trace->except;
-            }
+         std::future<bool> trx_exec_future = post_async_task( shard_thread_pool.get_executor(), [&transactions, &trx_metas, &trx_receipts, &bsp, this]() {
+            size_t packed_idx = 0;
+            for( const auto& receipt : transactions ) {
+               transaction_trace_ptr trace;
+               auto num_pending_receipts = trx_receipts.size();
+               if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+                  const auto& trx_meta = ( !!std::get<0>( trx_metas.at( packed_idx ) ) ?
+                                                               std::get<0>( trx_metas.at( packed_idx ) )
+                                                               : std::get<1>( trx_metas.at( packed_idx ) ).get() );
+                  trace = push_transaction( trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
+                  ++packed_idx;
+               } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
+                  trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
+               } else {
+                  EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
+               }
 
-            EOS_ASSERT( trx_receipts.size() > 0,
-                        block_validate_exception, "expected a receipt, block_num ${bn}, block_id ${id}, receipt ${e}",
-                        ("bn", b->block_num())("id", producer_block_id)("e", receipt)
-                      );
-            EOS_ASSERT( trx_receipts.size() == num_pending_receipts + 1,
-                        block_validate_exception, "expected receipt was not added, block_num ${bn}, block_id ${id}, receipt ${e}",
-                        ("bn", b->block_num())("id", producer_block_id)("e", receipt)
-                      );
-            const transaction_receipt_header& r = trx_receipts.back();
-            EOS_ASSERT( r == static_cast<const transaction_receipt_header&>(receipt),
-                        block_validate_exception, "receipt does not match, ${lhs} != ${rhs}",
-                        ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)) );
-         }
+               bool transaction_failed =  trace && trace->except;
+               bool transaction_can_fail = receipt.status == transaction_receipt_header::hard_fail && std::holds_alternative<transaction_id_type>(receipt.trx);
+               if( transaction_failed && !transaction_can_fail) {
+                  edump((*trace));
+                  throw *trace->except;
+               }
+
+               EOS_ASSERT( trx_receipts.size() > 0,
+                           block_validate_exception, "expected a receipt, block_num ${bn}, block_id ${id}, receipt ${e}",
+                           ("bn", bsp->block_num)("id", bsp->id)("e", receipt)
+                        );
+               EOS_ASSERT( trx_receipts.size() == num_pending_receipts + 1,
+                           block_validate_exception, "expected receipt was not added, block_num ${bn}, block_id ${id}, receipt ${e}",
+                           ("bn", bsp->block_num)("id", bsp->id)("e", receipt)
+                        );
+               const transaction_receipt_header& r = trx_receipts.back();
+               EOS_ASSERT( r == static_cast<const transaction_receipt_header&>(receipt),
+                           block_validate_exception, "receipt does not match, ${lhs} != ${rhs}",
+                           ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)) );
+            }
+            return true;
+         });
+
+         trx_exec_future.get();
 
          finalize_block();
 
@@ -3436,10 +3471,12 @@ bool controller::skip_trx_checks() const {
 }
 
 bool controller::skip_db_sessions( block_status bs ) const {
-   bool consider_skipping = bs == block_status::irreversible;
-   return consider_skipping
-      && !my->conf.disable_replay_opts
-      && !my->in_trx_requiring_checks;
+   return false; // shared_db must use db session for copying changes data from main db
+   // TODO: skip_db_sessions
+   // bool consider_skipping = bs == block_status::irreversible;
+   // return consider_skipping
+   //    && !my->conf.disable_replay_opts
+   //    && !my->in_trx_requiring_checks;
 }
 
 bool controller::skip_db_sessions() const {

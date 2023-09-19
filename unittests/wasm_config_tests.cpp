@@ -13,6 +13,7 @@
 
 #include <contracts.hpp>
 #include <test_contracts.hpp>
+#include <eosio/chain/database_manager.hpp>
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -26,11 +27,28 @@ namespace data = boost::unit_test::data;
 #define TESTER validating_tester
 #endif
 
+// template<typename IndexType>
+// struct index_helper {
+//    static void dump_rows(const chainbase::database& db, const string& title) {
+//       size_t count = 0;
+//       index_utils<IndexType>::walk(db, [&title, &count]( const auto& table_row ){
+//          wdump((title)(count) (table_row.id)(table_row) );
+//          count++;
+//       });
+//    }
+// };
+//
+// using code_index_helper = index_helper<code_index>;
+
 namespace {
 struct wasm_config_tester : TESTER {
    wasm_config_tester() {
+      // const auto& dbm = control->dbm();
+      // const auto& main_db = dbm.main_db();
+      // const auto& shared_db = dbm.shared_db();
       set_abi(config::system_account_name, test_contracts::wasm_config_bios_abi().data());
       set_code(config::system_account_name, test_contracts::wasm_config_bios_wasm());
+      produce_block();
       bios_abi_ser = *get_resolver()(config::system_account_name);
    }
    void set_wasm_params(const wasm_config& params) {
@@ -83,7 +101,7 @@ struct old_wasm_tester : tester {
 };
 
 BOOST_DATA_TEST_CASE_F(wasm_config_tester, max_mutable_global_bytes, data::make({ 4096, 8192 , 16384 }) * data::make({0, 1}), n_globals, oversize) {
-   produce_block();
+
    create_accounts({"globals"_n});
    produce_block();
 
