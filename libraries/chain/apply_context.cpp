@@ -224,6 +224,11 @@ void apply_context::exec()
 } /// exec()
 
 bool apply_context::is_account( const account_name& account )const {
+   db_name dname = "main"_n;
+   //TODO: check transaction shard name == main?
+   // if(trx_context.packed_trx.get_transaction()){
+   //    dname = ;
+   // }
    return nullptr != db.find<account_object,by_name>( account );
 }
 
@@ -312,6 +317,11 @@ void apply_context::require_recipient( account_name recipient ) {
  *   can better understand the security risk.
  */
 void apply_context::execute_inline( action&& a ) {
+   db_name dname = "main"_n;
+   //TODO: check transaction shard name == main?
+   // if(trx_context.packed_trx.get_transaction()){
+   //    dname = ;
+   // }
    auto* code = control.db().find<account_object, by_name>(a.account);
    EOS_ASSERT( code != nullptr, action_validate_exception,
                "inline action's code account ${account} does not exist", ("account", a.account) );
@@ -329,6 +339,11 @@ void apply_context::execute_inline( action&& a ) {
    }
 
    for( const auto& auth : a.authorization ) {
+      db_name dname = "main"_n;;
+      //TODO: check transaction shard name == main?
+      // if(trx_context.packed_trx.get_transaction()){
+      //    dname = ;
+      // }
       auto* actor = control.db().find<account_object, by_name>(auth.actor);
       EOS_ASSERT( actor != nullptr, action_validate_exception,
                   "inline action's authorizing actor ${account} does not exist", ("account", auth.actor) );
@@ -400,6 +415,11 @@ void apply_context::execute_inline( action&& a ) {
 }
 
 void apply_context::execute_context_free_inline( action&& a ) {
+   db_name dname = "main"_n;;
+   //TODO: check transaction shard name == main?
+   // if(trx_context.packed_trx.get_transaction()){
+   //    dname = ;
+   // }
    auto* code = control.db().find<account_object, by_name>(a.account);
    EOS_ASSERT( code != nullptr, action_validate_exception,
                "inline action's code account ${account} does not exist", ("account", a.account) );

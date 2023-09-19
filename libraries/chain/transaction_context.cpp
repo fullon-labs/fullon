@@ -796,8 +796,19 @@ namespace eosio { namespace chain {
       const auto& auth_manager = control.get_authorization_manager();
 
       if( !trx.context_free_actions.empty() && !control.skip_trx_checks() ) {
+         db_name dname = "main"_n;;
+         //TODO: check transaction shard name == main?
+         // if(trx_context.packed_trx.get_transaction()){
+         //    dname = ;
+         // }
+         const account_object* code;
          for( const auto& a : trx.context_free_actions ) {
-            auto* code = db.find<account_object, by_name>( a.account );
+            // if( dname == "main"_n ){
+               code = db.find<account_object, by_name>( a.account );
+            // }else{
+               // code = control.shard_db(dname).find<account_object, by_name>( a.account );
+            // }
+            
             EOS_ASSERT( code != nullptr, transaction_exception,
                         "action's code account '${account}' does not exist", ("account", a.account) );
             EOS_ASSERT( a.authorization.size() == 0, transaction_exception,
@@ -809,6 +820,11 @@ namespace eosio { namespace chain {
 
       bool one_auth = false;
       for( const auto& a : trx.actions ) {
+         db_name dname = "main"_n;;
+         //TODO: check transaction shard name == main?
+         // if(trx_context.packed_trx.get_transaction()){
+         //    dname = ;
+         // }
          auto* code = db.find<account_object, by_name>(a.account);
          EOS_ASSERT( code != nullptr, transaction_exception,
                      "action's code account '${account}' does not exist", ("account", a.account) );
