@@ -77,9 +77,11 @@ bool verify_equal( const std::deque<packed_transaction_ptr>& trxs, const std::de
       trxs_ids.emplace( trx->id() );
    }
    for( const auto& bs : all_blocks ) {
-      for( const auto& trx_receipt : bs->block->transactions ) {
-         const auto& trx = std::get<packed_transaction>( trx_receipt.trx ).get_transaction();
-         blk_trxs_ids.emplace( trx.id() );
+      for( const auto& trx_receipts : bs->block->transactions ) {
+         for( const auto& trx_receipt : trx_receipts.second ) {
+            const auto& trx = std::get<packed_transaction>( trx_receipt.trx ).get_transaction();
+            blk_trxs_ids.emplace( trx.id() );
+         }
       }
    }
    BOOST_CHECK_EQUAL( trxs_ids.size(), blk_trxs_ids.size() );
@@ -129,7 +131,7 @@ BOOST_AUTO_TEST_CASE(producer) {
       auto ab = chain_plug->chain().accepted_block.connect( [&](const block_state_ptr& bsp) {
          static int num_empty = std::numeric_limits<int>::max();
          all_blocks.push_back( bsp );
-         if( bsp->block->transactions.empty() ) {
+         if( bsp->block->get_trx_size() ) {
             --num_empty;
             if( num_empty == 0 ) empty_blocks_promise.set_value();
          } else { // we want a few empty blocks after we have some non-empty blocks

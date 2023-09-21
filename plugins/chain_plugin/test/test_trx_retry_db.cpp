@@ -141,8 +141,10 @@ uint64_t get_id( const packed_transaction_ptr& ptr ) {
 auto make_block_state( uint32_t block_num, std::vector<chain::packed_transaction_ptr> trxs ) {
    name producer = "kevinh"_n;
    chain::signed_block_ptr block = std::make_shared<chain::signed_block>();
+   // TODO: need to add sub shard trx?
+   auto& receipts = block->transactions[config::main_shard_name];
    for( auto& trx : trxs ) {
-      block->transactions.emplace_back( *trx );
+      receipts.emplace_back( *trx );
    }
    block->producer = producer;
    block->timestamp = fc::time_point::now();
@@ -181,7 +183,7 @@ auto make_block_state( uint32_t block_num, std::vector<chain::packed_transaction
    auto bsp = std::make_shared<chain::block_state>(
          std::move( pbhs ),
          std::move( block ),
-         deque<chain::transaction_metadata_ptr>(),
+         transaction_metadata_map(),
          chain::protocol_feature_set(),
          []( chain::block_timestamp_type timestamp,
              const fc::flat_set<chain::digest_type>& cur_features,
@@ -233,7 +235,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
          app->exec();
       } );
       (void)plugin_fut.get(); // wait for app to be started
-      
+
       size_t max_mem_usage_size = 5ul*1024*1024*1024;
       fc::microseconds retry_interval = fc::seconds(10);
       boost::posix_time::seconds pretry_interval = boost::posix_time::seconds(10);

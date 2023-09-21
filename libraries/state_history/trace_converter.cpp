@@ -19,16 +19,20 @@ void trace_converter::pack(boost::iostreams::filtering_ostreambuf& obuf, const c
    std::vector<augmented_transaction_trace> traces;
    if (onblock_trace)
       traces.push_back(*onblock_trace);
-   for (auto& r : block_state->block->transactions) {
-      transaction_id_type id;
-      if (std::holds_alternative<transaction_id_type>(r.trx))
-         id = std::get<transaction_id_type>(r.trx);
-      else
-         id = std::get<chain::packed_transaction>(r.trx).id();
-      auto it = cached_traces.find(id);
-      EOS_ASSERT(it != cached_traces.end() && it->second.trace->receipt, chain::plugin_exception,
-                 "missing trace for transaction ${id}", ("id", id));
-      traces.push_back(it->second);
+
+   // TODO: multi shard trx
+   for (auto& receipts : block_state->block->transactions) {
+      for (auto& r : receipts.second) {
+         transaction_id_type id;
+         if (std::holds_alternative<transaction_id_type>(r.trx))
+            id = std::get<transaction_id_type>(r.trx);
+         else
+            id = std::get<chain::packed_transaction>(r.trx).id();
+         auto it = cached_traces.find(id);
+         EOS_ASSERT(it != cached_traces.end() && it->second.trace->receipt, chain::plugin_exception,
+                  "missing trace for transaction ${id}", ("id", id));
+         traces.push_back(it->second);
+      }
    }
    cached_traces.clear();
    onblock_trace.reset();

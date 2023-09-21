@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          auto ab = chain_plug->chain().accepted_block.connect([&](const block_state_ptr& bsp) {
             static int num_empty = std::numeric_limits<int>::max();
             all_blocks.push_back(bsp);
-            if(bsp->block->transactions.empty()) {
+            if(bsp->block->get_trx_size() == 0) {
                --num_empty;
                if(num_empty == 0) empty_blocks_promise.set_value();
             } else {// we want a few empty blocks after we have some non-empty blocks

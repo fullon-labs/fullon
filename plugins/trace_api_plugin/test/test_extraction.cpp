@@ -203,13 +203,15 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
          }
       };
 
+      // TODO: multi shard trx
+      auto& receipts = bsp1->block->transactions[chain::config::main_shard_name];
       const transaction_trace_v3 expected_transaction_trace {
          {
             ptrx1.id(),
             expected_action_traces,
-            fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{bsp1->block->transactions[0].status},
-            bsp1->block->transactions[0].cpu_usage_us,
-            bsp1->block->transactions[0].net_usage_words,
+            fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{receipts[0].status},
+            receipts[0].cpu_usage_us,
+            receipts[0].net_usage_words,
             ptrx1.get_signatures(),
             make_trx_header(ptrx1.get_transaction())
          }
@@ -233,7 +235,7 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
       BOOST_REQUIRE(data_log.size() == 1);
       BOOST_REQUIRE(std::holds_alternative<block_trace_v2>(data_log.at(0)));
       BOOST_REQUIRE_EQUAL(std::get<block_trace_v2>(data_log.at(0)), expected_block_trace);
-      BOOST_REQUIRE_EQUAL(id_log.at(bsp1->block_num).size(),  bsp1->block->transactions.size());
+      BOOST_REQUIRE_EQUAL(id_log.at(bsp1->block_num).size(),  receipts.size());
    }
 
    BOOST_FIXTURE_TEST_CASE(basic_multi_transaction_block, extraction_test_fixture) {
@@ -301,14 +303,16 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
          }
       };
 
+      // TODO: multi shard trx
+      auto& receipts = bsp1->block->transactions[chain::config::main_shard_name];
       const std::vector<transaction_trace_v3> expected_transaction_traces {
          {
             {
                ptrx1.id(),
                expected_action_trace1,
-               fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{bsp1->block->transactions[0].status},
-               bsp1->block->transactions[0].cpu_usage_us,
-               bsp1->block->transactions[0].net_usage_words,
+               fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{receipts[0].status},
+               receipts[0].cpu_usage_us,
+               receipts[0].net_usage_words,
                ptrx1.get_signatures(),
                make_trx_header(ptrx1.get_transaction())
             }
@@ -317,9 +321,9 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
             {
                ptrx2.id(),
                expected_action_trace2,
-               fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{bsp1->block->transactions[1].status},
-               bsp1->block->transactions[1].cpu_usage_us,
-               bsp1->block->transactions[1].net_usage_words,
+               fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{receipts[1].status},
+               receipts[1].cpu_usage_us,
+               receipts[1].net_usage_words,
                ptrx2.get_signatures(),
                make_trx_header(ptrx2.get_transaction())
             }
@@ -328,9 +332,9 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
             {
                ptrx3.id(),
                expected_action_trace3,
-               fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{bsp1->block->transactions[2].status},
-               bsp1->block->transactions[2].cpu_usage_us,
-               bsp1->block->transactions[2].net_usage_words,
+               fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{receipts[2].status},
+               receipts[2].cpu_usage_us,
+               receipts[2].net_usage_words,
                ptrx3.get_signatures(),
                make_trx_header(ptrx3.get_transaction())
             }
@@ -389,14 +393,16 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
          }
       };
 
+      // TODO: multi shard trx
+      auto& receipts = bsp1->block->transactions[chain::config::main_shard_name];
       const std::vector<transaction_trace_v3> expected_transaction_traces {
          {
             {
                transfer_trx.id(), // transfer_trx.id() because that is the trx id known to the user
                expected_action_trace,
-               fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{bsp1->block->transactions[0].status},
-               bsp1->block->transactions[0].cpu_usage_us,
-               bsp1->block->transactions[0].net_usage_words,
+               fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{receipts[0].status},
+               receipts[0].cpu_usage_us,
+               receipts[0].net_usage_words,
                transfer_trx.get_signatures(),
                make_trx_header(transfer_trx.get_transaction())
             }

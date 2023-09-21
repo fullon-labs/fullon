@@ -17,7 +17,9 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test)
 
    // Make a copy of the valid block and corrupt the transaction
    auto copy_b = std::make_shared<signed_block>(std::move(*b));
-   auto signed_tx = std::get<packed_transaction>(copy_b->transactions.back().trx).get_signed_transaction();
+   // TODO: need multi shard trx?
+   auto& copy_tx_receipts = copy_b->transactions[config::main_shard_name];
+   auto signed_tx = std::get<packed_transaction>(copy_tx_receipts.back().trx).get_signed_transaction();
    auto& act = signed_tx.actions.back();
    auto act_data = act.data_as<newaccount>();
    // Make the transaction invalid by having the new account name the same as the creator name
@@ -28,12 +30,11 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test)
    signed_tx.sign(main.get_private_key(config::system_account_name, "active"), main.control->get_chain_id());
    // Replace the valid transaction with the invalid transaction
    auto invalid_packed_tx = packed_transaction(signed_tx);
-   copy_b->transactions.back().trx = std::move(invalid_packed_tx);
+   copy_tx_receipts.back().trx = std::move(invalid_packed_tx);
 
    // Re-calculate the transaction merkle
    deque<digest_type> trx_digests;
-   const auto& trxs = copy_b->transactions;
-   for( const auto& a : trxs )
+   for( const auto& a : copy_tx_receipts )
       trx_digests.emplace_back( a.digest() );
    copy_b->transaction_mroot = merkle( move(trx_digests) );
 
@@ -64,7 +65,9 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
 
    // Make a copy of the valid block and corrupt the transaction
    auto copy_b = std::make_shared<signed_block>(std::move(*b));
-   const auto& packed_trx = std::get<packed_transaction>(copy_b->transactions.back().trx);
+   // TODO: need multi shard trx?
+   auto& copy_tx_receipts = copy_b->transactions[config::main_shard_name];
+   const auto& packed_trx = std::get<packed_transaction>(copy_tx_receipts.back().trx);
    auto signed_tx = packed_trx.get_signed_transaction();
 
    // Change the transaction that will be run
@@ -74,7 +77,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
    signed_tx.sign(main.get_private_key(config::system_account_name, "active"), main.control->get_chain_id());
    // Replace the valid transaction with the invalid transaction
    auto invalid_packed_tx = packed_transaction(std::move(signed_tx), packed_trx.get_compression());
-   copy_b->transactions.back().trx = std::move(invalid_packed_tx);
+   copy_tx_receipts.back().trx = std::move(invalid_packed_tx);
 
    // Re-sign the block
    auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state()->blockroot_merkle.get_root() ) );
@@ -100,7 +103,9 @@ std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_te
 
    // Make a copy of the valid block and corrupt the transaction
    auto copy_b = std::make_shared<signed_block>(b->clone());
-   const auto& packed_trx = std::get<packed_transaction>(copy_b->transactions.back().trx);
+   // TODO: need multi shard trx?
+   auto& copy_tx_receipts = copy_b->transactions[config::main_shard_name];
+   const auto& packed_trx = std::get<packed_transaction>(copy_tx_receipts.back().trx);
    auto signed_tx = packed_trx.get_signed_transaction();
    // Corrupt one signature
    signed_tx.signatures.clear();
@@ -108,12 +113,11 @@ std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_te
 
    // Replace the valid transaction with the invalid transaction
    auto invalid_packed_tx = packed_transaction(signed_tx, packed_trx.get_compression());
-   copy_b->transactions.back().trx = std::move(invalid_packed_tx);
+   copy_tx_receipts.back().trx = std::move(invalid_packed_tx);
 
    // Re-calculate the transaction merkle
    deque<digest_type> trx_digests;
-   const auto& trxs = copy_b->transactions;
-   for( const auto& a : trxs )
+   for( const auto& a : copy_tx_receipts )
       trx_digests.emplace_back( a.digest() );
    copy_b->transaction_mroot = merkle( move(trx_digests) );
 

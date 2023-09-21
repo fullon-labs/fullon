@@ -306,14 +306,16 @@ namespace eosio { namespace testing {
       chain_transactions.clear();
       control->accepted_block.connect([this]( const block_state_ptr& block_state ){
         FC_ASSERT( block_state->block );
-          for( auto receipt : block_state->block->transactions ) {
-              if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-                  auto &pt = std::get<packed_transaction>(receipt.trx);
-                  chain_transactions[pt.get_transaction().id()] = std::move(receipt);
-              } else {
-                  auto& id = std::get<transaction_id_type>(receipt.trx);
-                  chain_transactions[id] = std::move(receipt);
-              }
+          for( const auto& receipts : block_state->block->transactions ) {
+            for( auto receipt : receipts.second ) {
+               if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+                     auto &pt = std::get<packed_transaction>(receipt.trx);
+                     chain_transactions[pt.get_transaction().id()] = std::move(receipt);
+               } else {
+                     auto& id = std::get<transaction_id_type>(receipt.trx);
+                     chain_transactions[id] = std::move(receipt);
+               }
+            }
           }
       });
    }
@@ -525,6 +527,8 @@ namespace eosio { namespace testing {
 
 
   void base_tester::set_transaction_headers( transaction& trx, uint32_t expiration, uint32_t delay_sec ) const {
+     if (!trx.shard_name)
+       trx.shard_name = config::main_shard_name;
      trx.expiration = control->head_block_time() + fc::seconds(expiration);
      trx.set_reference_block( control->head_block_id() );
 

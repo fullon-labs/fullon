@@ -128,6 +128,15 @@ class maybe_session {
 using dbm_maybe_session = maybe_session<database_manager>;
 using db_maybe_session = maybe_session<database>;
 
+struct building_shard {
+   deque<transaction_metadata_ptr>              _pending_trx_metas;
+   deque<transaction_receipt>                   _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
+   digests_t                                    _trx_mroot_or_receipt_digests;
+   digests_t                                    _action_receipt_digests;
+
+};
+
+
 struct building_block {
    building_block( const block_header_state& prev,
                    block_timestamp_type when,
@@ -135,27 +144,83 @@ struct building_block {
                    const vector<digest_type>& new_protocol_feature_activations )
    :_pending_block_header_state( prev.next( when, num_prev_blocks_to_confirm ) )
    ,_new_protocol_feature_activations( new_protocol_feature_activations )
-   ,_trx_mroot_or_receipt_digests( digests_t{} )
    {}
 
    pending_block_header_state                 _pending_block_header_state;
    std::optional<producer_authority_schedule> _new_pending_producer_schedule;
    vector<digest_type>                        _new_protocol_feature_activations;
    size_t                                     _num_new_protocol_features_that_have_activated = 0;
-   deque<transaction_metadata_ptr>            _pending_trx_metas;
-   deque<transaction_receipt>                 _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
-   std::variant<checksum256_type, digests_t>  _trx_mroot_or_receipt_digests;
-   digests_t                                  _action_receipt_digests;
+   std::optional<checksum256_type>            _trx_mroot;
+   std::map<shard_name, building_shard>       shards;
+
+   inline building_shard& get_shard(const chain::shard_name& shard_name) {
+      // todo: lock and get
+      return shards[shard_name];
+   }
+
+   inline deque<transaction_metadata_ptr> extract_trx_metas() {
+      deque<transaction_metadata_ptr> result;
+      for (auto& shard : shards) {
+         fc::move_append( result, std::move(shard.second._pending_trx_metas) );
+      }
+      return result;
+   }
+
+   inline transaction_metadata_map extract_trx_meta_map() {
+      transaction_metadata_map result;
+      for (auto& shard : shards) {
+         result[shard.first] = std::move(shard.second._pending_trx_metas);
+      }
+      return result;
+   }
+
+   inline transaction_receipt_map extract_trx_receipt_map() {
+      transaction_receipt_map result;
+      for (auto& shard : shards) {
+         result[shard.first] = std::move(shard.second._pending_trx_receipts);
+      }
+      return result;
+   }
+
+   inline digests_t extract_receipt_digests() {
+      digests_t result;
+      for (auto& shard : shards) {
+         fc::move_append( result, std::move(shard.second._trx_mroot_or_receipt_digests) );
+      }
+      return result;
+   }
+
+   inline digests_t extract_action_receipt_digests() {
+      digests_t result;
+      for (auto& shard : shards) {
+         fc::move_append( result, std::move(shard.second._action_receipt_digests) );
+      }
+      return result;
+   }
+
+   inline void set_trx_mroot(const checksum256_type& value) {
+      _trx_mroot = value;
+   }
+
 };
 
 struct assembled_block {
-   block_id_type                     _id;
-   pending_block_header_state        _pending_block_header_state;
-   deque<transaction_metadata_ptr>   _trx_metas;
-   signed_block_ptr                  _unsigned_block;
+   block_id_type                 _id;
+   pending_block_header_state    _pending_block_header_state;
+   transaction_metadata_map      _trx_metas;
+   signed_block_ptr              _unsigned_block;
 
    // if the _unsigned_block pre-dates block-signing authorities this may be present.
    std::optional<producer_authority_schedule> _new_producer_authority_cache;
+
+   inline deque<transaction_metadata_ptr> extract_trx_metas() {
+      deque<transaction_metadata_ptr> trxs;
+      for (auto& metas : _trx_metas) {
+         fc::move_append( trxs, std::move(metas.second) );
+      }
+      _trx_metas.clear();
+      return trxs;
+   }
 };
 
 struct completed_block {
@@ -188,11 +253,10 @@ struct pending_state {
    }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
-      if( std::holds_alternative<building_block>(_block_stage) )
-         return std::move( std::get<building_block>(_block_stage)._pending_trx_metas );
-
-      if( std::holds_alternative<assembled_block>(_block_stage) )
-         return std::move( std::get<assembled_block>(_block_stage)._trx_metas );
+      if( std::holds_alternative<building_block>(_block_stage) ) {
+         return std::get<building_block>(_block_stage).extract_trx_metas();
+      } else if( std::holds_alternative<assembled_block>(_block_stage) )
+         return std::get<assembled_block>(_block_stage).extract_trx_metas();
 
       return std::get<completed_block>(_block_stage)._block_state->extract_trxs_metas();
    }
@@ -1179,30 +1243,34 @@ struct controller_impl {
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
-   fc::scoped_exit<std::function<void()>> make_block_restore_point( bool is_read_only = false ) {
+   fc::scoped_exit<std::function<void()>> make_block_restore_point( const name& shard_name, bool is_read_only = false ) {
+      // TODO: input shard as arg of function
       if ( is_read_only ) {
          std::function<void()> callback = []() { };
          return fc::make_scoped_exit( std::move(callback) );
       }
 
       auto& bb = std::get<building_block>(pending->_block_stage);
-      auto orig_trx_receipts_size           = bb._pending_trx_receipts.size();
-      auto orig_trx_metas_size              = bb._pending_trx_metas.size();
-      auto orig_trx_receipt_digests_size    = std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) ?
-                                              std::get<digests_t>(bb._trx_mroot_or_receipt_digests).size() : 0;
-      auto orig_action_receipt_digests_size = bb._action_receipt_digests.size();
-      std::function<void()> callback = [this,
+      // TODO: lock and get: bb.get_shard()
+      auto& shard = bb.get_shard(shard_name);
+      auto orig_trx_receipts_size           = shard._pending_trx_receipts.size();
+      auto orig_trx_metas_size              = shard._pending_trx_metas.size();
+      auto orig_trx_receipt_digests_size    = !bb._trx_mroot ? shard._trx_mroot_or_receipt_digests.size() : 0;
+      auto orig_action_receipt_digests_size = shard._action_receipt_digests.size();
+      std::function<void()> callback = [this, &shard_name,
             orig_trx_receipts_size,
             orig_trx_metas_size,
             orig_trx_receipt_digests_size,
             orig_action_receipt_digests_size]()
       {
          auto& bb = std::get<building_block>(pending->_block_stage);
-         bb._pending_trx_receipts.resize(orig_trx_receipts_size);
-         bb._pending_trx_metas.resize(orig_trx_metas_size);
-         if( std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) )
-            std::get<digests_t>(bb._trx_mroot_or_receipt_digests).resize(orig_trx_receipt_digests_size);
-         bb._action_receipt_digests.resize(orig_action_receipt_digests_size);
+         // TODO: lock and get: bb.get_shard()
+         auto& shard = bb.get_shard(shard_name);
+         shard._pending_trx_receipts.resize(orig_trx_receipts_size);
+         shard._pending_trx_metas.resize(orig_trx_metas_size);
+         if( !bb._trx_mroot )
+            shard._trx_mroot_or_receipt_digests.resize(orig_trx_receipt_digests_size);
+         shard._action_receipt_digests.resize(orig_action_receipt_digests_size);
       };
 
       return fc::make_scoped_exit( std::move(callback) );
@@ -1260,10 +1328,12 @@ struct controller_impl {
          trx_context.execute_action( trx_context.schedule_action( trx.get_transaction().actions.back(), gtrx.sender, false, 0, 0 ), 0 );
          trx_context.finalize(); // Automatically rounds up network and CPU usage in trace and bills payers if successful
 
-         auto restore = make_block_restore_point();
-         trace->receipt = push_receipt( gtrx.trx_id, transaction_receipt::soft_fail,
+         auto restore = make_block_restore_point(config::main_shard_name);
+         trace->receipt = push_receipt( config::main_shard_name, gtrx.trx_id, transaction_receipt::soft_fail,
                                         trx_context.billed_cpu_time_us, trace->net_usage );
-         fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
+         // TODO: input shard as arg of function
+         auto& shard = std::get<building_block>(pending->_block_stage).shards[config::main_shard_name];
+         fc::move_append( shard._action_receipt_digests,
                           std::move(trx_context.executed_action_receipt_digests) );
 
          trx_context.squash();
@@ -1381,7 +1451,7 @@ struct controller_impl {
          trace->block_time = self.pending_block_time();
          trace->producer_block_id = self.pending_producer_block_id();
          trace->scheduled = true;
-         trace->receipt = push_receipt( gtrx.trx_id, transaction_receipt::expired, billed_cpu_time_us, 0 ); // expire the transaction
+         trace->receipt = push_receipt( config::main_shard_name, gtrx.trx_id, transaction_receipt::expired, billed_cpu_time_us, 0 ); // expire the transaction
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
          trace->elapsed = fc::time_point::now() - start;
          pending->_block_report.total_cpu_usage_us += billed_cpu_time_us;
@@ -1440,15 +1510,15 @@ struct controller_impl {
 
          trx_context.exec();
          trx_context.finalize(); // Automatically rounds up network and CPU usage in trace and bills payers if successful
+         auto& shard = std::get<building_block>(pending->_block_stage).shards[config::main_shard_name];
+         auto restore = make_block_restore_point(config::main_shard_name);
 
-         auto restore = make_block_restore_point();
-
-         trace->receipt = push_receipt( gtrx.trx_id,
+         trace->receipt = push_receipt( config::main_shard_name, gtrx.trx_id,
                                         transaction_receipt::executed,
                                         trx_context.billed_cpu_time_us,
                                         trace->net_usage );
 
-         fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
+         fc::move_append( shard._action_receipt_digests,
                           std::move(trx_context.executed_action_receipt_digests) );
 
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
@@ -1541,7 +1611,7 @@ struct controller_impl {
          resource_limits.add_transaction_usage( trx_context.bill_to_accounts, cpu_time_to_bill_us, 0,
                                                 block_timestamp_type(self.pending_block_time()).slot ); // Should never fail
 
-         trace->receipt = push_receipt(gtrx.trx_id, transaction_receipt::hard_fail, cpu_time_to_bill_us, 0);
+         trace->receipt = push_receipt(config::main_shard_name, gtrx.trx_id, transaction_receipt::hard_fail, cpu_time_to_bill_us, 0);
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
          emit( self.accepted_transaction, trx );
@@ -1568,19 +1638,21 @@ struct controller_impl {
     *  Adds the transaction receipt to the pending block and returns it.
     */
    template<typename T>
-   const transaction_receipt& push_receipt( const T& trx, transaction_receipt_header::status_enum status,
+   const transaction_receipt& push_receipt( const name& shard_name, const T& trx, transaction_receipt_header::status_enum status,
                                             uint64_t cpu_usage_us, uint64_t net_usage ) {
       uint64_t net_usage_words = net_usage / 8;
       EOS_ASSERT( net_usage_words*8 == net_usage, transaction_exception, "net_usage is not divisible by 8" );
-      auto& receipts = std::get<building_block>(pending->_block_stage)._pending_trx_receipts;
-      receipts.emplace_back( trx );
-      transaction_receipt& r = receipts.back();
+      auto& bb = std::get<building_block>(pending->_block_stage);
+      // TODO: input shard as function args
+      auto& shard = bb.get_shard(shard_name);
+      shard._pending_trx_receipts.emplace_back( trx );
+      transaction_receipt& r = shard._pending_trx_receipts.back();
       r.cpu_usage_us         = cpu_usage_us;
       r.net_usage_words      = net_usage_words;
       r.status               = status;
-      auto& bb = std::get<building_block>(pending->_block_stage);
-      if( std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) )
-         std::get<digests_t>(bb._trx_mroot_or_receipt_digests).emplace_back( r.digest() );
+      if (!bb._trx_mroot)
+         shard._trx_mroot_or_receipt_digests.emplace_back( r.digest() );
+
       return r;
    }
 
@@ -1660,15 +1732,19 @@ struct controller_impl {
             trx_context.exec();
             trx_context.finalize(); // Automatically rounds up network and CPU usage in trace and bills payers if successful
 
-            auto restore = make_block_restore_point( trx->is_read_only() );
+            // TODO: input shard as args of function
+            auto& shard = std::get<building_block>(pending->_block_stage).get_shard(trn.shard_name);
+
+            auto restore = make_block_restore_point( trn.shard_name, trx->is_read_only() );
 
             trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
             if (!trx->implicit() && !trx->is_read_only()) {
                transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
                                                     ? transaction_receipt::executed
                                                     : transaction_receipt::delayed;
-               trace->receipt = push_receipt(*trx->packed_trx(), s, trx_context.billed_cpu_time_us, trace->net_usage);
-               std::get<building_block>(pending->_block_stage)._pending_trx_metas.emplace_back(trx);
+               trace->receipt = push_receipt( trn.shard_name, *trx->packed_trx(), s, trx_context.billed_cpu_time_us, trace->net_usage);
+
+               shard._pending_trx_metas.emplace_back(trx);
             } else {
                transaction_receipt_header r;
                r.status = transaction_receipt::executed;
@@ -1678,7 +1754,7 @@ struct controller_impl {
             }
 
             if ( !trx->is_read_only() ) {
-               fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
+               fc::move_append( shard._action_receipt_digests,
                                 std::move(trx_context.executed_action_receipt_digests) );
                 if ( !trx->is_dry_run() ) {
                    // call the accept signal but only once for this transaction
@@ -1927,14 +2003,14 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
 
       auto action_merkle_fut = post_async_task( thread_pool.get_executor(),
-                                                [ids{std::move( bb._action_receipt_digests )}]() mutable {
+                                                [ids{bb.extract_action_receipt_digests()}]() mutable {
                                                    return merkle( std::move( ids ) );
                                                 } );
-      const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb._trx_mroot_or_receipt_digests);
+
       std::future<checksum256_type> trx_merkle_fut;
-      if( calc_trx_merkle ) {
+      if( !bb._trx_mroot ) {
          trx_merkle_fut = post_async_task( thread_pool.get_executor(),
-                                           [ids{std::move( std::get<digests_t>(bb._trx_mroot_or_receipt_digests) )}]() mutable {
+                                           [ids{bb.extract_receipt_digests()}]() mutable {
                                               return merkle( std::move( ids ) );
                                            } );
       }
@@ -1960,16 +2036,18 @@ struct controller_impl {
       // wdump((pbhs.block_num)(acct_idx.undo_stack_revision_range())(num_old)(num_rm)(num_new));
       shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
 
+      // TODO: clear empty trx receipts
+
       // Create (unsigned) block:
       auto block_ptr = std::make_shared<signed_block>( pbhs.make_block_header(
-         calc_trx_merkle ? trx_merkle_fut.get() : std::get<checksum256_type>(bb._trx_mroot_or_receipt_digests),
+         bb._trx_mroot ? *bb._trx_mroot : trx_merkle_fut.get(),
          action_merkle_fut.get(),
          bb._new_pending_producer_schedule,
          std::move( bb._new_protocol_feature_activations ),
          protocol_features.get_protocol_feature_set()
       ) );
 
-      block_ptr->transactions = std::move( bb._pending_trx_receipts );
+      block_ptr->transactions = bb.extract_trx_receipt_map();
 
       auto id = block_ptr->calculate_id();
 
@@ -1993,7 +2071,7 @@ struct controller_impl {
       pending->_block_stage = assembled_block{
                                  id,
                                  std::move( bb._pending_block_header_state ),
-                                 std::move( bb._pending_trx_metas ),
+                                 bb.extract_trx_meta_map(),
                                  std::move( block_ptr ),
                                  std::move( bb._new_pending_producer_schedule )
                               };
@@ -2136,89 +2214,105 @@ struct controller_impl {
          start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
          // validated in create_block_state_future()
-         std::get<building_block>(pending->_block_stage)._trx_mroot_or_receipt_digests = b->transaction_mroot;
+         std::get<building_block>(pending->_block_stage).set_trx_mroot( b->transaction_mroot );
 
          const bool existing_trxs_metas = !bsp->trxs_metas().empty();
          const bool pub_keys_recovered = bsp->is_pub_keys_recovered();
          const bool skip_auth_checks = self.skip_auth_check();
          std::vector<std::tuple<transaction_metadata_ptr, recover_keys_future>> trx_metas;
          bool use_bsp_cached = false;
-         trx_metas.reserve( b->transactions.size() );
-         if( pub_keys_recovered || (skip_auth_checks && existing_trxs_metas) ) {
-            use_bsp_cached = true;
-            for( size_t i = 0; i < b->transactions.size(); i++ ) {
-               if( std::holds_alternative<packed_transaction>(b->transactions[i].trx)) {
-                  trx_metas.emplace_back( bsp->trxs_metas().at( i ), recover_keys_future{} );
+
+         // TODO: foreach shard, exec
+         auto trxs_itr = b->transactions.find(config::main_shard_name);
+         if (trxs_itr != b->transactions.end()) {
+            const auto& shard_name = trxs_itr->first;
+            const auto& transactions = trxs_itr->second;
+            auto& main_shard = std::get<building_block>(pending->_block_stage).shards[shard_name];
+            auto& pending_receipts = main_shard._pending_trx_receipts;
+
+            trx_metas.reserve( transactions.size() );
+            if( pub_keys_recovered || (skip_auth_checks && existing_trxs_metas) ) {
+               use_bsp_cached = true;
+               const auto& trxs_meta_cache = bsp->trxs_metas();
+               // TODO: multi shard
+               auto shard_trx_meta_cache_itr = trxs_meta_cache.find(shard_name);
+               EOS_ASSERT( shard_trx_meta_cache_itr != trxs_meta_cache.end(),
+                           block_validate_exception, "shard transaction metadatas not found in cache, block_num ${bn}, block_id ${id}, shard ${s}",
+                           ("bn", bsp->block_num)("id", bsp->id)("s", shard_name)
+                        );
+               for( size_t i = 0; i < transactions.size(); i++ ) {
+                  if( std::holds_alternative<packed_transaction>(transactions[i].trx)) {
+                     trx_metas.emplace_back( shard_trx_meta_cache_itr->second.at( i ), recover_keys_future{} );
+                  }
                }
-            }
-         } else {
-            // trx_metas.reserve( b->transactions.size() );
-            for( const auto& receipt : b->transactions ) {
-               if( std::holds_alternative<packed_transaction>(receipt.trx)) {
-                  const auto& pt = std::get<packed_transaction>(receipt.trx);
-                  transaction_metadata_ptr trx_meta_ptr = trx_lookup ? trx_lookup( pt.id() ) : transaction_metadata_ptr{};
-                  if( trx_meta_ptr && *trx_meta_ptr->packed_trx() != pt ) trx_meta_ptr = nullptr;
-                  if( trx_meta_ptr && ( skip_auth_checks || !trx_meta_ptr->recovered_keys().empty() ) ) {
-                     trx_metas.emplace_back( std::move( trx_meta_ptr ), recover_keys_future{} );
-                  } else if( skip_auth_checks ) {
-                     packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
-                     trx_metas.emplace_back(
-                           transaction_metadata::create_no_recover_keys( std::move(ptrx), transaction_metadata::trx_type::input ),
-                           recover_keys_future{} );
+            } else {
+               for( const auto& receipt : transactions ) {
+                  if( std::holds_alternative<packed_transaction>(receipt.trx)) {
+                     const auto& pt = std::get<packed_transaction>(receipt.trx);
+                     transaction_metadata_ptr trx_meta_ptr = trx_lookup ? trx_lookup( pt.id() ) : transaction_metadata_ptr{};
+                     if( trx_meta_ptr && *trx_meta_ptr->packed_trx() != pt ) trx_meta_ptr = nullptr;
+                     if( trx_meta_ptr && ( skip_auth_checks || !trx_meta_ptr->recovered_keys().empty() ) ) {
+                        trx_metas.emplace_back( std::move( trx_meta_ptr ), recover_keys_future{} );
+                     } else if( skip_auth_checks ) {
+                        packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
+                        trx_metas.emplace_back(
+                              transaction_metadata::create_no_recover_keys( std::move(ptrx), transaction_metadata::trx_type::input ),
+                              recover_keys_future{} );
+                     } else {
+                        packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
+                        auto fut = transaction_metadata::start_recover_keys(
+                              std::move( ptrx ), thread_pool.get_executor(), chain_id, microseconds::maximum(), transaction_metadata::trx_type::input  );
+                        trx_metas.emplace_back( transaction_metadata_ptr{}, std::move( fut ) );
+                     }
                   } else {
-                     packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
-                     auto fut = transaction_metadata::start_recover_keys(
-                           std::move( ptrx ), thread_pool.get_executor(), chain_id, microseconds::maximum(), transaction_metadata::trx_type::input  );
-                     trx_metas.emplace_back( transaction_metadata_ptr{}, std::move( fut ) );
+                     // TODO: new exception?
+                     // EOS_ASSERT( second.first == config::main_shard_name, block_validate_exception, "schedule transaction can be only in main shard" );
                   }
                }
             }
+
+            std::future<bool> trx_exec_future = post_async_task( shard_thread_pool.get_executor(), [&transactions, &trx_metas, &pending_receipts, &bsp, this]() {
+               size_t packed_idx = 0;
+               for( const auto& receipt : transactions ) {
+                  transaction_trace_ptr trace;
+                  auto num_pending_receipts = pending_receipts.size();
+                  if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+                     const auto& trx_meta = ( !!std::get<0>( trx_metas.at( packed_idx ) ) ?
+                                                                  std::get<0>( trx_metas.at( packed_idx ) )
+                                                                  : std::get<1>( trx_metas.at( packed_idx ) ).get() );
+                     trace = push_transaction( trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
+                     ++packed_idx;
+                  } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
+                     trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
+                  } else {
+                     EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
+                  }
+
+                  bool transaction_failed =  trace && trace->except;
+                  bool transaction_can_fail = receipt.status == transaction_receipt_header::hard_fail && std::holds_alternative<transaction_id_type>(receipt.trx);
+                  if( transaction_failed && !transaction_can_fail) {
+                     edump((*trace));
+                     throw *trace->except;
+                  }
+
+                  EOS_ASSERT( pending_receipts.size() > 0,
+                              block_validate_exception, "expected a receipt, block_num ${bn}, block_id ${id}, receipt ${e}",
+                              ("bn", bsp->block_num)("id", bsp->id)("e", receipt)
+                           );
+                  EOS_ASSERT( pending_receipts.size() == num_pending_receipts + 1,
+                              block_validate_exception, "expected receipt was not added, block_num ${bn}, block_id ${id}, receipt ${e}",
+                              ("bn", bsp->block_num)("id", bsp->id)("e", receipt)
+                           );
+                  const transaction_receipt_header& r = pending_receipts.back();
+                  EOS_ASSERT( r == static_cast<const transaction_receipt_header&>(receipt),
+                              block_validate_exception, "receipt does not match, ${lhs} != ${rhs}",
+                              ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)) );
+               }
+               return true;
+            });
+
+            trx_exec_future.get();
          }
-
-         const auto& trx_receipts = std::get<building_block>(pending->_block_stage)._pending_trx_receipts;
-         const auto& transactions = b->transactions;
-
-         std::future<bool> trx_exec_future = post_async_task( shard_thread_pool.get_executor(), [&transactions, &trx_metas, &trx_receipts, &bsp, this]() {
-            size_t packed_idx = 0;
-            for( const auto& receipt : transactions ) {
-               transaction_trace_ptr trace;
-               auto num_pending_receipts = trx_receipts.size();
-               if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-                  const auto& trx_meta = ( !!std::get<0>( trx_metas.at( packed_idx ) ) ?
-                                                               std::get<0>( trx_metas.at( packed_idx ) )
-                                                               : std::get<1>( trx_metas.at( packed_idx ) ).get() );
-                  trace = push_transaction( trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
-                  ++packed_idx;
-               } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
-                  trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
-               } else {
-                  EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
-               }
-
-               bool transaction_failed =  trace && trace->except;
-               bool transaction_can_fail = receipt.status == transaction_receipt_header::hard_fail && std::holds_alternative<transaction_id_type>(receipt.trx);
-               if( transaction_failed && !transaction_can_fail) {
-                  edump((*trace));
-                  throw *trace->except;
-               }
-
-               EOS_ASSERT( trx_receipts.size() > 0,
-                           block_validate_exception, "expected a receipt, block_num ${bn}, block_id ${id}, receipt ${e}",
-                           ("bn", bsp->block_num)("id", bsp->id)("e", receipt)
-                        );
-               EOS_ASSERT( trx_receipts.size() == num_pending_receipts + 1,
-                           block_validate_exception, "expected receipt was not added, block_num ${bn}, block_id ${id}, receipt ${e}",
-                           ("bn", bsp->block_num)("id", bsp->id)("e", receipt)
-                        );
-               const transaction_receipt_header& r = trx_receipts.back();
-               EOS_ASSERT( r == static_cast<const transaction_receipt_header&>(receipt),
-                           block_validate_exception, "receipt does not match, ${lhs} != ${rhs}",
-                           ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)) );
-            }
-            return true;
-         });
-
-         trx_exec_future.get();
 
          finalize_block();
 
@@ -2509,10 +2603,11 @@ struct controller_impl {
       return applied_trxs;
    }
 
-   static checksum256_type calculate_trx_merkle( const deque<transaction_receipt>& trxs ) {
+   static checksum256_type calculate_trx_merkle( const std::map<shard_name, deque<transaction_receipt>>& trxs ) {
       deque<digest_type> trx_digests;
-      for( const auto& a : trxs )
-         trx_digests.emplace_back( a.digest() );
+      for ( const auto& receipts : trxs )
+         for( const auto& a : receipts.second )
+            trx_digests.emplace_back( a.digest() );
 
       return merkle( move(trx_digests) );
    }

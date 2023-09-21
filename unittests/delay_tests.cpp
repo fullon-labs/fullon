@@ -2399,8 +2399,9 @@ BOOST_FIXTURE_TEST_CASE( delay_expired, validating_tester) { try {
    BOOST_REQUIRE_EQUAL(transaction_receipt_header::delayed, trace->receipt->status);
    produce_empty_block(fc::milliseconds(610 * 1000));
    sb  = produce_block();
-   BOOST_REQUIRE_EQUAL(1, sb->transactions.size());
-   BOOST_REQUIRE_EQUAL(transaction_receipt_header::expired, sb->transactions[0].status);
+   auto& receipts = sb->transactions[config::main_shard_name];
+   BOOST_REQUIRE_EQUAL(1, receipts.size());
+   BOOST_REQUIRE_EQUAL(transaction_receipt_header::expired, receipts[0].status);
 
    create_account(a); // account can still be created
 

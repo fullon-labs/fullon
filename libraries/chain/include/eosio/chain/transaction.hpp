@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosio/chain/action.hpp>
+#include <eosio/chain/types.hpp>
 #include <numeric>
 
 namespace eosio { namespace chain {
@@ -51,18 +52,18 @@ namespace eosio { namespace chain {
     *  will never be included.
     */
    struct transaction_header {
-      time_point_sec         expiration;   ///< the time at which a transaction expires
-      uint16_t               ref_block_num       = 0U; ///< specifies a block num in the last 2^16 blocks.
-      uint32_t               ref_block_prefix    = 0UL; ///< specifies the lower 32 bits of the blockid at get_ref_blocknum
-      fc::unsigned_int       max_net_usage_words = 0UL; /// upper limit on total network bandwidth (in 8 byte words) billed for this transaction
-      uint8_t                max_cpu_usage_ms    = 0; /// upper limit on the total CPU time billed for this transaction
-      fc::unsigned_int       delay_sec           = 0UL; /// number of seconds to delay this transaction for during which it may be canceled.
+      time_point_sec             expiration;   ///< the time at which a transaction expires
+      uint16_t                   ref_block_num       = 0U; ///< specifies a block num in the last 2^16 blocks.
+      uint32_t                   ref_block_prefix    = 0UL; ///< specifies the lower 32 bits of the blockid at get_ref_blocknum
+      fc::unsigned_int           max_net_usage_words = 0UL; /// upper limit on total network bandwidth (in 8 byte words) billed for this transaction
+      uint8_t                    max_cpu_usage_ms    = 0; /// upper limit on the total CPU time billed for this transaction
+      fc::unsigned_int           delay_sec           = 0UL; /// number of seconds to delay this transaction for during which it may be canceled.
 
-      name                   shard_name;
-      uint8_t                shard_type = 0;
+      eosio::chain::shard_name   shard_name;
+      uint8_t                    shard_type = 0;
 
-      const name& get_shard_name() const { return shard_name; }
-      void set_shard_name(const name& shard_name) { this->shard_name = shard_name; }
+      const eosio::chain::shard_name& get_shard_name() const { return shard_name; }
+      void set_shard_name(const eosio::chain::shard_name& shard_name) { this->shard_name = shard_name; }
 
       /**
        * @return the absolute block number given the relative ref_block_num

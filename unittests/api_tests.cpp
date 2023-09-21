@@ -1482,15 +1482,17 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
       BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::soft_fail);
 
       std::set<transaction_id_type> block_ids;
-      for( const auto& receipt : bsp->block->transactions ) {
-         transaction_id_type id;
-         if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-            const auto& pt = std::get<packed_transaction>(receipt.trx);
-            id = pt.id();
-         } else {
-            id = std::get<transaction_id_type>(receipt.trx);
+      for( const auto& receipts : bsp->block->transactions ) {
+         for( const auto& receipt : receipts.second ) {
+            transaction_id_type id;
+            if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+               const auto& pt = std::get<packed_transaction>(receipt.trx);
+               id = pt.id();
+            } else {
+               id = std::get<transaction_id_type>(receipt.trx);
+            }
+            block_ids.insert( id );
          }
-         block_ids.insert( id );
       }
 
       BOOST_CHECK_EQUAL(2, block_ids.size() ); // originating trx and deferred

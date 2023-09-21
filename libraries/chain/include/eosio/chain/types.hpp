@@ -131,6 +131,7 @@ namespace eosio { namespace chain {
    using permission_name  = name;
    using table_name       = name;
    using db_name          = name;
+   using shard_name       = name;
 
 
    /**

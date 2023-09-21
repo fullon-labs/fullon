@@ -56,8 +56,10 @@ namespace eosio::trace_api {
       auto make_block_state( chain::block_id_type previous, uint32_t height, uint32_t slot, chain::name producer,
                              std::vector<chain::packed_transaction> trxs ) {
          chain::signed_block_ptr block = std::make_shared<chain::signed_block>();
+         // TODO: multi shard trx
+         auto& receipts = block->transactions[chain::config::main_shard_name];
          for( auto& trx : trxs ) {
-            block->transactions.emplace_back( trx );
+            receipts.emplace_back( trx );
          }
          block->producer = producer;
          block->timestamp = chain::block_timestamp_type(slot);
@@ -95,7 +97,7 @@ namespace eosio::trace_api {
          auto bsp = std::make_shared<chain::block_state>(
             std::move( pbhs ),
             std::move( block ),
-            eosio::chain::deque<chain::transaction_metadata_ptr>(),
+            eosio::chain::transaction_metadata_map(),
             chain::protocol_feature_set(),
             []( chain::block_timestamp_type timestamp,
                 const fc::flat_set<chain::digest_type>& cur_features,

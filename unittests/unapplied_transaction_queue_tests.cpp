@@ -34,8 +34,9 @@ auto next( unapplied_transaction_queue& q ) {
 
 auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
    signed_block_ptr block = std::make_shared<signed_block>();
+   auto& receipts = block->transactions[config::main_shard_name];
    for( auto& trx_meta : trx_metas ) {
-      block->transactions.emplace_back( *trx_meta->packed_trx() );
+      receipts.emplace_back( *trx_meta->packed_trx() );
    }
 
    block->producer = eosio::chain::config::system_account_name;
@@ -63,10 +64,13 @@ auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
    producer_authority_schedule schedule = { 0, { producer_authority{block->producer, block_signing_authority_v0{ 1, {{pub_key, 1}} } } } };
    pbhs.active_schedule = schedule;
    pbhs.valid_block_signing_authority = block_signing_authority_v0{ 1, {{pub_key, 1}} };
+   transaction_metadata_map trx_meta_map = {
+      {config::main_shard_name, std::move( trx_metas )}
+   };
    auto bsp = std::make_shared<block_state>(
          std::move( pbhs ),
          std::move( block ),
-         std::move( trx_metas ),
+         std::move( trx_meta_map ),
          protocol_feature_set(),
          []( block_timestamp_type timestamp,
              const flat_set<digest_type>& cur_features,

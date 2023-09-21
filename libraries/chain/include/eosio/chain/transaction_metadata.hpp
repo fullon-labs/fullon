@@ -12,6 +12,7 @@ namespace eosio { namespace chain {
 
 class transaction_metadata;
 using transaction_metadata_ptr = std::shared_ptr<transaction_metadata>;
+using transaction_metadata_map = std::map<shard_name, deque<transaction_metadata_ptr>>;
 using recover_keys_future = std::future<transaction_metadata_ptr>;
 
 /**
