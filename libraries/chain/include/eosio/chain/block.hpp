@@ -51,6 +51,7 @@ namespace eosio { namespace chain {
       }
    };
 
+   using transaction_receipt_ptr = std::shared_ptr<const transaction_receipt>;
    using transaction_receipt_map = std::map<name, deque<transaction_receipt>>;
 
    struct additional_block_signatures_extension : fc::reflect_init {
