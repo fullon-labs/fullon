@@ -136,6 +136,19 @@ struct building_shard {
 
 };
 
+struct shard_transaction_metadata {
+   transaction_receipt_ptr    trx_receipt;
+   transaction_metadata_ptr   trx_meta;
+   recover_keys_future        trx_meta_future;
+
+   shard_transaction_metadata(transaction_receipt_ptr trx_receipt): trx_receipt(std::move(trx_receipt)) {}
+};
+
+struct block_shard_context {
+   vector<shard_transaction_metadata> trx_metas;
+   building_shard             &pending_shard;
+   block_shard_context(building_shard &pending_shard): pending_shard(pending_shard) {}
+};
 
 struct building_block {
    building_block( const block_header_state& prev,
@@ -2216,80 +2229,66 @@ struct controller_impl {
          // validated in create_block_state_future()
          std::get<building_block>(pending->_block_stage).set_trx_mroot( b->transaction_mroot );
 
-         const auto& trxs_meta_cache = bsp->trxs_metas();
-         const bool existing_trxs_metas = !trxs_meta_cache.empty();
+         const auto& bsp_cache_map = bsp->trxs_metas();
+         const bool existing_trxs_metas = !bsp_cache_map.empty();
          const bool pub_keys_recovered = bsp->is_pub_keys_recovered();
          const bool skip_auth_checks = self.skip_auth_check();
-         struct shard_transaction_metadata {
-            transaction_receipt_ptr trx_receipt;
-            transaction_metadata_ptr trx_meta;
-            recover_keys_future trx_meta_future;
-         };
-         std::vector<shard_transaction_metadata> trx_metas;
+
          bool use_bsp_cached = pub_keys_recovered || (skip_auth_checks && existing_trxs_metas);
 
-         // TODO: foreach shard, exec
-         auto trxs_itr = b->transactions.find(config::main_shard_name);
-         if (trxs_itr != b->transactions.end()) {
-            const auto& shard_name = trxs_itr->first;
-            const auto& transactions = trxs_itr->second;
-            auto& main_shard = std::get<building_block>(pending->_block_stage).shards[shard_name];
-            auto& pending_receipts = main_shard._pending_trx_receipts;
+         std::vector<block_shard_context> shard_contexts;
+         shard_contexts.reserve(b->transactions.size());
+         for (const auto& trx_receipts_pair :  b->transactions) {
+            const auto& shard_name = trx_receipts_pair.first;
+            const auto& trx_receipts = trx_receipts_pair.second;
 
-            trx_metas.reserve( transactions.size() );
+            auto& pending_shard = std::get<building_block>(pending->_block_stage).shards[shard_name];
 
-               // TODO: multi shard
-            auto shard_trx_meta_cache_itr = trxs_meta_cache.end();
+            auto& shard_context = shard_contexts.emplace_back(pending_shard);
+            auto cache_map_itr = bsp_cache_map.end();
             if( use_bsp_cached ) {
-               shard_trx_meta_cache_itr = trxs_meta_cache.find(shard_name);
-               EOS_ASSERT( shard_trx_meta_cache_itr != trxs_meta_cache.end(),
+               cache_map_itr = bsp_cache_map.find(shard_name);
+               EOS_ASSERT( cache_map_itr != bsp_cache_map.end(),
                            block_validate_exception, "shard transaction metadatas not found in cache, block_num ${bn}, block_id ${id}, shard ${s}",
                            ("bn", bsp->block_num)("id", bsp->id)("s", shard_name)
                         );
             }
-            for( size_t i = 0; i < transactions.size(); i++ ) {
-               const transaction_receipt& receipt = transactions[i];
-               transaction_receipt_ptr ptrx_receipt( b, &receipt ); // alias signed_block_ptr
+
+            shard_context.trx_metas.reserve( trx_receipts.size() );
+            for( size_t i = 0; i < trx_receipts.size(); i++ ) {
+               const transaction_receipt& receipt = trx_receipts[i];
+               const auto& bsp_caches = cache_map_itr->second;
+               auto trx_receipt = transaction_receipt_ptr( b, &receipt ); // alias signed_block_ptr
+               auto& shard_trx = shard_context.trx_metas.emplace_back(std::move(trx_receipt));
 
                if( std::holds_alternative<packed_transaction>(receipt.trx)) {
                   if( use_bsp_cached ) {
-                     trx_metas.emplace_back( shard_transaction_metadata{
-                        std::move(ptrx_receipt), shard_trx_meta_cache_itr->second.at( i ), recover_keys_future{}
-                     });
+                     shard_trx.trx_meta = bsp_caches.at( i );
                   } else {
                      const auto& pt = std::get<packed_transaction>(receipt.trx);
                      transaction_metadata_ptr trx_meta_ptr = trx_lookup ? trx_lookup( pt.id() ) : transaction_metadata_ptr{};
                      if( trx_meta_ptr && *trx_meta_ptr->packed_trx() != pt ) trx_meta_ptr = nullptr;
                      if( trx_meta_ptr && ( skip_auth_checks || !trx_meta_ptr->recovered_keys().empty() ) ) {
-                        trx_metas.emplace_back( shard_transaction_metadata {
-                           std::move(ptrx_receipt), std::move( trx_meta_ptr ), recover_keys_future{}
-                        });
+                        shard_trx.trx_meta = trx_meta_ptr;
                      } else if( skip_auth_checks ) {
                         packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
-                        trx_metas.emplace_back(shard_transaction_metadata {
-                              std::move(ptrx_receipt),
-                              transaction_metadata::create_no_recover_keys( std::move(ptrx), transaction_metadata::trx_type::input ),
-                              recover_keys_future{} });
+                        shard_trx.trx_meta = transaction_metadata::create_no_recover_keys( std::move(ptrx), transaction_metadata::trx_type::input );
                      } else {
                         packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
-                        auto fut = transaction_metadata::start_recover_keys(
+                        shard_trx.trx_meta_future = transaction_metadata::start_recover_keys(
                               std::move( ptrx ), thread_pool.get_executor(), chain_id, microseconds::maximum(), transaction_metadata::trx_type::input  );
-                        trx_metas.emplace_back(shard_transaction_metadata {
-                           std::move(ptrx_receipt), transaction_metadata_ptr{}, std::move( fut )
-                        });
                      }
                   }
-               } else { // receipt is transaction id
-                  trx_metas.emplace_back(shard_transaction_metadata {
-                     std::move(ptrx_receipt), transaction_metadata_ptr{}, recover_keys_future{}
-                  });
                }
             }
-            // }
+         }
 
-            std::future<bool> trx_exec_future = post_async_task( shard_thread_pool.get_executor(), [&trx_metas, &pending_receipts, &bsp, this]() {
+         for (auto& shard_context : shard_contexts) {
+
+            std::future<bool> trx_exec_future = post_async_task( shard_thread_pool.get_executor(), [&shard_context, &bsp, this]() {
                // for( const auto& receipt : transactions ) {
-               for( auto& shard_trx : trx_metas ) {
+               auto& pending_receipts = shard_context.pending_shard._pending_trx_receipts;
+               for( auto& shard_trx : shard_context.trx_metas ) {
                   const auto& receipt = *shard_trx.trx_receipt;
                   transaction_trace_ptr trace;
                   auto num_pending_receipts = pending_receipts.size();
@@ -2366,7 +2365,6 @@ struct controller_impl {
          throw;
       }
    } FC_CAPTURE_AND_RETHROW() } /// apply_block
-
 
    // thread safe, expected to be called from thread other than the main thread
    block_state_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
