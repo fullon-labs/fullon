@@ -2283,9 +2283,11 @@ struct controller_impl {
             }
          }
 
+         std::vector<std::future<bool>> trx_futures;
+
          for (auto& shard_context : shard_contexts) {
 
-            std::future<bool> trx_exec_future = post_async_task( shard_thread_pool.get_executor(), [&shard_context, &bsp, this]() {
+            trx_futures.emplace_back(post_async_task( shard_thread_pool.get_executor(), [&shard_context, &bsp, this]() {
                // for( const auto& receipt : transactions ) {
                auto& pending_receipts = shard_context.pending_shard._pending_trx_receipts;
                for( auto& shard_trx : shard_context.trx_metas ) {
@@ -2324,10 +2326,13 @@ struct controller_impl {
                               ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)) );
                }
                return true;
-            });
+            }));
 
-            trx_exec_future.get();
-         }
+         };
+
+
+         for( auto& f: trx_futures )
+            f.get();
 
          finalize_block();
 
