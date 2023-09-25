@@ -85,13 +85,16 @@ private:
          using transaction_trace_t = transaction_trace_v3;
          auto bt = create_block_trace( block_state );
 
+         // TODO: only support main shard currently.
+         auto& receipts = block_state->block->transactions[chain::config::main_shard_name];
+
          std::vector<transaction_trace_t> traces;
-         traces.reserve( block_state->block->transactions.size() + 1 );
+         traces.reserve( receipts.size() + 1 );
          block_trxs_entry tt;
-         tt.ids.reserve(block_state->block->transactions.size() + 1);
+         tt.ids.reserve(receipts.size() + 1);
          if( onblock_trace )
             traces.emplace_back( to_transaction_trace<transaction_trace_t>( *onblock_trace ));
-         for( const auto& r : block_state->block->transactions ) {
+         for( const auto& r : receipts ) {
             transaction_id_type id;
             if( std::holds_alternative<transaction_id_type>(r.trx)) {
                id = std::get<transaction_id_type>(r.trx);

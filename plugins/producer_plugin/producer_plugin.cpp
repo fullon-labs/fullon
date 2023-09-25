@@ -645,7 +645,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             ilog("Received block ${id}... #${n} @ ${t} signed by ${p} "
                  "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
                  ("p",block->producer)("id",id.str().substr(8,16))("n",blk_num)("t",block->timestamp)
-                 ("count",block->transactions.size())("lib",chain.last_irreversible_block_num())
+                 ("count", block->get_trx_size())("lib",chain.last_irreversible_block_num())
                  ("confs", block->confirmed)("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
                  ("elapsed", br.total_elapsed_time)("time", br.total_time)
                  ("latency", (now - block->timestamp).count()/1000 ) );
@@ -653,7 +653,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
                     "[trxs: ${count}, dpos: ${dpos}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
                     ("p",hbs->block->producer)("id",hbs->id.str().substr(8,16))("n",hbs->block_num)("t",hbs->block->timestamp)
-                    ("count",hbs->block->transactions.size())("dpos", hbs->dpos_irreversible_blocknum)
+                    ("count",hbs->block->get_trx_size())("dpos", hbs->dpos_irreversible_blocknum)
                     ("confs", hbs->block->confirmed)("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
                     ("elapsed", br.total_elapsed_time)("time", br.total_time)
                     ("latency", (now - hbs->block->timestamp).count()/1000 ) );
@@ -2814,15 +2814,15 @@ void producer_plugin_impl::produce_block() {
    _time_tracker.report(_idle_trx_time, new_bs->block_num);
 
    br.total_time += fc::time_point::now() - start;
-
+   auto trx_size = new_bs->block->get_trx_size();
    ++_metrics.blocks_produced.value;
-   _metrics.trxs_produced.value += new_bs->block->transactions.size();
+   _metrics.trxs_produced.value += trx_size;
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
         ("p",new_bs->header.producer)("id",new_bs->id.str().substr(8,16))
         ("n",new_bs->block_num)("t",new_bs->header.timestamp)
-        ("count",new_bs->block->transactions.size())("lib",chain.last_irreversible_block_num())
+        ("count", trx_size)("lib",chain.last_irreversible_block_num())
         ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)
         ("confs", new_bs->header.confirmed));
 }

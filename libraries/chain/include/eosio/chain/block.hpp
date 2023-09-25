@@ -51,6 +51,9 @@ namespace eosio { namespace chain {
       }
    };
 
+   using transaction_receipt_ptr = std::shared_ptr<const transaction_receipt>;
+   using transaction_receipt_map = std::map<name, deque<transaction_receipt>>;
+
    struct additional_block_signatures_extension : fc::reflect_init {
       static constexpr uint16_t extension_id() { return 2; }
       static constexpr bool     enforce_unique() { return true; }
@@ -97,7 +100,14 @@ namespace eosio { namespace chain {
       signed_block& operator=(signed_block&&) = default;
       signed_block clone() const { return *this; }
 
-      deque<transaction_receipt>   transactions; /// new or generated transactions
+      size_t get_trx_size() const {
+         size_t size = 0;
+         for (const auto& receipts : transactions)
+            size += receipts.second.size();
+         return size;
+      }
+
+      transaction_receipt_map transactions; /// new or generated transactions, shard_name -> trx_receipts
       extensions_type               block_extensions;
 
       flat_multimap<uint16_t, block_extension> validate_and_extract_extensions()const;

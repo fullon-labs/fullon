@@ -32,6 +32,8 @@ const static name owner_name      { "owner"_n };
 const static name eosio_any_name  { "gax.any"_n };
 const static name eosio_code_name { "gax.code"_n };
 
+const static name main_shard_name { "main"_n };
+
 const static int      block_interval_ms = 500;
 const static int      block_interval_us = block_interval_ms*1000;
 const static uint64_t block_timestamp_epoch = 946684800000ll; // epoch is year 2000.

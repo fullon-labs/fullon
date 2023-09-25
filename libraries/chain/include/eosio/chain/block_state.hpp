@@ -19,7 +19,7 @@ namespace eosio { namespace chain {
 
       block_state( pending_block_header_state&& cur,
                    signed_block_ptr&& b, // unsigned block
-                   deque<transaction_metadata_ptr>&& trx_metas,
+                   transaction_metadata_map&& trx_metas,
                    const protocol_feature_set& pfs,
                    const std::function<void( block_timestamp_type,
                                              const flat_set<digest_type>&,
@@ -46,22 +46,25 @@ namespace eosio { namespace chain {
 
       deque<transaction_metadata_ptr> extract_trxs_metas() {
          _pub_keys_recovered = false;
-         auto result = std::move( _cached_trxs );
+         deque<transaction_metadata_ptr> result;
+         for (auto& metas : _cached_trxs) {
+            fc::move_append( result, std::move(metas.second) );
+         }
          _cached_trxs.clear();
          return result;
       }
-      void set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered ) {
+      void set_trxs_metas( transaction_metadata_map&& trxs_metas, bool keys_recovered ) {
          _pub_keys_recovered = keys_recovered;
          _cached_trxs = std::move( trxs_metas );
       }
-      const deque<transaction_metadata_ptr>& trxs_metas()const { return _cached_trxs; }
+      const transaction_metadata_map& trxs_metas()const { return _cached_trxs; }
 
       bool                                                validated = false;
 
       bool                                                _pub_keys_recovered = false;
       /// this data is redundant with the data stored in block, but facilitates
       /// recapturing transactions when we pop a block
-      deque<transaction_metadata_ptr>                    _cached_trxs;
+      transaction_metadata_map                    _cached_trxs;
    };
 
    using block_state_ptr = std::shared_ptr<block_state>;
