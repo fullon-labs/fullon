@@ -23,6 +23,8 @@ void deferred_transaction_generation_context::reflector_init() {
       );
 }
 
+chain::shard_name transaction_header::default_shard_name = config::main_shard_name;
+
 void transaction_header::set_reference_block( const block_id_type& reference_block ) {
    ref_block_num    = fc::endian_reverse_u32(reference_block._hash[0]);
    ref_block_prefix = reference_block._hash[1];

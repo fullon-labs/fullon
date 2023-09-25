@@ -59,10 +59,12 @@ namespace eosio { namespace chain {
       uint8_t                    max_cpu_usage_ms    = 0; /// upper limit on the total CPU time billed for this transaction
       fc::unsigned_int           delay_sec           = 0UL; /// number of seconds to delay this transaction for during which it may be canceled.
 
-      eosio::chain::shard_name   shard_name;
-      uint8_t                    shard_type = 0;
+      eosio::chain::shard_name   shard_name          = default_shard_name; // shard name
+      uint8_t                    shard_type          = 0;
 
-      const eosio::chain::shard_name& get_shard_name() const { return shard_name; }
+
+      static chain::shard_name default_shard_name;
+      const chain::shard_name& get_shard_name() const { return shard_name; }
       void set_shard_name(const eosio::chain::shard_name& shard_name) { this->shard_name = shard_name; }
 
       /**
