@@ -2236,11 +2236,13 @@ struct controller_impl {
 
          bool use_bsp_cached = pub_keys_recovered || (skip_auth_checks && existing_trxs_metas);
 
+         // TODO: set max size of shard num?
          std::vector<block_shard_context> shard_contexts;
          shard_contexts.reserve(b->transactions.size());
          for (const auto& trx_receipts_pair :  b->transactions) {
             const auto& shard_name = trx_receipts_pair.first;
             const auto& trx_receipts = trx_receipts_pair.second;
+            // TODO: check trx_receipts.size() > 0
 
             auto& pending_shard = std::get<building_block>(pending->_block_stage).shards[shard_name];
 
@@ -2261,6 +2263,7 @@ struct controller_impl {
                auto trx_receipt = transaction_receipt_ptr( b, &receipt ); // alias signed_block_ptr
                auto& shard_trx = shard_context.trx_metas.emplace_back(std::move(trx_receipt));
 
+               // TODO: delayed transaction can only run in main shard
                if( std::holds_alternative<packed_transaction>(receipt.trx)) {
                   if( use_bsp_cached ) {
                      shard_trx.trx_meta = bsp_caches.at( i );
@@ -2286,9 +2289,8 @@ struct controller_impl {
          std::vector<std::future<bool>> trx_futures;
 
          for (auto& shard_context : shard_contexts) {
-
+            // TODO: how to set shard thread pool size??
             trx_futures.emplace_back(post_async_task( shard_thread_pool.get_executor(), [&shard_context, &bsp, this]() {
-               // for( const auto& receipt : transactions ) {
                auto& pending_receipts = shard_context.pending_shard._pending_trx_receipts;
                for( auto& shard_trx : shard_context.trx_metas ) {
                   const auto& receipt = *shard_trx.trx_receipt;
@@ -2300,6 +2302,7 @@ struct controller_impl {
                                                                   : shard_trx.trx_meta_future.get() );
                      trace = push_transaction( trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
                   } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
+                     // TODO: delayed transaction can only run in main shard
                      trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
                   } else {
                      EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
