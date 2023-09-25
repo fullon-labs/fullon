@@ -7,6 +7,7 @@
 #include <eosio/chain/transaction_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/database_manager.hpp>
 
 #pragma push_macro("N")
 #undef N
@@ -60,9 +61,15 @@ namespace eosio { namespace chain {
    ,trx_type(type)
    ,net_usage(trace->net_usage)
    ,pseudo_start(s)
+   ,share_db(c.mutable_dbm().shared_db())
    {
+      tx_shard_name = packed_trx.get_transaction().get_shard_name();
       if (!c.skip_db_sessions() && !is_read_only()) {
-         undo_session.emplace(c.mutable_db().start_undo_session(true));
+         if( tx_shard_name == "main"_n ){
+            undo_session.emplace(c.mutable_db().start_undo_session(true));
+         }else{
+            undo_session.emplace(c.mutable_dbm().shard_db(tx_shard_name).start_undo_session(true));
+         }   
       }
       trace->id = id;
       trace->block_num = c.head_block_num() + 1;
@@ -792,22 +799,13 @@ namespace eosio { namespace chain {
    } /// record_transaction
 
    void transaction_context::validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const {
-      const auto& db = control.db();
+      const auto& db = tx_shard_name == "main"_n ? control.db() : share_db;
       const auto& auth_manager = control.get_authorization_manager();
 
       if( !trx.context_free_actions.empty() && !control.skip_trx_checks() ) {
-         db_name dname = "main"_n;;
-         //TODO: check transaction shard name == main?
-         // if(trx_context.packed_trx.get_transaction()){
-         //    dname = ;
-         // }
-         const account_object* code;
+         
          for( const auto& a : trx.context_free_actions ) {
-            // if( dname == "main"_n ){
-               code = db.find<account_object, by_name>( a.account );
-            // }else{
-               // code = control.shard_db(dname).find<account_object, by_name>( a.account );
-            // }
+               auto* code = db.find<account_object, by_name>( a.account );
             
             EOS_ASSERT( code != nullptr, transaction_exception,
                         "action's code account '${account}' does not exist", ("account", a.account) );
@@ -820,11 +818,7 @@ namespace eosio { namespace chain {
 
       bool one_auth = false;
       for( const auto& a : trx.actions ) {
-         db_name dname = "main"_n;;
-         //TODO: check transaction shard name == main?
-         // if(trx_context.packed_trx.get_transaction()){
-         //    dname = ;
-         // }
+         
          auto* code = db.find<account_object, by_name>(a.account);
          EOS_ASSERT( code != nullptr, transaction_exception,
                      "action's code account '${account}' does not exist", ("account", a.account) );

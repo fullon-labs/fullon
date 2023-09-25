@@ -132,7 +132,8 @@ namespace eosio { namespace chain {
          std::optional<chainbase::database::session> undo_session;
          transaction_trace_ptr                       trace;
          fc::time_point                              start;
-
+         shard_name                                  tx_shard_name = "main"_n;
+         chainbase::database&                        share_db;
          fc::time_point                published;
 
 

@@ -58,7 +58,7 @@ namespace eosio { namespace chain {
       uint8_t                max_cpu_usage_ms    = 0; /// upper limit on the total CPU time billed for this transaction
       fc::unsigned_int       delay_sec           = 0UL; /// number of seconds to delay this transaction for during which it may be canceled.
 
-      name                   shard_name;
+      name                   shard_name = "main"_n;
       uint8_t                shard_type = 0;
 
       const name& get_shard_name() const { return shard_name; }
