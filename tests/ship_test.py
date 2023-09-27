@@ -15,7 +15,7 @@ from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # ship_test
-# 
+#
 # This test sets up <-p> producing node(s) and <-n - -p>
 #   non-producing node(s). One of the non-producing nodes
 #   is configured with the state_history_plugin.  An instance
@@ -115,7 +115,7 @@ try:
         out.close()
         err.close()
 
-    Print("Shutdown state_history_plugin nodeos")
+    Print("Shutdown state_history_plugin gaxnod")
     shipNode.kill(signal.SIGTERM)
 
     files = None

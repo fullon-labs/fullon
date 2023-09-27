@@ -28,7 +28,7 @@ cluster=Cluster(host="127.0.0.1",walletd=True,unshared=args.unshared)
 
 testSuccessful=False
 
-ClientName="cleos"
+ClientName="gaxcli"
 timeout = .5 * 12 * 2 + 60 # time for finalization with 1 producer + 60 seconds padding
 Utils.setIrreversibleTimeout(timeout)
 

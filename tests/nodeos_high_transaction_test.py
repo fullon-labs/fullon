@@ -10,7 +10,7 @@ from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # nodeos_high_transaction_test
-# 
+#
 # This test sets up <-p> producing node(s) and <-n - -p>
 #   non-producing node(s). The non-producing node will be sent
 #   many transfers.  When it is complete it verifies that all
@@ -62,7 +62,7 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 maxTransactionAttempts = 2            # max number of attempts to try to send a transaction
 maxTransactionAttemptsNoSend = 1      # max number of attempts to try to create a transaction to be sent as a duplicate

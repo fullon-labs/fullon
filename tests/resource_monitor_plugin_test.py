@@ -24,7 +24,7 @@ stderrFile=dataDir + "/stderr.txt"
 
 testNum=0
 
-# We need debug level to get more information about nodeos process
+# We need debug level to get more information about gaxnod process
 logging="""{
   "includes": [],
   "appenders": [{
@@ -74,9 +74,9 @@ def prepareDirectories():
         print(logging,file=textFile)
 
 def runNodeos(extraNodeosArgs, myTimeout):
-    """Startup nodeos, wait for timeout (before forced shutdown) and collect output."""
-    if debug: Print("Launching nodeos process.")
-    cmd="programs/nodeos/nodeos --config-dir rsmStaging/etc -e -p gax --plugin eosio::chain_api_plugin --data-dir " + dataDir + " "
+    """Startup gaxnod, wait for timeout (before forced shutdown) and collect output."""
+    if debug: Print("Launching gaxnod process.")
+    cmd="programs/gaxnod/gaxnod --config-dir rsmStaging/etc -e -p gax --plugin eosio::chain_api_plugin --data-dir " + dataDir + " "
 
     cmd=cmd + extraNodeosArgs
     if debug: Print("cmd: %s" % (cmd))
@@ -105,7 +105,7 @@ def testCommon(title, extraNodeosArgs, expectedMsgs):
 
     prepareDirectories()
 
-    timeout=120  # Leave sufficient time such nodeos can start up fully in any platforms
+    timeout=120  # Leave sufficient time such gaxnod can start up fully in any platforms
     runNodeos(extraNodeosArgs, timeout)
 
     for msg in expectedMsgs:
@@ -146,7 +146,7 @@ def fillFS(dir, threshold):
         filesize = (available - warningAvailable) * 1.1 // (1024 * 1024) # add 0.1 redundancy to ensure warning be triggered
         os.system('dd if=/dev/zero of=' + fillerFile + ' count=' + str(filesize) + ' bs=1M')
 
-testIntervalMaxTimeout = 300 # Assume nodeos at most runs 300 sec for this test
+testIntervalMaxTimeout = 300 # Assume gaxnod at most runs 300 sec for this test
 
 def testInterval(title, extraNodeosArgs, interval, expectedMsgs, warningThreshold):
     global testNum
@@ -156,7 +156,7 @@ def testInterval(title, extraNodeosArgs, interval, expectedMsgs, warningThreshol
     prepareDirectories()
     fillFS(dataDir, warningThreshold)
 
-    timeout = 120 + interval * 2 # Leave sufficient time so nodeos can start up fully in any platforms, and at least two warnings can be output
+    timeout = 120 + interval * 2 # Leave sufficient time so gaxnod can start up fully in any platforms, and at least two warnings can be output
     if timeout > testIntervalMaxTimeout:
         errorExit ("Max timeout for testInterval is %d sec" % (testIntervalMaxTimeout))
     runNodeos(extraNodeosArgs, timeout)

@@ -17,7 +17,7 @@ class TraceApiPluginTest(unittest.TestCase):
     accounts = []
     cluster.setWalletMgr(walletMgr)
 
-    # kill nodeos and keosd and clean up dir
+    # kill gaxnod and gaxkey and clean up dir
     def cleanEnv(self, shouldCleanup: bool) :
         self.cluster.killall(allInstances=True)
         if shouldCleanup:
@@ -26,10 +26,10 @@ class TraceApiPluginTest(unittest.TestCase):
         if shouldCleanup:
             self.walletMgr.cleanup()
 
-    # start keosd and nodeos
+    # start gaxkey and gaxnod
     def startEnv(self) :
         account_names = ["alice", "bob", "charlie"]
-        abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/gax.token/gax.token.abi')
+        abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs = " --trace-rpc-abi gax.token=" + abs_path
         self.cluster.launch(totalNodes=1, extraNodeosArgs=traceNodeosArgs)
         self.walletMgr.launch()

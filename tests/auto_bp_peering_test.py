@@ -9,8 +9,8 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr, ReturnType
 ###############################################################
 # auto_bp_peering_test
 #
-# This test sets up  a cluster with 21 producers nodeos, each nodeos is configured with only one producer and only connects to the bios node.
-# Moreover, each producer nodeos is also configured with a list of p2p-auto-bp-peer so that each one can automatically establish p2p connections to
+# This test sets up  a cluster with 21 producers gaxnod, each gaxnod is configured with only one producer and only connects to the bios node.
+# Moreover, each producer gaxnod is also configured with a list of p2p-auto-bp-peer so that each one can automatically establish p2p connections to
 # their downstream two neighbors based on producer schedule on the chain and tear down the connections which are no longer in the scheduling neighborhood.
 #
 ###############################################################

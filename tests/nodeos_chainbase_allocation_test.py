@@ -45,7 +45,7 @@ try:
     # - permission_object (bootstrap)
     # The bootstrap process has created account_object and code_object (by uploading the bios contract),
     # key_value_object (token creation), protocol_state_object (preactivation feature), and permission_object
-    # (automatically taken care by the automatically generated eosio account)
+    # (automatically taken care by the automatically generated gax account)
     assert cluster.launch(
         pnodes=1,
         prodCount=1,
@@ -61,15 +61,15 @@ try:
     irrNode = cluster.getNode(irrNodeId)
 
     # Create delayed transaction to create "generated_transaction_object"
-    cmd = "create account -j gax sample EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV\
-         EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --delay-sec 600 -p gax"
+    cmd = "create account -j gax sample GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV\
+         GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --delay-sec 600 -p gax"
     trans = producerNode.processCleosCmd(cmd, cmd, silentErrors=False)
     assert trans
 
     # Schedule a new producer to trigger new producer schedule for "global_property_object"
     newProducerAcc = Account("newprod")
-    newProducerAcc.ownerPublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-    newProducerAcc.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+    newProducerAcc.ownerPublicKey = "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+    newProducerAcc.activePublicKey = "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
     producerNode.createAccount(newProducerAcc, cluster.eosioAccount)
 
     setProdsStr = '{"schedule": ['

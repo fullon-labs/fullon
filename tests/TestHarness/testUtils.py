@@ -58,15 +58,15 @@ class Utils:
 
     testBinPath = Path(__file__).resolve().parents[2] / 'bin'
 
-    EosClientPath=str(testBinPath / "cleos")
-    MiscEosClientArgs="--no-auto-keosd"
+    EosClientPath=str(testBinPath / "gaxcli")
+    MiscEosClientArgs="--no-auto-gaxkey"
 
     LeapClientPath=str(testBinPath / "leap-util")
 
-    EosWalletName="keosd"
+    EosWalletName="gaxkey"
     EosWalletPath=str(testBinPath / EosWalletName)
 
-    EosServerName="nodeos"
+    EosServerName="gaxnod"
     EosServerPath=str(testBinPath / EosServerName)
 
     ShuttingDown=False

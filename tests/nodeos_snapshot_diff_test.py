@@ -22,7 +22,7 @@ from TestHarness.testUtils import BlockLogAction
 #  - Create a snapshot from producing node
 #  - Convert snapshot to JSON
 #  - Trim blocklog to head block of snapshot
-#  - Start nodeos in irreversible mode on blocklog
+#  - Start gaxnod in irreversible mode on blocklog
 #  - Generate snapshot and convert to JSON
 #  - Compare JSON snapshot to original snapshot JSON
 #
@@ -56,7 +56,7 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 trxGenLauncher=None
 
@@ -126,7 +126,7 @@ try:
     waitForBlock(node0, blockNum, blockType=BlockType.lib)
 
     Print("Configure and launch txn generators")
-    
+
     targetTpsPerGenerator = 10
     testTrxGenDurationSec=60*30
     cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[account1Name, account2Name],
@@ -158,7 +158,7 @@ try:
     minReqPctLeeway=0.60
     minRequiredTransactions=minReqPctLeeway*transactionsPerBlock
     assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
-    
+
     Print("Create snapshot (node 0)")
     ret = nodeSnap.createSnapshot()
     assert ret is not None, "Snapshot creation failed"

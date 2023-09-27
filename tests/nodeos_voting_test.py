@@ -98,7 +98,7 @@ def verifyProductionRounds(trans, node, prodsActive, rounds):
         prodsSeen={}
         lastBlockProducer=None
         for j in range(0, 21):
-            # each new set of 12 blocks should have a different blockProducer 
+            # each new set of 12 blocks should have a different blockProducer
             if lastBlockProducer is not None and lastBlockProducer==node.getBlockProducerByNum(blockNum):
                 Utils.cmdError("expected blockNum %s to be produced by any of the valid producers except %s" % (blockNum, lastBlockProducer))
                 Utils.errorExit("Failed because of incorrect block producer order")
@@ -154,7 +154,7 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 try:
     TestHelper.printSystemInfo("BEGIN")
@@ -201,7 +201,7 @@ try:
     node3=cluster.getNode(3)
 
     node=node0
-    # create accounts via eosio as otherwise a bid is needed
+    # create accounts via gax as otherwise a bid is needed
     transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))

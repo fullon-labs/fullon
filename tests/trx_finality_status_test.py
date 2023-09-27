@@ -16,7 +16,7 @@ from TestHarness.TestHelper import AppArgs
 #
 #  Test to verify that transaction finality status feature is working
 #  appropriately.
-# 
+#
 #  It sets up a "line" of block producers and non-producing nodes (NPN)
 #  so that a transaction added to the last NPN will have to travel along
 #  the "line" of nodes till it gets in a block which will also have to
@@ -48,10 +48,10 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
 try:
     TestHelper.printSystemInfo("BEGIN")

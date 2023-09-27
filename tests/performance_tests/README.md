@@ -6,7 +6,7 @@ The `performance_test_basic.py` support script performs a single basic performan
 
 The `launch_generators.py` support script provides a means to easily calculate and spawn the number of transaction generator instances to generate a given target TPS, distributing generation load between the instances in a fair manner such that the aggregate load meets the requested test load.
 
-The `log_reader.py` support script is used primarily to analyze `nodeos` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report.
+The `log_reader.py` support script is used primarily to analyze `gaxnod` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
 
 ## Steps
 
-1. Build Leap. For complete instructions on building from source please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source) For older compatible nodeos versions, such as 2.X, the following binaries need to be replaced with the older version: `build/programs/nodeos/nodeos`, `build/programs/cleos/cleos`, `bin/nodeos`, and `bin/cleos`.
+1. Build Leap. For complete instructions on building from source please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source) For older compatible gaxnod versions, such as 2.X, the following binaries need to be replaced with the older version: `build/programs/gaxnod/gaxnod`, `build/programs/gaxcli/gaxcli`, `bin/gaxnod`, and `bin/gaxcli`.
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash
@@ -161,7 +161,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │           │   │   │   ├── blocks.index
                     │           │   │   │   ├── blocks.log
                     │           │   │   │   └── reversible
-                    │           │   │   ├── nodeos.pid
+                    │           │   │   ├── gaxnod.pid
                     │           │   │   ├── snapshots
                     │           │   │   ├── state
                     │           │   │   │   └── shared_memory.bin
@@ -173,7 +173,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │           │   │   │   ├── blocks.index
                     │           │   │   │   ├── blocks.log
                     │           │   │   │   └── reversible
-                    │           │   │   ├── nodeos.pid
+                    │           │   │   ├── gaxnod.pid
                     │           │   │   ├── snapshots
                     │           │   │   ├── state
                     │           │   │   │   └── shared_memory.bin
@@ -190,7 +190,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │           │       │   ├── blocks.log
                     │           │       │   └── reversible
                     │           │       │       └── fork_db.dat
-                    │           │       ├── nodeos.pid
+                    │           │       ├── gaxnod.pid
                     │           │       ├── snapshots
                     │           │       ├── state
                     │           │       │   └── shared_memory.bin
@@ -208,7 +208,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │               ├── config.ini
                     │               ├── default.wallet
                     │               ├── ignition.wallet
-                    │               ├── keosd.sock
+                    │               ├── gaxkey.sock
                     │               └── wallet.lock
                     ├── 2023-02-22_17-06-16-25000
                     ├── 2023-02-22_17-07-47-12500
@@ -242,7 +242,7 @@ Test Helper Arguments:
 * `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all nodeos and keosd instances (default: False)
+* `--clean-run`           Kill all gaxnod and gaxkey instances (default: False)
 
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
@@ -294,7 +294,7 @@ Performance Test Basic Base:
 * `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
                           Toggles if missing transactions are be printed upon test completion. (default: False)
 * `--account-name ACCOUNT_NAME`
-                          Name of the account to create and assign a contract to (default: eosio)
+                          Name of the account to create and assign a contract to (default: gax)
 * `--contract-dir CONTRACT_DIR`
                           Path to contract dir (default: unittests/contracts/eosio.system)
 * `--wasm-file WASM_FILE` WASM file name for contract (default: eosio.system.wasm)
@@ -380,7 +380,7 @@ Test Helper Arguments:
 * `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all nodeos and keosd instances (default: False)
+* `--clean-run`           Kill all gaxnod and gaxkey instances (default: False)
 
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
@@ -431,7 +431,7 @@ Performance Test Basic Base:
 * `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
                           Toggles if missing transactions are be printed upon test completion. (default: False)
 * `--account-name ACCOUNT_NAME`
-                          Name of the account to create and assign a contract to (default: eosio)
+                          Name of the account to create and assign a contract to (default: gax)
 * `--contract-dir CONTRACT_DIR`
                           Path to contract dir (default: unittests/contracts/eosio.system)
 * `--wasm-file WASM_FILE`
@@ -1187,7 +1187,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "_privateKeyNodeosDefault": null,
         "_privateKeyNodeosArg": "--private-key",
         "signatureProvider": null,
-        "_signatureProviderNodeosDefault": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+        "_signatureProviderNodeosDefault": "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
         "_signatureProviderNodeosArg": "--signature-provider",
         "greylistAccount": null,
         "_greylistAccountNodeosDefault": null,
@@ -1274,7 +1274,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "_pluginName": "signature_provider_plugin",
         "keosdProviderTimeout": null,
         "_keosdProviderTimeoutNodeosDefault": 5,
-        "_keosdProviderTimeoutNodeosArg": "--keosd-provider-timeout"
+        "_keosdProviderTimeoutNodeosArg": "--gaxkey-provider-timeout"
       },
       "stateHistoryPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -1331,7 +1331,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "contractDir": "unittests/contracts/eosio.system",
       "wasmFile": "eosio.system.wasm",
       "abiFile": "eosio.system.abi",
-      "account": "Name: eosio"
+      "account": "Name: gax"
     },
     "useBiosBootFile": false,
     "genesisPath": "tests/performance_tests/genesis.json",
@@ -1386,7 +1386,7 @@ The Performance Test Basic generates, by default, a report that details results 
 
 <details>
     <summary>Expand for full sample report</summary>
-    
+
 ``` json
 {
   "completedRun": true,
@@ -1771,7 +1771,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "_privateKeyNodeosDefault": null,
         "_privateKeyNodeosArg": "--private-key",
         "signatureProvider": null,
-        "_signatureProviderNodeosDefault": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+        "_signatureProviderNodeosDefault": "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
         "_signatureProviderNodeosArg": "--signature-provider",
         "greylistAccount": null,
         "_greylistAccountNodeosDefault": null,
@@ -1858,7 +1858,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "_pluginName": "signature_provider_plugin",
         "keosdProviderTimeout": null,
         "_keosdProviderTimeoutNodeosDefault": 5,
-        "_keosdProviderTimeoutNodeosArg": "--keosd-provider-timeout"
+        "_keosdProviderTimeoutNodeosArg": "--gaxkey-provider-timeout"
       },
       "stateHistoryPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -1915,7 +1915,7 @@ The Performance Test Basic generates, by default, a report that details results 
       "contractDir": "unittests/contracts/eosio.system",
       "wasmFile": "eosio.system.wasm",
       "abiFile": "eosio.system.abi",
-      "account": "Name: eosio"
+      "account": "Name: gax"
     },
     "useBiosBootFile": false,
     "genesisPath": "tests/performance_tests/genesis.json",
