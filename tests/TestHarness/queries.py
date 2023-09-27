@@ -275,14 +275,16 @@ class NodeosQueries:
             raise
 
         if transactions is not None:
-            for trans in transactions:
-                assert(trans)
-                try:
-                    myTransId=trans["trx"]["id"]
-                    if transId == myTransId:
-                        return True
-                except (TypeError, KeyError) as _:
-                    Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
+            for shard, trxs in transactions.items():
+                assert( len(shard) >= 2 )
+                for trans in trxs:
+                    assert(trans)
+                    try:
+                        myTransId=trans["trx"]["id"]
+                        if transId == myTransId:
+                            return True
+                    except (TypeError, KeyError) as _:
+                        Utils.Print("transaction%s not found. Shard: %s, Transaction: %s" % (key, shard, trans))
 
         return False
 
