@@ -71,9 +71,9 @@ class PerformanceTestBasic:
 
         @dataclass
         class SpecifiedContract:
-            contractDir: str = "unittests/contracts/gax.system"
-            wasmFile: str = "gax.system.wasm"
-            abiFile: str = "gax.system.abi"
+            contractDir: str = "unittests/contracts/eosio.system"
+            wasmFile: str = "eosio.system.wasm"
+            abiFile: str = "eosio.system.abi"
             account: Account = Account("gax")
 
         pnodes: int = 1
@@ -559,9 +559,9 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
         ptbBaseParserGroup.add_argument("--print-missing-transactions", help="Toggles if missing transactions are be printed upon test completion.", action='store_true')
         ptbBaseParserGroup.add_argument("--account-name", type=str, help="Name of the account to create and assign a contract to", default="gax")
-        ptbBaseParserGroup.add_argument("--contract-dir", type=str, help="Path to contract dir", default="unittests/contracts/gax.system")
-        ptbBaseParserGroup.add_argument("--wasm-file", type=str, help="WASM file name for contract", default="gax.system.wasm")
-        ptbBaseParserGroup.add_argument("--abi-file", type=str, help="ABI file name for contract", default="gax.system.abi")
+        ptbBaseParserGroup.add_argument("--contract-dir", type=str, help="Path to contract dir", default="unittests/contracts/eosio.system")
+        ptbBaseParserGroup.add_argument("--wasm-file", type=str, help="WASM file name for contract", default="eosio.system.wasm")
+        ptbBaseParserGroup.add_argument("--abi-file", type=str, help="ABI file name for contract", default="eosio.system.abi")
         ptbBaseParserGroup.add_argument("--user-trx-data-file", type=str, help="Path to transaction data JSON file")
         ptbBaseParserGroup.add_argument("--wasm-runtime", type=str, help="Override default WASM runtime (\"eos-vm-jit\", \"eos-vm\")\
                                          \"eos-vm-jit\" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to\

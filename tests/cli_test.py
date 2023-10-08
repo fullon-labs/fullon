@@ -153,7 +153,7 @@ def processCleosCommand(cmd):
 def cleos_abi_file_test():
     """Test option --abi-file """
     token_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-    system_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/gax.system/gax.system.abi')
+    system_abi_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.system/eosio.system.abi')
     token_abi_file_arg = 'gax.token' + ':' + token_abi_path
     system_abi_file_arg = 'gax' + ':' + system_abi_path
 

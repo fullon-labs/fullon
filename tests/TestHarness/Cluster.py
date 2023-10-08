@@ -1196,7 +1196,7 @@ class Cluster(object):
                 return None
             return trans
 
-        systemAccounts = ['gax.bpay', 'gax.msig', 'gax.names', 'gax.ram', 'gax.ramfee', 'gax.saving', 'gax.stake', 'gax.token', 'gax.vpay', 'gax.wrap']
+        systemAccounts = ['gax.bpay', 'gax.msig', 'gax.names', 'gax.ram', 'gax.ramfee', 'gax.saving', 'gax.stake', 'gax.token', 'gax.vpay', 'gax.wrap', 'gax.rex']
         acctTrans = list(map(createSystemAccount, systemAccounts))
 
         for trans in acctTrans:
@@ -1265,7 +1265,7 @@ class Cluster(object):
             return None
 
         if loadSystemContract:
-            contract="gax.system"
+            contract="eosio.system"
             contractDir=str(self.unittestsContractsPath / contract)
             wasmFile="%s.wasm" % (contract)
             abiFile="%s.abi" % (contract)
