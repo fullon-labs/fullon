@@ -12,7 +12,7 @@ import sys
 ###############################################################
 # nodeos_run_test
 #
-# General test that tests a wide range of general use actions around nodeos and keosd
+# General test that tests a wide range of general use actions around gaxnod and gaxkey
 #
 ###############################################################
 
@@ -51,7 +51,7 @@ killWallet=not dontKill
 dontBootstrap=sanityTest # intent is to limit the scope of the sanity test to just verifying that nodes can be started
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 timeout = .5 * 12 * 2 + 60 # time for finalization with 1 producer + 60 seconds padding
 Utils.setIrreversibleTimeout(timeout)
 
@@ -66,7 +66,7 @@ try:
         cluster.cleanup()
         Print("Stand up cluster")
 
-        abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/gax.token/gax.token.abi')
+        abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi gax.token=" + abs_path
         specificNodeosInstances={0: "bin/gaxnod"}
         if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs, specificNodeosInstances=specificNodeosInstances) is False:
@@ -312,9 +312,9 @@ try:
     if hashNum != 0:
         errorExit("FAILURE - get code currency1111 failed", raw=True)
 
-    contractDir="unittests/contracts/gax.token"
-    wasmFile="gax.token.wasm"
-    abiFile="gax.token.abi"
+    contractDir="unittests/contracts/eosio.token"
+    wasmFile="eosio.token.wasm"
+    abiFile="eosio.token.abi"
     Print("Publish contract")
     trans=node.publishContract(currencyAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
     if trans is None:

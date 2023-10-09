@@ -9,7 +9,7 @@ from TestHarness.TestHelper import AppArgs
 # light_validation_sync_test
 #
 # Test message sync for light validation mode.
-# 
+#
 # This test creates a producer node and a light validation node.
 # Pushes a transaction with context free data to the producer
 # node and check the pushed transaction can be synched to
@@ -51,8 +51,8 @@ try:
     # Create a transaction to create an account
     Utils.Print("create a new account payloadless from the producer node")
     payloadlessAcc = Account("payloadless")
-    payloadlessAcc.ownerPublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-    payloadlessAcc.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+    payloadlessAcc.ownerPublicKey = "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+    payloadlessAcc.activePublicKey = "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
     producerNode.createAccount(payloadlessAcc, cluster.eosioAccount)
 
 
@@ -67,20 +67,20 @@ try:
           "actor": "payloadless", "permission": "active"}], "data": ""}],
         "context_free_actions": [{"account": "payloadless", "name": "doit", "data": ""}],
         "context_free_data": ["a1b2c3", "1a2b3c"],
-    } 
+    }
 
     cmd = "push transaction '{}' -p payloadless".format(json.dumps(trx))
     trans = producerNode.processCleosCmd(cmd, cmd, silentErrors=False)
     assert trans, "Failed to push transaction with context free data"
-    
+
     cfTrxBlockNum = int(trans["processed"]["block_num"])
     cfTrxId = trans["transaction_id"]
 
-    # Wait until the block where create account is executed to become irreversible 
+    # Wait until the block where create account is executed to become irreversible
     def isBlockNumIrr():
         return validationNode.getIrreversibleBlockNum() >= cfTrxBlockNum
     Utils.waitForBool(isBlockNumIrr, timeout=30, sleepTime=0.1)
-    
+
     Utils.Print("verify the account payloadless from validation node")
     cmd = "get account -j payloadless"
     trans = validationNode.processCleosCmd(cmd, cmd, silentErrors=False)

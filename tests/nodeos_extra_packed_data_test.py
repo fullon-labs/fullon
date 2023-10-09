@@ -10,7 +10,7 @@ from TestHarness.TestHelper import AppArgs
 ###############################################################
 # nodeos_run_test
 #
-# General test that tests a wide range of general use actions around nodeos and keosd
+# General test that tests a wide range of general use actions around gaxnod and gaxkey
 #
 ###############################################################
 
@@ -50,7 +50,7 @@ killWallet=not dontKill
 dontBootstrap=sanityTest # intent is to limit the scope of the sanity test to just verifying that nodes can be started
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 timeout = .5 * 12 * 2 + 60 # time for finalization with 1 producer + 60 seconds padding
 Utils.setIrreversibleTimeout(timeout)
 

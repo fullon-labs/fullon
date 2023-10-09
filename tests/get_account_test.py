@@ -7,7 +7,7 @@ from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletM
 ###############################################################
 # get_account_test
 #
-# integration test for cleos get account
+# integration test for gaxcli get account
 #
 ###############################################################
 
@@ -44,7 +44,7 @@ cluster=Cluster(walletd=True,unshared=args.unshared)
 
 walletMgr=WalletMgr(True)
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
 try:
     if dontLaunch: # run test against remote cluster
@@ -59,7 +59,7 @@ try:
         walletMgr.cleanup()
         print("Stand up walletd")
         if walletMgr.launch() is False:
-            errorExit("Failed to stand up keosd.")
+            errorExit("Failed to stand up gaxkey.")
         else:
             cluster.killall(allInstances=killAll)
             cluster.cleanup()

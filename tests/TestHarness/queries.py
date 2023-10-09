@@ -147,7 +147,7 @@ class NodeosQueries:
 
     @staticmethod
     def getRetryCmdArg(retry):
-        """Returns the cleos cmd arg for retry"""
+        """Returns the gaxcli cmd arg for retry"""
         assert retry is None or isinstance(retry, int) or (isinstance(retry, str) and retry == "lib"), "Invalid retry passed"
         cmdRetry = ""
         if retry is not None:
@@ -275,14 +275,16 @@ class NodeosQueries:
             raise
 
         if transactions is not None:
-            for trans in transactions:
-                assert(trans)
-                try:
-                    myTransId=trans["trx"]["id"]
-                    if transId == myTransId:
-                        return True
-                except (TypeError, KeyError) as _:
-                    Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
+            for shard, trxs in transactions.items():
+                assert( len(shard) >= 2 )
+                for trans in trxs:
+                    assert(trans)
+                    try:
+                        myTransId=trans["trx"]["id"]
+                        if transId == myTransId:
+                            return True
+                    except (TypeError, KeyError) as _:
+                        Utils.Print("transaction%s not found. Shard: %s, Transaction: %s" % (key, shard, trans))
 
         return False
 
@@ -465,7 +467,7 @@ class NodeosQueries:
         msg="key=%s" % (key);
         return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
 
-    # Get actions mapped to an account (cleos get actions)
+    # Get actions mapped to an account (gaxcli get actions)
     def getActions(self, account, pos=-1, offset=-1, exitOnError=False):
         assert(isinstance(account, Account))
         assert(isinstance(pos, int))
@@ -496,7 +498,7 @@ class NodeosQueries:
         return servants
 
     def getAccountEosBalanceStr(self, scope):
-        """Returns SYS currency0000 account balance from cleos get table command. Returned balance is string following syntax "98.0311 SYS". """
+        """Returns SYS currency0000 account balance from gaxcli get table command. Returned balance is string following syntax "98.0311 SYS". """
         assert isinstance(scope, str)
         amount=self.getTableAccountBalance("gax.token", scope)
         if Utils.Debug: Utils.Print("getNodeAccountEosBalance %s %s" % (scope, amount))
@@ -504,7 +506,7 @@ class NodeosQueries:
         return amount
 
     def getAccountEosBalance(self, scope):
-        """Returns SYS currency0000 account balance from cleos get table command. Returned balance is an integer e.g. 980311. """
+        """Returns SYS currency0000 account balance from gaxcli get table command. Returned balance is an integer e.g. 980311. """
         balanceStr=self.getAccountEosBalanceStr(scope)
         balance=NodeosQueries.currencyStrToInt(balanceStr)
         return balance
@@ -680,7 +682,7 @@ class NodeosQueries:
         return False if info is None else True
 
     def getHeadBlockNum(self):
-        """returns head block number(string) as returned by cleos get info."""
+        """returns head block number(string) as returned by gaxcli get info."""
         info = self.getInfo(exitOnError=True)
         if info is not None:
             headBlockNumTag = "head_block_num"

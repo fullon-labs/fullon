@@ -12,7 +12,7 @@ from TestHarness.Node import BlockType
 
 ###############################################################
 # block_log_util_test
-#  Test verifies that the blockLogUtil is still compatible with nodeos
+#  Test verifies that the blockLogUtil is still compatible with gaxnod
 ###############################################################
 
 Print=Utils.Print
@@ -47,7 +47,7 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 try:
     TestHelper.printSystemInfo("BEGIN")

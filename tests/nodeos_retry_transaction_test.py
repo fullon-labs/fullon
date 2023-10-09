@@ -10,7 +10,7 @@ from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # nodeos_retry_transaction_test
-# 
+#
 # This test sets up 3 producing nodes and 4 non-producing
 #   nodes; 2 API nodes and 2 relay nodes. The API nodes will be
 #   sent many transfers.  When it is complete it verifies that
@@ -65,7 +65,7 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 try:
     TestHelper.printSystemInfo("BEGIN")

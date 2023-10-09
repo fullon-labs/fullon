@@ -12,7 +12,7 @@ from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # nodeos_forked_chain_test
-# 
+#
 # This test sets up 2 producing nodes and one "bridge" node using test_control_api_plugin.
 #   One producing node has 11 of the elected producers and the other has 10 of the elected producers.
 #   All the producers are named in alphabetical order, so that the 11 producers, in the one production node, are
@@ -150,7 +150,7 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 try:
     TestHelper.printSystemInfo("BEGIN")
@@ -230,7 +230,7 @@ try:
     # ***   delegate bandwidth to accounts   ***
 
     node=prodNodes[0]
-    # create accounts via eosio as otherwise a bid is needed
+    # create accounts via gax as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
         trans=node.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=True, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
@@ -558,12 +558,12 @@ try:
         Print("Fork has not resolved yet, wait a little more. Block %s has producer %s for node_00 and %s for node_01.  Original divergence was at block %s. Wait time remaining: %d" % (checkMatchBlock, blockProducer0, blockProducer1, killBlockNum, remainingChecks))
         time.sleep(1)
         remainingChecks-=1
-    
+
     assert forkResolved, "fork was not resolved in a reasonable time. node_00 lib {} head {} node_01 lib {} head {}".format(
-                                                                                  prodNodes[0].getIrreversibleBlockNum(), 
-                                                                                          prodNodes[0].getHeadBlockNum(), 
-                                                                                                          prodNodes[1].getIrreversibleBlockNum(), 
-                                                                                                                 prodNodes[1].getHeadBlockNum()) 
+                                                                                  prodNodes[0].getIrreversibleBlockNum(),
+                                                                                          prodNodes[0].getHeadBlockNum(),
+                                                                                                          prodNodes[1].getIrreversibleBlockNum(),
+                                                                                                                 prodNodes[1].getHeadBlockNum())
 
     for prodNode in prodNodes:
         info=prodNode.getInfo()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Unit tests to ensure that nodeos log scraping and evaluation behavior from log_reader.py does not change
-# Also ensures that all versions of nodeos logs can be handled
+# Unit tests to ensure that gaxnod log scraping and evaluation behavior from log_reader.py does not change
+# Also ensures that all versions of gaxnod logs can be handled
 import log_reader
 
 from pathlib import Path

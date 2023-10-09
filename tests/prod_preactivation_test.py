@@ -45,7 +45,7 @@ killWallet=not dontKill
 dontBootstrap=sanityTest
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 try:
     TestHelper.printSystemInfo("BEGIN prod_preactivation_test.py")
@@ -98,7 +98,7 @@ try:
     Print("found digest ", digest, " of PREACTIVATE_FEATURE")
 
     node0 = cluster.getNode(0)
-    contract="gax.bios"
+    contract="eosio.bios"
     contractDir="libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/%s" % (contract)
     wasmFile="%s.wasm" % (contract)
     abiFile="%s.abi" % (contract)

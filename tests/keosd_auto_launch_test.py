@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-# This script tests that cleos launches keosd automatically when keosd is not
+# This script tests that gaxcli launches gaxkey automatically when gaxkey is not
 # running yet.
 
 import subprocess
 
 
 def run_cleos_wallet_command(command: str, no_auto_keosd: bool):
-    """Run the given cleos command and return subprocess.CompletedProcess."""
-    args = ['./programs/cleos/cleos']
+    """Run the given gaxcli command and return subprocess.CompletedProcess."""
+    args = ['./programs/gaxcli/gaxcli']
 
     if no_auto_keosd:
-        args.append('--no-auto-keosd')
+        args.append('--no-auto-gaxkey')
 
     args += 'wallet', command
 
@@ -22,7 +22,7 @@ def run_cleos_wallet_command(command: str, no_auto_keosd: bool):
 
 
 def stop_keosd():
-    """Stop the default keosd instance."""
+    """Stop the default gaxkey instance."""
     run_cleos_wallet_command('stop', no_auto_keosd=True)
 
 
@@ -36,16 +36,16 @@ def keosd_auto_launch_test():
     """Test that keos auto-launching works but can be optionally inhibited."""
     stop_keosd()
 
-    # Make sure that when '--no-auto-keosd' is given, keosd is not started by
-    # cleos.
+    # Make sure that when '--no-auto-gaxkey' is given, gaxkey is not started by
+    # gaxcli.
     completed_process = run_cleos_wallet_command('list', no_auto_keosd=True)
     assert completed_process.returncode != 0
-    check_cleos_stderr(completed_process.stderr, b'Failed http request to keosd')
+    check_cleos_stderr(completed_process.stderr, b'Failed http request to gaxkey')
 
-    # Verify that keosd auto-launching works.
+    # Verify that gaxkey auto-launching works.
     completed_process = run_cleos_wallet_command('list', no_auto_keosd=False)
     if completed_process.returncode != 0:
-        raise RuntimeError("Expected that keosd would be started, "
+        raise RuntimeError("Expected that gaxkey would be started, "
                            "but got an error instead: {}".format(
                                completed_process.stderr.decode()))
     check_cleos_stderr(completed_process.stderr, b'launched')

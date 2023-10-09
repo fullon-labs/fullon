@@ -290,7 +290,8 @@ namespace impl {
              std::is_same<T, action_trace>::value ||
              std::is_same<T, signed_transaction>::value ||
              std::is_same<T, signed_block>::value ||
-             std::is_same<T, action>::value;
+             std::is_same<T, action>::value ||
+             std::is_same<T, std::pair<name, deque<transaction_receipt>>>::value;
    }
 
    /**
@@ -384,6 +385,25 @@ namespace impl {
          }
          mvo(name, std::move(array));
       }
+
+      /**
+      * template which overloads add for map of types which contain ABI information in their trees
+      * for these members we call ::add in order to trigger further processing
+      */
+      template<typename K, typename M, typename Resolver, require_abi_t<M> = 1>
+      static void add( mutable_variant_object &mvo, const char* name, const map<K, M>& v, Resolver resolver, abi_traverse_context& ctx )
+      {
+         auto h = ctx.enter_scope();
+         mutable_variant_object map_mvo;
+         for (const auto& iter: v) {
+            mutable_variant_object elem_mvo;
+            add(elem_mvo, "_", iter.second, resolver, ctx);
+            // K must has to_string() function
+            map_mvo(iter.first.to_string(), std::move(elem_mvo["_"]));
+         }
+         mvo(name, std::move(map_mvo));
+      }
+
       /**
        * template which overloads add for shared_ptr of types which contain ABI information in their trees
        * for these members we call ::add in order to trigger further processing
@@ -767,6 +787,23 @@ namespace impl {
          }
       }
 
+
+      /**
+       * template which overloads extract for deque of types which contain ABI information in their trees
+       * for these members we call ::extract in order to trigger further processing
+       */
+      template<typename K, typename M, typename Resolver, require_abi_t<M> = 1>
+      static void extract( const fc::variant& v, map<K, M>& o, Resolver resolver, abi_traverse_context& ctx )
+      {
+         auto h = ctx.enter_scope();
+         const variant_object& vo = v.get_object();
+         o.clear();
+         for( auto itr = vo.begin(); itr != vo.end(); ++itr ) {
+            std::pair<K, M> o_iter = std::make_pair<K, M>( K(itr->key()), M() );
+            extract(itr->value(), o_iter.second, resolver, ctx);
+            o.insert( std::move(o_iter));
+         }
+      }
 
       /**
        * template which overloads extract for shared_ptr of types which contain ABI information in their trees

@@ -82,7 +82,7 @@ try:
     for clusterNode in cluster.nodes:
         clusterNode.kill(signal.SIGTERM)
     cluster.biosNode.kill(signal.SIGTERM)
-    Print("All nodeos instances killed.")
+    Print("All gaxnod instances killed.")
 
     # Remove both state and blocks such that no replay happens
     Print("Remove producer node's state and blocks directories")
@@ -91,7 +91,7 @@ try:
     Utils.rmNodeDataDir(2)
 
     Print ("Relaunch all cluster nodes instances.")
-    # -e -p eosio for resuming production, skipGenesis=False for launch the same chain as before
+    # -e -p gax for resuming production, skipGenesis=False for launch the same chain as before
     relaunchNode(producingNode, chainArg="-e -p gax --sync-fetch-span 5 ", skipGenesis=False)
     relaunchNode(speculativeNode1, chainArg="--sync-fetch-span 5 ")
     relaunchNode(speculativeNode2, chainArg="--sync-fetch-span 5 ", skipGenesis=False)

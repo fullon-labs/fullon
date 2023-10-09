@@ -13,7 +13,7 @@ from TestHarness.Node import BlockType
 #  Test to verify that programmable snapshot functionality is
 #  working appropriately when forks occur
 #
-#  Setup involves constructing bridge-mode node topology and 
+#  Setup involves constructing bridge-mode node topology and
 #  killing a "bridge" node
 #
 ###############################################################
@@ -41,12 +41,12 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 snapshotScheduleDB = "snapshot-schedule.json"
 
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
 def waitForBlock(node, blockNum, blockType=BlockType.head, timeout=None, reportInterval=20):
         if not node.waitForBlock(blockNum, timeout=timeout, blockType=blockType, reportInterval=reportInterval):
@@ -133,7 +133,7 @@ try:
 
     # ***   Schedule snapshot, it should become pending
     prodAB.scheduleSnapshot()
-      
+
     # ***   Killing the "bridge" node   ***
     Print("Sending command to kill \"bridge\" node to separate the 2 producer groups.")
     # kill at the beginning of the production window for defproducera, so there is time for the fork for
@@ -152,7 +152,7 @@ try:
         Print("Wait for next block")
         assert prodAB.waitForNextBlock(timeout=6), "Production node AB should continue to advance, even after bridge node is killed"
         count -= 1
-   
+
     # schedule a snapshot that should get finalized
     prodC.scheduleSnapshot()
 
@@ -163,7 +163,7 @@ try:
         assert "state" in status, \
             f"ERROR: getTransactionStatus returned a status object that didn't have a \"state\" field. state: {json.dumps(status, indent=1)}"
         return status["state"]
-   
+
     assert prodC.waitForNextBlock(), "Production node C should continue to advance, even after bridge node is killed"
 
     Print("Relaunching the non-producing bridge node to connect the nodes")
@@ -173,7 +173,7 @@ try:
     Print("Wait for LIB to move, which indicates prodC has forked out the branch")
     assert prodC.waitForLibToAdvance(60), \
         "ERROR: Network did not reach consensus after bridge node was restarted."
- 
+
     for prodNode in prodNodes:
         info=prodNode.getInfo()
         Print(f"node info: {json.dumps(info, indent=1)}")
@@ -181,7 +181,7 @@ try:
     assert prodC.waitForProducer("defproducerc"), \
         f"Waiting for prodC to produce, but it never happened" + \
         f"\n\nprod AB info: {json.dumps(prodAB.getInfo(), indent=1)}\n\nprod C info: {json.dumps(prodC.getInfo(), indent=1)}"
-    
+
     blockNum=prodC.getBlockNum(BlockType.head) + 1
     waitForBlock(prodC, blockNum + 1, blockType=BlockType.lib)
 

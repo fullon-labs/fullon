@@ -8,7 +8,7 @@ from TestHarness.Cluster import NamedAccounts
 ###############################################################
 # nodeos_under_min_avail_ram
 #
-# Sets up 4 producing nodes using --chain-state-db-guard-size-mb and --chain-state-db-size-mb to verify that nodeos will
+# Sets up 4 producing nodes using --chain-state-db-guard-size-mb and --chain-state-db-size-mb to verify that gaxnod will
 # shutdown safely when --chain-state-db-guard-size-mb is reached and restarts the shutdown nodes, with a higher
 # --chain-state-db-size-mb size, to verify that the node can restart and continue till the guard is reached again. The
 # test both verifies all nodes going down and 1 node at a time.
@@ -34,7 +34,7 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 try:
     TestHelper.printSystemInfo("BEGIN")
@@ -80,7 +80,7 @@ try:
     for account in accounts:
         walletMgr.importKey(account, testWallet)
 
-    # create accounts via eosio as otherwise a bid is needed
+    # create accounts via gax as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
         trans=nodes[0].createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=500000, waitForTransBlock=True, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
@@ -131,11 +131,11 @@ try:
                 if trans is None or not trans[0]:
                     timeOutCount+=1
                     if timeOutCount>=3:
-                        Print("Failed to push create action to eosio contract for %d consecutive times, looks like nodeos already exited." % (timeOutCount))
+                        Print("Failed to push create action to gax contract for %d consecutive times, looks like gaxnod already exited." % (timeOutCount))
                         keepProcessing=False
                         break
 
-                    Print("Failed to push create action to eosio contract. sleep for 5 seconds")
+                    Print("Failed to push create action to gax contract. sleep for 5 seconds")
                     count-=1 # failed attempt shouldn't be counted
                     time.sleep(5)
                 else:
@@ -148,7 +148,7 @@ try:
     #spread the actions to all accounts, to use each accounts tps bandwidth
     fromIndexStart=fromIndex+1 if fromIndex+1<namedAccounts.numAccounts else 0
 
-    # min and max are subjective, just assigned to make sure that many small changes in nodeos don't 
+    # min and max are subjective, just assigned to make sure that many small changes in gaxnod don't
     # result in the test not correctly validating behavior
     if count < 5 or count > 20:
         strMsg="little" if count < 20 else "much"
@@ -215,7 +215,7 @@ try:
             count+=1
             fromIndex=fromIndexStart+fromIndexOffset
             if fromIndex>=namedAccounts.numAccounts:
-                fromIndex-=namedAccounts.numAccounts 
+                fromIndex-=namedAccounts.numAccounts
             toIndex=fromIndex+1
             if toIndex==namedAccounts.numAccounts:
                 toIndex=0
@@ -226,7 +226,7 @@ try:
             try:
                 trans=nodes[count % numNodes].pushMessage(contract, action, data, opts)
                 if trans is None or not trans[0]:
-                    Print("Failed to push create action to eosio contract. sleep for 60 seconds")
+                    Print("Failed to push create action to gax contract. sleep for 60 seconds")
                     time.sleep(60)
                 time.sleep(1)
             except TypeError as ex:
@@ -273,7 +273,7 @@ try:
            break
         fromIndex=fromIndexStart+fromIndexOffset
         if fromIndex>=namedAccounts.numAccounts:
-            fromIndex-=namedAccounts.numAccounts 
+            fromIndex-=namedAccounts.numAccounts
         toIndex=fromIndex+1
         if toIndex==namedAccounts.numAccounts:
             toIndex=0
@@ -285,7 +285,7 @@ try:
         try:
             trans=node.pushMessage(contract, action, data, opts)
             if trans is None or not trans[0]:
-                Print("Failed to push create action to eosio contract. sleep for 60 seconds")
+                Print("Failed to push create action to gax contract. sleep for 60 seconds")
                 time.sleep(60)
                 continue
             time.sleep(1)

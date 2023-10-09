@@ -126,7 +126,7 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="cleos"
+ClientName="gaxcli"
 
 try:
     TestHelper.printSystemInfo("BEGIN")
@@ -374,12 +374,12 @@ try:
         Print("Fork has not resolved yet, wait a little more. Block %s has producer %s for node_00 and %s for node_01.  Original divergence was at block %s. Wait time remaining: %d" % (checkMatchBlock, blockProducer0, blockProducer1, killBlockNum, remainingChecks))
         time.sleep(1)
         remainingChecks-=1
-    
+
     assert forkResolved, "fork was not resolved in a reasonable time. node_00 lib {} head {} node_01 lib {} head {}".format(
-                                                                                  prodNodes[0].getIrreversibleBlockNum(), 
-                                                                                          prodNodes[0].getHeadBlockNum(), 
-                                                                                                          prodNodes[1].getIrreversibleBlockNum(), 
-                                                                                                                 prodNodes[1].getHeadBlockNum()) 
+                                                                                  prodNodes[0].getIrreversibleBlockNum(),
+                                                                                          prodNodes[0].getHeadBlockNum(),
+                                                                                                          prodNodes[1].getIrreversibleBlockNum(),
+                                                                                                                 prodNodes[1].getHeadBlockNum())
 
     for prodNode in prodNodes:
         info=prodNode.getInfo()
