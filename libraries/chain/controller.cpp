@@ -1314,7 +1314,10 @@ struct controller_impl {
 
       transaction_checktime_timer trx_timer(timer);
       const packed_transaction trx( std::move( etrx ) );
-      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), start );
+      shard_name sname = trx.get_transaction().get_shard_name();
+      auto& shard_db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
+      auto& shared_db = dbm.shared_db();
+      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), shard_db, shared_db, start );
 
       if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
          dm_logger->on_onerror(etrx);
@@ -1485,7 +1488,10 @@ struct controller_impl {
       uint32_t cpu_time_to_bill_us = billed_cpu_time_us;
 
       transaction_checktime_timer trx_timer( timer );
-      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer) );
+      shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
+      auto& shard_db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
+      auto& shared_db = dbm.shared_db();
+      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), shard_db, shared_db );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
       trx_context.max_transaction_time_subjective = max_transaction_time;
@@ -1701,7 +1707,10 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
-         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), start, trx->get_trx_type());
+         shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
+         auto& shard_db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
+         auto& shared_db = dbm.shared_db();
+         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), shard_db, shared_db, start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }

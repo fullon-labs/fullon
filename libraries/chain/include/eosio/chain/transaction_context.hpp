@@ -39,6 +39,8 @@ namespace eosio { namespace chain {
                               const packed_transaction& t,
                               const transaction_id_type& trx_id, // trx_id diff than t.id() before replace_deferred
                               transaction_checktime_timer&& timer,
+                              chainbase::database&          shard_db, //block shards db
+                              chainbase::database&          shared_db,//shards sharing db
                               fc::time_point start = fc::time_point::now(),
                               transaction_metadata::trx_type type = transaction_metadata::trx_type::input);
          ~transaction_context();
@@ -132,8 +134,9 @@ namespace eosio { namespace chain {
          std::optional<chainbase::database::session> undo_session;
          transaction_trace_ptr                       trace;
          fc::time_point                              start;
-         shard_name                                  tx_shard_name = "main"_n;
-         chainbase::database&                        share_db;
+         shard_name                                  tx_shard_name = config::main_shard_name;
+         chainbase::database&                        shard_db;
+         chainbase::database&                        shared_db;
          fc::time_point                published;
 
 

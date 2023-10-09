@@ -32,10 +32,12 @@ static inline void print_debug(account_name receiver, const action_trace& ar) {
    }
 }
 
-apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, uint32_t depth)
+apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, chainbase::database& shard_db, chainbase::database& shared_db,uint32_t depth)
 :control(con)
-,db(trx_ctx.tx_shard_name == "main"_n ? con.mutable_db() : con.mutable_dbm().shard_db(trx_ctx.tx_shard_name))
+,db(shard_db)
 ,trx_context(trx_ctx)
+,tx_shard_name(trx_ctx.tx_shard_name)
+,shared_db(shared_db)
 ,recurse_depth(depth)
 ,first_receiver_action_ordinal(action_ordinal)
 ,action_ordinal(action_ordinal)
@@ -44,8 +46,6 @@ apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint
 ,idx256(*this)
 ,idx_double(*this)
 ,idx_long_double(*this)
-,tx_shard_name(trx_ctx.tx_shard_name)
-,share_db(con.mutable_dbm().shared_db())
 {
    action_trace& trace = trx_ctx.get_action_trace(action_ordinal);
    act = &trace.act;
@@ -74,8 +74,7 @@ void apply_context::exec_one()
       try {
          action_return_value.clear();
          
-         auto& qdb = tx_shard_name == "main"_n ? db : share_db;
-         receiver_account = &qdb.get<account_metadata_object,by_name>( receiver );
+         receiver_account = &shared_db.get<account_metadata_object,by_name>( receiver );
          
          if( !(context_free && control.skip_trx_checks()) ) {
             privileged = receiver_account->is_privileged();
@@ -103,7 +102,7 @@ void apply_context::exec_one()
                   control.get_wasm_interface().apply( receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version, *this );
                } catch( const wasm_exit& ) {}
             }
-
+            
             if( !privileged && control.is_builtin_activated( builtin_protocol_feature_t::ram_restrictions ) ) {
                const size_t checktime_interval = 10;
                size_t counter = 0;
@@ -169,9 +168,8 @@ void apply_context::exec_one()
    const account_metadata_object* first_receiver_account = nullptr;
    if( act->account == receiver ) {
       first_receiver_account = receiver_account;
-   } else {
-      auto& qdb = tx_shard_name == "main"_n ? db : share_db;   
-      first_receiver_account = &qdb.get<account_metadata_object, by_name>(act->account);
+   } else {   
+      first_receiver_account = &shared_db.get<account_metadata_object, by_name>(act->account);
    }
 
    r.code_sequence    = first_receiver_account->code_sequence; // could be modified by action execution above
@@ -231,14 +229,12 @@ void apply_context::exec()
 } /// exec()
 
 bool apply_context::is_account( const account_name& account )const {
-   auto& qdb = tx_shard_name == "main"_n ? db : share_db;
-   return nullptr != qdb.find<account_object,by_name>( account );
+   return nullptr != db.find<account_object,by_name>( account );
 }
 
 void apply_context::get_code_hash(
    account_name account, uint64_t& code_sequence, fc::sha256& code_hash, uint8_t& vm_type, uint8_t& vm_version) const {
-   auto& qdb = tx_shard_name == "main"_n ? db : share_db;
-   auto obj = qdb.find<account_metadata_object,by_name>(account);
+   auto obj = db.find<account_metadata_object,by_name>(account);
    if(!obj || obj->code_hash == fc::sha256{}) {
       if(obj)
          code_sequence = obj->code_sequence;
@@ -320,8 +316,7 @@ void apply_context::require_recipient( account_name recipient ) {
  *   can better understand the security risk.
  */
 void apply_context::execute_inline( action&& a ) {
-   auto& qdb = tx_shard_name == "main"_n ? db : share_db;
-   auto* code = qdb.find<account_object, by_name>(a.account);
+   auto* code = db.find<account_object, by_name>(a.account);
    EOS_ASSERT( code != nullptr, action_validate_exception,
                "inline action's code account ${account} does not exist", ("account", a.account) );
 
@@ -338,8 +333,7 @@ void apply_context::execute_inline( action&& a ) {
    }
 
    for( const auto& auth : a.authorization ) {
-      auto& qdb = tx_shard_name == "main"_n ? db : share_db;
-      auto* actor = qdb.find<account_object, by_name>(auth.actor);
+      auto* actor = db.find<account_object, by_name>(auth.actor);
       EOS_ASSERT( actor != nullptr, action_validate_exception,
                   "inline action's authorizing actor ${account} does not exist", ("account", auth.actor) );
       EOS_ASSERT( control.get_authorization_manager().find_permission(auth) != nullptr, action_validate_exception,
@@ -410,8 +404,7 @@ void apply_context::execute_inline( action&& a ) {
 }
 
 void apply_context::execute_context_free_inline( action&& a ) {
-   auto& qdb = tx_shard_name == "main"_n ? db : share_db;
-   auto* code = qdb.find<account_object, by_name>(a.account);
+   auto* code = db.find<account_object, by_name>(a.account);
    EOS_ASSERT( code != nullptr, action_validate_exception,
                "inline action's code account ${account} does not exist", ("account", a.account) );
 

@@ -491,7 +491,7 @@ class apply_context {
 
    /// Constructor
    public:
-      apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, uint32_t depth=0);
+      apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, chainbase::database& shard_db, chainbase::database& shared_db,uint32_t depth=0);
 
    /// Execution methods:
    public:
@@ -604,8 +604,8 @@ class apply_context {
       controller&                   control;
       chainbase::database&          db;  ///< database where state is stored
       transaction_context&          trx_context; ///< transaction context in which the action is running
-      shard_name                    tx_shard_name = "main"_n;
-      chainbase::database&          share_db;
+      shard_name                    tx_shard_name = config::main_shard_name;
+      chainbase::database&          shared_db;
    private:
       const action*                 act = nullptr; ///< action being applied
       // act pointer may be invalidated on call to trx_context.schedule_action

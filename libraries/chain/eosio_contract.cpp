@@ -32,19 +32,13 @@ uint128_t transaction_id_to_sender_id( const transaction_id_type& tid ) {
 
 void validate_authority_precondition( const apply_context& context, const authority& auth ) {
    for(const auto& a : auth.accounts) {
-      if(context.tx_shard_name == "main"_n){
-         auto* acct = context.db.find<account_object, by_name>(a.permission.actor);
-         EOS_ASSERT( acct != nullptr, action_validate_exception,
-                     "account '${account}' does not exist",
-                     ("account", a.permission.actor)
-                  );
-      }else{
-         auto* acct = context.share_db.find<account_object, by_name>(a.permission.actor);
-         EOS_ASSERT( acct != nullptr, action_validate_exception,
-                     "account '${account}' does not exist",
-                     ("account", a.permission.actor)
-                  ); 
-      }
+      
+      auto* acct = context.db.find<account_object, by_name>(a.permission.actor);
+      EOS_ASSERT( acct != nullptr, action_validate_exception,
+                  "account '${account}' does not exist",
+                  ("account", a.permission.actor)
+               );
+                  
       if( a.permission.permission == config::owner_name || a.permission.permission == config::active_name )
          continue; // account was already checked to exist, so its owner and active permissions should exist
 
@@ -72,6 +66,7 @@ void validate_authority_precondition( const apply_context& context, const author
  *  This method is called assuming precondition_system_newaccount succeeds a
  */
 void apply_gax_newaccount(apply_context& context) {
+   EOS_ASSERT( context.tx_shard_name == config::main_shard_name, action_validate_exception, "newaccount not allowed in sub shards");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "newaccount not allowed in read-only transaction" );
    auto create = context.get_action().data_as<newaccount>();
    try {
@@ -82,7 +77,7 @@ void apply_gax_newaccount(apply_context& context) {
    EOS_ASSERT( validate(create.owner), action_validate_exception, "Invalid owner authority");
    EOS_ASSERT( validate(create.active), action_validate_exception, "Invalid active authority");
 
-   auto& db = context.tx_shard_name == "main"_n ? context.db : context.share_db;
+   auto& db = context.db;
 
    auto name_str = name(create.name).to_string();
 

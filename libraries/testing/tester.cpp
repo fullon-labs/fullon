@@ -244,6 +244,7 @@ namespace eosio { namespace testing {
             schedule_preactivate_protocol_feature();
             produce_block();
             set_before_producer_authority_bios_contract();
+            produce_block();
             preactivate_all_builtin_protocol_features();
             produce_block();
             set_bios_contract();
