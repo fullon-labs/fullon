@@ -27,6 +27,8 @@ enum class trx_enum_type {
    incoming_p2p = 4 // incoming_end() needs to be updated if this changes
 };
 
+using trx_enum_type_dump = fc::enum_type<uint8_t,trx_enum_type>;
+
 using next_func_t = std::function<void(const std::variant<fc::exception_ptr, transaction_trace_ptr>&)>;
 
 struct unapplied_transaction {
@@ -38,7 +40,8 @@ struct unapplied_transaction {
    const transaction_id_type& id()const { return trx_meta->id(); }
    fc::time_point_sec expiration()const { return trx_meta->packed_trx()->expiration(); }
 
-   unapplied_transaction(const unapplied_transaction&) = delete;
+   // unapplied_transaction(const unapplied_transaction&) = delete;
+   unapplied_transaction(const unapplied_transaction&) = default; // TODO: delete instead
    unapplied_transaction() = delete;
    unapplied_transaction& operator=(const unapplied_transaction&) = delete;
    unapplied_transaction(unapplied_transaction&&) = default;
@@ -176,6 +179,20 @@ public:
       }
    }
 
+   void add_trx( unapplied_transaction&& trx ) {
+      auto itr = queue.get<by_trx_id>().find( trx.trx_meta->id() );
+      if( itr == queue.get<by_trx_id>().end() ) {
+         auto insert_itr = queue.insert( std::move(trx) );
+         if( insert_itr.second ) added( insert_itr.first );
+      } else {
+         if( itr->trx_meta == trx.trx_meta ) return; // same trx meta pointer
+         if( trx.next ) {
+            trx.next( std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
+                  FC_LOG_MESSAGE( info, "duplicate transaction ${id}", ("id", itr->trx_meta->id()) ) ) ) );
+         }
+      }
+   }
+
    using iterator = unapplied_trx_queue_type::index<by_type>::type::iterator;
 
    iterator begin() { return queue.get<by_type>().begin(); }
@@ -231,3 +248,6 @@ private:
 };
 
 } } //eosio::chain
+
+
+FC_REFLECT_ENUM( eosio::chain::trx_enum_type, (unknown)(forked)(aborted)(incoming_api)(incoming_p2p) )

@@ -156,7 +156,7 @@ BOOST_AUTO_TEST_CASE(producer) {
       const size_t num_pushes = 4242;
       for( size_t i = 1; i <= num_pushes; ++i ) {
          auto ptrx = make_unique_trx( chain_id );
-         dlog( "posting ${id}", ("id", ptrx->id()) );
+         dlog( "posting[${i}] ${id}", ("i", i)("id", ptrx->id()) );
          app->post( priority::low, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &trxs, &app]() {
             ++num_posts;
             bool return_failure_traces = num_posts % 2;
