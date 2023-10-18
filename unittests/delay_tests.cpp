@@ -2281,6 +2281,7 @@ BOOST_AUTO_TEST_CASE( max_transaction_delay_execute ) { try {
    const auto& tester_account = "tester"_n;
 
    chain.create_account("gax.token"_n);
+   chain.produce_block();
    chain.set_code("gax.token"_n, test_contracts::eosio_token_wasm());
    chain.set_abi("gax.token"_n, test_contracts::eosio_token_abi().data());
 

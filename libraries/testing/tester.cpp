@@ -216,12 +216,14 @@ namespace eosio { namespace testing {
             schedule_preactivate_protocol_feature();
             produce_block();
             set_before_producer_authority_bios_contract();
+            produce_block();
             break;
          }
          case setup_policy::old_wasm_parser: {
             schedule_preactivate_protocol_feature();
             produce_block();
             set_before_producer_authority_bios_contract();
+            produce_block();
             preactivate_builtin_protocol_features({
                builtin_protocol_feature_t::only_link_to_existing_permission,
                builtin_protocol_feature_t::replace_deferred,
@@ -1154,6 +1156,7 @@ namespace eosio { namespace testing {
    void base_tester::set_bios_contract() {
       set_code(config::system_account_name, contracts::eosio_bios_wasm());
       set_abi(config::system_account_name, contracts::eosio_bios_abi().data());
+      produce_block();
    }
 
 

@@ -142,6 +142,7 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    c.produce_blocks(30);
 
    auto r2 = c.create_accounts( {"gax.token"_n} );
+   c.produce_block();
    wdump((fc::json::to_pretty_string(r2)));
    c.set_code( "gax.token"_n, test_contracts::eosio_token_wasm() );
    c.set_abi( "gax.token"_n, test_contracts::eosio_token_abi().data() );
@@ -176,7 +177,7 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    c.produce_blocks(3);
    signed_block_ptr b;
    b = c.produce_block();
-   account_name expected_producer = "dan"_n;
+   account_name expected_producer = "sam"_n;//because produce a block before
    BOOST_REQUIRE_EQUAL( b->producer.to_string(), expected_producer.to_string() );
 
    b = c.produce_block();
@@ -584,7 +585,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
    c.produce_blocks(3);
    signed_block_ptr b;
    cb = b = c.produce_block();
-   account_name expected_producer = "dan"_n;
+   account_name expected_producer = "sam"_n;
    BOOST_REQUIRE_EQUAL( b->producer.to_string(), expected_producer.to_string() );
 
    b = c.produce_block();

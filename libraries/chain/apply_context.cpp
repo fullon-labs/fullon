@@ -1055,15 +1055,14 @@ uint64_t apply_context::next_recv_sequence( const account_metadata_object& recei
       // To avoid confusion of duplicated receive sequence number, hard code to be 0.
       return 0;
    } else {
-      db.modify( receiver_account, [&]( auto& ra ) {
+      shared_db.modify( receiver_account, [&]( auto& ra ) {
          ++ra.recv_sequence;
       });
       return receiver_account.recv_sequence;
    }
 }
 uint64_t apply_context::next_auth_sequence( account_name actor ) {
-   auto& qdb = tx_shard_name == "main"_n ? control.mutable_db() : control.mutable_dbm().shared_db();
-   const auto& amo = qdb.get<account_metadata_object,by_name>( actor );
+   const auto& amo = db.get<account_metadata_object,by_name>( actor );
    db.modify( amo, [&](auto& am ){
       ++am.auth_sequence;
    });

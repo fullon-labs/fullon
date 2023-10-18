@@ -35,9 +35,11 @@ BOOST_AUTO_TEST_SUITE(payloadless_tests)
 BOOST_FIXTURE_TEST_CASE( test_doit, payloadless_tester ) {
    
    create_accounts( {"payloadless"_n} );
+   produce_block();
    set_code( "payloadless"_n, test_contracts::payloadless_wasm() );
+   produce_block();
    set_abi( "payloadless"_n, test_contracts::payloadless_abi().data() );
-
+   produce_block();
    auto trace = push_action("payloadless"_n, "doit"_n, "payloadless"_n, mutable_variant_object());
    auto msg = trace->action_traces.front().console;
    BOOST_CHECK_EQUAL(msg == "Im a payloadless action", true);
@@ -48,9 +50,10 @@ BOOST_FIXTURE_TEST_CASE( test_doit, payloadless_tester ) {
 BOOST_FIXTURE_TEST_CASE( test_abi_serializer, payloadless_tester ) {
 
    create_accounts( {"payloadless"_n} );
+   produce_block();
    set_code( "payloadless"_n, test_contracts::payloadless_wasm() );
    set_abi( "payloadless"_n, test_contracts::payloadless_abi().data() );
-
+   produce_block();
    fc::variant pretty_trx = fc::mutable_variant_object()
       ("actions", fc::variants({
          fc::mutable_variant_object()

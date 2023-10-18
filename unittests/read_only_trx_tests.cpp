@@ -2,6 +2,7 @@
 #include <boost/test/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
 #include <eosio/chain/global_property_object.hpp>
+#include <eosio/chain/database_manager.hpp>
 #include <fc/variant_object.hpp>
 #include <test_contracts.hpp>
 
@@ -25,6 +26,7 @@ struct read_only_trx_tester : TESTER {
 
    void set_up_test_contract() {
       create_accounts( {"noauthtable"_n, "alice"_n} );
+      produce_block();
       set_code( "noauthtable"_n, test_contracts::no_auth_table_wasm() );
       set_abi( "noauthtable"_n, test_contracts::no_auth_table_abi().data() );
       produce_block();
@@ -307,8 +309,8 @@ BOOST_FIXTURE_TEST_CASE(sequence_numbers_test, read_only_trx_tester) { try {
    set_up_test_contract();
 
    const auto& p = control->get_dynamic_global_properties();
-   auto receiver_account = control->db().find<account_metadata_object,by_name>("noauthtable"_n);
-   auto amo = control->db().find<account_metadata_object,by_name>("alice"_n);
+   auto receiver_account = control->dbm().shared_db().find<account_metadata_object,by_name>("noauthtable"_n);
+   auto amo = control->dbm().shared_db().find<account_metadata_object,by_name>("alice"_n);
 
    // verify sequence numbers in state increment for non-read-only transactions
    auto prev_global_action_sequence = p.global_action_sequence;
@@ -316,6 +318,7 @@ BOOST_FIXTURE_TEST_CASE(sequence_numbers_test, read_only_trx_tester) { try {
    auto prev_auth_sequence = amo->auth_sequence;
 
    auto res = send_db_api_transaction("insert"_n, insert_data);
+   produce_block();
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
 
    BOOST_CHECK_EQUAL( prev_global_action_sequence + 1, p.global_action_sequence );

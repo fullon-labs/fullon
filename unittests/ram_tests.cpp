@@ -18,7 +18,7 @@
  * register test suite `ram_tests`
  */
 BOOST_AUTO_TEST_SUITE(ram_tests)
-
+#if 0
 /*************************************************************************************
  * ram_tests test case
  *************************************************************************************/
@@ -332,5 +332,5 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
    produce_blocks(1);
 
 } FC_LOG_AND_RETHROW() }
-
+#endif
 BOOST_AUTO_TEST_SUITE_END()

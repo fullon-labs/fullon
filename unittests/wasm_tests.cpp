@@ -224,6 +224,7 @@ BOOST_FIXTURE_TEST_CASE( f32_tests, TESTER ) try {
    produce_blocks(2);
    produce_block();
    create_accounts( {"f32.tests"_n} );
+   produce_block();
    {
       set_code("f32.tests"_n, f32_test_wast);
       produce_blocks(10);
@@ -575,7 +576,7 @@ BOOST_FIXTURE_TEST_CASE( entry_import, TESTER ) try {
    produce_block();
 
    set_code("enterimport"_n, entry_import_wast);
-
+   produce_block();
    signed_transaction trx;
    action act;
    act.account = "enterimport"_n;
