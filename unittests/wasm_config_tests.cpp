@@ -1020,22 +1020,23 @@ BOOST_FIXTURE_TEST_CASE(reset_chain_tests, wasm_config_tester) {
          ++member;
       }
    };
-   // check_minimal(min_params.max_mutable_global_bytes);
-   // check_minimal(min_params.max_table_elements);
-   // check_minimal(min_params.max_section_elements);
-   // check_minimal(min_params.max_func_local_bytes);
-   // check_minimal(min_params.max_linear_memory_init);
-   // check_minimal(min_params.max_nested_structures);
-   // check_minimal(min_params.max_symbol_bytes);
-   // check_minimal(min_params.max_module_bytes);
-   // check_minimal(min_params.max_code_bytes);
-   // check_minimal(min_params.max_pages);
-   // check_minimal(min_params.max_call_depth);
-
+   check_minimal(min_params.max_mutable_global_bytes);
+   check_minimal(min_params.max_table_elements);
+   check_minimal(min_params.max_section_elements);
+   check_minimal(min_params.max_func_local_bytes);
+   check_minimal(min_params.max_linear_memory_init);
+   check_minimal(min_params.max_nested_structures);
+   check_minimal(min_params.max_symbol_bytes);
+   check_minimal(min_params.max_module_bytes);
+   check_minimal(min_params.max_code_bytes);
+   check_minimal(min_params.max_pages);
+   check_minimal(min_params.max_call_depth);
+   // TODO: eos-vm system failure may timeout.
    // set_wasm_params(min_params);
    produce_block();
 
    // Reset parameters and system contract
+   //TODO:repair with before together.
    // {
    //    signed_transaction trx;
    //    auto make_setcode = [](const std::vector<uint8_t>& code) {

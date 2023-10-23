@@ -24,6 +24,7 @@ BOOST_AUTO_TEST_CASE( irrblock ) try {
    tester c;
    c.produce_blocks(10);
    auto r = c.create_accounts( {"dan"_n,"sam"_n,"pam"_n,"scott"_n} );
+   c.produce_block();
    auto res = c.set_producers( {"dan"_n,"sam"_n,"pam"_n,"scott"_n} );
 
    wlog("set producer schedule to [dan,sam,pam]");
@@ -185,6 +186,7 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    BOOST_REQUIRE_EQUAL( b->producer.to_string(), expected_producer.to_string() );
    c.produce_blocks(10);
    c.create_accounts( {"cam"_n} );
+   c.produce_block();
    c.set_producers( {"dan"_n,"sam"_n,"pam"_n,"cam"_n} );
    wlog("set producer schedule to [dan,sam,pam,cam]");
    c.produce_block();
@@ -289,6 +291,7 @@ BOOST_AUTO_TEST_CASE( prune_remove_branch ) try {
       c.produce_block();
    }
    auto r = c.create_accounts( {"dan"_n,"sam"_n,"pam"_n,"scott"_n} );
+   c.produce_block();
    auto res = c.set_producers( {"dan"_n,"sam"_n,"pam"_n,"scott"_n} );
    wlog("set producer schedule to [dan,sam,pam,scott]");
    c.produce_blocks(50);
@@ -298,8 +301,8 @@ BOOST_AUTO_TEST_CASE( prune_remove_branch ) try {
    push_blocks(c, c2);
 
    // fork happen after block 61
-   BOOST_REQUIRE_EQUAL(61u, c.control->head_block_num());
-   BOOST_REQUIRE_EQUAL(61u, c2.control->head_block_num());
+   BOOST_REQUIRE_EQUAL(62u, c.control->head_block_num());
+   BOOST_REQUIRE_EQUAL(62u, c2.control->head_block_num());
 
    uint32_t fork_num = c.control->head_block_num();
 
@@ -325,8 +328,8 @@ BOOST_AUTO_TEST_CASE( prune_remove_branch ) try {
       else ++skip2;
    }
 
-   BOOST_REQUIRE_EQUAL(87u, c.control->head_block_num());
-   BOOST_REQUIRE_EQUAL(73u, c2.control->head_block_num());
+   BOOST_REQUIRE_EQUAL(88u, c.control->head_block_num());
+   BOOST_REQUIRE_EQUAL(74u, c2.control->head_block_num());
 
    // push fork from c2 => c
    size_t p = fork_num;
@@ -336,7 +339,7 @@ BOOST_AUTO_TEST_CASE( prune_remove_branch ) try {
       c.push_block(fb);
    }
 
-   BOOST_REQUIRE_EQUAL(73u, c.control->head_block_num());
+   BOOST_REQUIRE_EQUAL(74u, c.control->head_block_num());
 
 } FC_LOG_AND_RETHROW()
 
@@ -593,6 +596,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
    BOOST_REQUIRE_EQUAL( b->producer.to_string(), expected_producer.to_string() );
    c.produce_blocks(10);
    c.create_accounts( {"cam"_n} );
+   c.produce_block();
    c.set_producers( {"dan"_n,"sam"_n,"pam"_n,"cam"_n} );
    wlog("set producer schedule to [dan,sam,pam,cam]");
    c.produce_block();

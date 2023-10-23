@@ -333,7 +333,7 @@ BOOST_AUTO_TEST_CASE( blacklist_eosio ) { try {
    }
 } FC_LOG_AND_RETHROW() }
 #if 0
-//TODO: CDT modify
+//TODO: error push_scheduled_transaction out_of_range map::at
 BOOST_AUTO_TEST_CASE( deferred_blacklist_failure ) { try {
    whitelist_blacklist_tester<tester> tester1;
    tester1.init();

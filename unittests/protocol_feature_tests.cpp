@@ -372,7 +372,7 @@ BOOST_AUTO_TEST_CASE( subjective_restrictions_test ) try {
    BOOST_CHECK( c.control->is_builtin_activated( builtin_protocol_feature_t::only_link_to_existing_permission ) );
 } FC_LOG_AND_RETHROW()
 #if 0 
-//TODO: CDT NEED TO BE MODIFIED 
+//TODO: error push_scheduled_transaction out_of_range map::at 
 BOOST_AUTO_TEST_CASE( replace_deferred_test ) try {
    tester c( setup_policy::preactivate_feature_and_new_bios );
 
@@ -797,6 +797,7 @@ BOOST_AUTO_TEST_CASE( disallow_empty_producer_schedule_test ) { try {
    // Setting non empty producer schedule should still be fine
    vector<name> producer_names = {"alice"_n,"bob"_n,"carol"_n};
    c.create_accounts( producer_names );
+   c.produce_block();
    c.set_producers_legacy( producer_names );
    c.produce_blocks(2);
    const auto& schedule = c.get_producer_authorities( producer_names );
@@ -825,21 +826,21 @@ BOOST_AUTO_TEST_CASE( restrict_action_to_self_test ) { try {
    // - Sending inline action to self from notification = throw subjective exception
    // - Sending deferred trx to self from notification = throw subjective exception
    BOOST_CHECK_NO_THROW( c.push_action( "testacc"_n, "sendinline"_n, "alice"_n, mutable_variant_object()("authorizer", "alice")) );
-   //TODO: MODIFY CDT TX STRUCTURE
-   // BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "senddefer"_n, "alice"_n,
-   //                                         mutable_variant_object()("authorizer", "alice")("senderid", 0)),
-   //                          subjective_block_production_exception,
-   //                          fc_exception_message_starts_with( "Authorization failure with sent deferred transaction" ) );
+
+   BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "senddefer"_n, "alice"_n,
+                                           mutable_variant_object()("authorizer", "alice")("senderid", 0)),
+                            subjective_block_production_exception,
+                            fc_exception_message_starts_with( "Authorization failure with sent deferred transaction" ) );
 
    BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "notifyinline"_n, "alice"_n,
                                         mutable_variant_object()("acctonotify", "acctonotify")("authorizer", "alice")),
                             subjective_block_production_exception,
                             fc_exception_message_starts_with( "Authorization failure with inline action sent to self" ) );
 
-   // BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "notifydefer"_n, "alice"_n,
-   //                                         mutable_variant_object()("acctonotify", "acctonotify")("authorizer", "alice")("senderid", 1)),
-   //                          subjective_block_production_exception,
-   //                          fc_exception_message_starts_with( "Authorization failure with sent deferred transaction" ) );
+   BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "notifydefer"_n, "alice"_n,
+                                           mutable_variant_object()("acctonotify", "acctonotify")("authorizer", "alice")("senderid", 1)),
+                            subjective_block_production_exception,
+                            fc_exception_message_starts_with( "Authorization failure with sent deferred transaction" ) );
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
@@ -849,20 +850,20 @@ BOOST_AUTO_TEST_CASE( restrict_action_to_self_test ) { try {
                             unsatisfied_authorization,
                             fc_exception_message_starts_with( "transaction declares authority" ) );
 
-   // BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "senddefer"_n, "alice"_n,
-   //                                         mutable_variant_object()("authorizer", "alice")("senderid", 3)),
-   //                          unsatisfied_authorization,
-   //                          fc_exception_message_starts_with( "transaction declares authority" ) );
+   BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "senddefer"_n, "alice"_n,
+                                           mutable_variant_object()("authorizer", "alice")("senderid", 3)),
+                            unsatisfied_authorization,
+                            fc_exception_message_starts_with( "transaction declares authority" ) );
 
    BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "notifyinline"_n, "alice"_n,
                                            mutable_variant_object()("acctonotify", "acctonotify")("authorizer", "alice") ),
                             unsatisfied_authorization,
                             fc_exception_message_starts_with( "transaction declares authority" ) );
 
-   // BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "notifydefer"_n, "alice"_n,
-   //                                         mutable_variant_object()("acctonotify", "acctonotify")("authorizer", "alice")("senderid", 4)),
-   //                          unsatisfied_authorization,
-   //                          fc_exception_message_starts_with( "transaction declares authority" ) );
+   BOOST_REQUIRE_EXCEPTION( c.push_action( "testacc"_n, "notifydefer"_n, "alice"_n,
+                                           mutable_variant_object()("acctonotify", "acctonotify")("authorizer", "alice")("senderid", 4)),
+                            unsatisfied_authorization,
+                            fc_exception_message_starts_with( "transaction declares authority" ) );
 
 } FC_LOG_AND_RETHROW() }
 
@@ -1162,7 +1163,7 @@ BOOST_AUTO_TEST_CASE( ram_restrictions_test ) { try {
       subjective_block_production_exception,
       fc_exception_message_is( "Cannot charge RAM to other accounts during notify." )
    );
-   #if 0
+   #if 1
    // Cannot send deferred transaction paid by another account that has not authorized the action.
    BOOST_REQUIRE_EXCEPTION(
       c.push_action( tester1_account, "senddefer"_n, bob_account, mutable_variant_object()
@@ -1176,18 +1177,18 @@ BOOST_AUTO_TEST_CASE( ram_restrictions_test ) { try {
    // Cannot send deferred transaction paid by another account within a notification
    // even if the account authorized the original action.
    // This is due to the subjective mitigation in place.
-   // BOOST_REQUIRE_EXCEPTION(
-   //    c.push_action( tester2_account, "notifydefer"_n, alice_account, mutable_variant_object()
-   //       ("acctonotify", tester1_account)
-   //       ("senderid", 123)
-   //       ("payer", alice_account)
-   //    ),
-   //    subjective_block_production_exception,
-   //    fc_exception_message_is( "Cannot charge RAM to other accounts during notify." )
-   // );
+   BOOST_REQUIRE_EXCEPTION(
+      c.push_action( tester2_account, "notifydefer"_n, alice_account, mutable_variant_object()
+         ("acctonotify", tester1_account)
+         ("senderid", 123)
+         ("payer", alice_account)
+      ),
+      subjective_block_production_exception,
+      fc_exception_message_is( "Cannot charge RAM to other accounts during notify." )
+   );
 
    // Can send deferred transaction paid by another account if it has authorized the action.
-   //TODO: NEED TO MODIFY CDT
+   //TODO: error push_scheduled_transaction out_of_range map::at
    // c.push_action( tester1_account, "senddefer"_n, alice_account, mutable_variant_object()
    //    ("senderid", 123)
    //    ("payer", alice_account)
@@ -1261,27 +1262,27 @@ BOOST_AUTO_TEST_CASE( ram_restrictions_test ) { try {
 
    // Cannot send deferred transaction paid by another account that has not authorized the action.
    // This still fails objectively, but now with another error message.
-   // BOOST_REQUIRE_EXCEPTION(
-   //    c.push_action( tester1_account, "senddefer"_n, bob_account, mutable_variant_object()
-   //       ("senderid", 123)
-   //       ("payer", alice_account)
-   //    ),
-   //    action_validate_exception,
-   //    fc_exception_message_starts_with( "cannot bill RAM usage of deferred transaction to another account that has not authorized the action" )
-   // );
+   BOOST_REQUIRE_EXCEPTION(
+      c.push_action( tester1_account, "senddefer"_n, bob_account, mutable_variant_object()
+         ("senderid", 123)
+         ("payer", alice_account)
+      ),
+      action_validate_exception,
+      fc_exception_message_starts_with( "cannot bill RAM usage of deferred transaction to another account that has not authorized the action" )
+   );
 
    // Cannot send deferred transaction paid by another account within a notification
    // even if the account authorized the original action.
    // This now fails with an objective error.
-   // BOOST_REQUIRE_EXCEPTION(
-   //    c.push_action( tester2_account, "notifydefer"_n, alice_account, mutable_variant_object()
-   //       ("acctonotify", tester1_account)
-   //       ("senderid", 123)
-   //       ("payer", alice_account)
-   //    ),
-   //    action_validate_exception,
-   //    fc_exception_message_is( "cannot bill RAM usage of deferred transactions to another account within notify context" )
-   // );
+   BOOST_REQUIRE_EXCEPTION(
+      c.push_action( tester2_account, "notifydefer"_n, alice_account, mutable_variant_object()
+         ("acctonotify", tester1_account)
+         ("senderid", 123)
+         ("payer", alice_account)
+      ),
+      action_validate_exception,
+      fc_exception_message_is( "cannot bill RAM usage of deferred transactions to another account within notify context" )
+   );
 
    // Cannot bill more RAM to another account within a notification
    // even if the account authorized the original action.
@@ -1308,7 +1309,7 @@ BOOST_AUTO_TEST_CASE( ram_restrictions_test ) { try {
       unauthorized_ram_usage_increase,
       fc_exception_message_starts_with( "unprivileged contract cannot increase RAM usage of another account that has not authorized the action" )
    );
-
+   //TODO: error push_scheduled_transaction out_of_range map::at
    // Still can send deferred transaction paid by another account if it has authorized the action.
    // c.push_action( tester1_account, "senddefer"_n, alice_account, mutable_variant_object()
    //    ("senderid", 123)
@@ -1375,8 +1376,8 @@ BOOST_AUTO_TEST_CASE( webauthn_producer ) { try {
 
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
-
-   c.push_action(config::system_account_name, "setprods"_n, config::system_account_name, fc::mutable_variant_object()("schedule", waprodsched));
+   //TODO: deal old bios contracts v1.7.0
+   // c.push_action(config::system_account_name, "setprods"_n, config::system_account_name, fc::mutable_variant_object()("schedule", waprodsched));
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE( webauthn_create_account ) { try {

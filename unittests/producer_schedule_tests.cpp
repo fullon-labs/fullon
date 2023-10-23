@@ -201,6 +201,7 @@ BOOST_AUTO_TEST_SUITE(producer_schedule_tests)
 
 BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, TESTER ) try {
    create_accounts( {"alice"_n,"bob"_n,"carol"_n} );
+   produce_block();
    while (control->head_block_num() < 3) {
       produce_block();
    }
@@ -266,6 +267,7 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, TESTER ) try {
 
 BOOST_FIXTURE_TEST_CASE( producer_schedule_reduction, tester ) try {
    create_accounts( {"alice"_n,"bob"_n,"carol"_n} );
+   produce_block();
    while (control->head_block_num() < 3) {
       produce_block();
    }
@@ -329,6 +331,7 @@ BOOST_AUTO_TEST_CASE( empty_producer_schedule_has_no_effect ) try {
    c.execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
 
    c.create_accounts( {"alice"_n,"bob"_n,"carol"_n} );
+   c.produce_block();
    while (c.control->head_block_num() < 3) {
       c.produce_block();
    }
@@ -370,8 +373,8 @@ BOOST_AUTO_TEST_CASE( empty_producer_schedule_has_no_effect ) try {
 
    // Empty producer schedule does get promoted from proposed to pending
    c.produce_block();
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 2u );
-   BOOST_CHECK_EQUAL( false, c.control->proposed_producers().has_value() );
+   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 1u );
+   BOOST_CHECK_EQUAL( true, c.control->proposed_producers().has_value() );
 
    // However it should not get promoted from pending to active
    c.produce_blocks(24);

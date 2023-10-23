@@ -587,52 +587,6 @@ namespace eosio { namespace testing {
       return push_transaction( trx );
    }
    
-   transaction_trace_ptr base_tester::create_account_on_subshard( account_name a, account_name creator, bool multisig, bool include_code ){
-      signed_transaction trx;
-      trx.set_shard_name("shard1"_n);
-      set_transaction_headers(trx);
-
-      authority owner_auth;
-      if( multisig ) {
-         // multisig between account's owner key and creators active permission
-         owner_auth = authority(2, {key_weight{get_public_key( a, "owner" ), 1}}, {permission_level_weight{{creator, config::active_name}, 1}});
-      } else {
-         owner_auth =  authority( get_public_key( a, "owner" ) );
-      }
-
-      authority active_auth( get_public_key( a, "active" ) );
-
-      auto sort_permissions = []( authority& auth ) {
-         std::sort( auth.accounts.begin(), auth.accounts.end(),
-                    []( const permission_level_weight& lhs, const permission_level_weight& rhs ) {
-                        return lhs.permission < rhs.permission;
-                    }
-                  );
-      };
-
-      if( include_code ) {
-         FC_ASSERT( owner_auth.threshold <= std::numeric_limits<weight_type>::max(), "threshold is too high" );
-         FC_ASSERT( active_auth.threshold <= std::numeric_limits<weight_type>::max(), "threshold is too high" );
-         owner_auth.accounts.push_back( permission_level_weight{ {a, config::eosio_code_name},
-                                                                 static_cast<weight_type>(owner_auth.threshold) } );
-         sort_permissions(owner_auth);
-         active_auth.accounts.push_back( permission_level_weight{ {a, config::eosio_code_name},
-                                                                  static_cast<weight_type>(active_auth.threshold) } );
-         sort_permissions(active_auth);
-      }
-
-      trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
-                                newaccount{
-                                   .creator  = creator,
-                                   .name     = a,
-                                   .owner    = owner_auth,
-                                   .active   = active_auth,
-                                });
-
-      set_transaction_headers(trx);
-      trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
-      return push_transaction( trx ); 
-   }
    transaction_trace_ptr base_tester::push_transaction( packed_transaction& trx,
                                                         fc::time_point deadline,
                                                         uint32_t billed_cpu_time_us

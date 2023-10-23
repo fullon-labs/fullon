@@ -589,7 +589,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
       c.set_code("test"_n, test_contracts::deferred_test_wasm());
       c.set_abi("test"_n, test_contracts::deferred_test_abi().data());
       c.produce_block();
-      //TODO: CDT modify
+      //TODO: error push_scheduled_transaction out_of_range map::at
       // c.push_action("test"_n, "defercall"_n, "alice"_n,
       //               fc::mutable_variant_object()("payer", "alice")("sender_id", 1)("contract", "test")("payload", 40));
 
@@ -599,7 +599,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
       auto contains_transaction_extensions = [](shared_ptr<eosio::state_history::partial_transaction> txn) {
          return txn->transaction_extensions.size() > 0;
       };
-      //TODO: CDT modify
+      //TODO: defer modify
       // BOOST_CHECK(std::any_of(partial_txns.begin(), partial_txns.end(), contains_transaction_extensions));
    }
 

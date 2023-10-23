@@ -429,8 +429,8 @@ BOOST_FIXTURE_TEST_CASE( test_proxy, currency_tester ) try {
       produce_block();
       BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trx.id()));
    }
-   #if 0            // |CDTtxSerilizeNeedModify|   
-   //TODO: proxy------->send------>send_deferred
+   #if 0   
+   //TODO: push_scheduled_transaction out_of_range map::at 
    // for now wasm "time" is in seconds, so we have to truncate off any parts of a second that may have applied
    fc::time_point expected_delivery(fc::seconds(control->head_block_time().sec_since_epoch()) + fc::seconds(10));
    {
@@ -454,6 +454,7 @@ BOOST_FIXTURE_TEST_CASE( test_proxy, currency_tester ) try {
    #endif
 } FC_LOG_AND_RETHROW() /// test_currency
 #if 0
+//TODO: push_scheduled_transaction out_of_range map::at
 BOOST_FIXTURE_TEST_CASE( test_deferred_failure, currency_tester ) try {
    produce_blocks(2);
 

@@ -1,4 +1,4 @@
-#include <shard_contract_interface_tests.hpp>
+#include "shard_contract_interface_tests.hpp"
 #include <eosio/transaction.hpp>
 
 ACTION shard_contract_interface_tests::shard( name nm ) {

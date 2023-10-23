@@ -66,7 +66,7 @@ void validate_authority_precondition( const apply_context& context, const author
  *  This method is called assuming precondition_system_newaccount succeeds a
  */
 void apply_gax_newaccount(apply_context& context) {
-   EOS_ASSERT( context.tx_shard_name == config::main_shard_name, action_validate_exception, "newaccount not allowed in sub shards");
+   EOS_ASSERT( context._shard_name == config::main_shard_name, action_validate_exception, "newaccount not allowed in sub shards");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "newaccount not allowed in read-only transaction" );
    auto create = context.get_action().data_as<newaccount>();
    try {

@@ -491,7 +491,7 @@ class apply_context {
 
    /// Constructor
    public:
-      apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, chainbase::database& shard_db, chainbase::database& shared_db,uint32_t depth=0);
+      apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, chainbase::database& db, chainbase::database& shared_db,uint32_t depth=0);
 
    /// Execution methods:
    public:
@@ -585,7 +585,7 @@ class apply_context {
       vector<account_name> get_active_producers() const;
 
       uint64_t next_global_sequence();
-      uint64_t next_recv_sequence( const account_metadata_object& receiver_account );
+      uint64_t next_recv_sequence( account_name receiver_account );
       uint64_t next_auth_sequence( account_name actor );
 
       void add_ram_usage( account_name account, int64_t ram_delta );
@@ -604,7 +604,7 @@ class apply_context {
       controller&                   control;
       chainbase::database&          db;  ///< database where state is stored
       transaction_context&          trx_context; ///< transaction context in which the action is running
-      shard_name                    tx_shard_name = config::main_shard_name;
+      shard_name                    _shard_name = config::main_shard_name;
       chainbase::database&          shared_db;
    private:
       const action*                 act = nullptr; ///< action being applied

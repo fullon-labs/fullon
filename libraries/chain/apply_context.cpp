@@ -32,11 +32,11 @@ static inline void print_debug(account_name receiver, const action_trace& ar) {
    }
 }
 
-apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, chainbase::database& shard_db, chainbase::database& shared_db,uint32_t depth)
+apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, chainbase::database& db, chainbase::database& shared_db,uint32_t depth)
 :control(con)
-,db(shard_db)
+,db(db)
 ,trx_context(trx_ctx)
-,tx_shard_name(trx_ctx.tx_shard_name)
+,_shard_name(trx_ctx._shard_name)
 ,shared_db(shared_db)
 ,recurse_depth(depth)
 ,first_receiver_action_ordinal(action_ordinal)
@@ -163,7 +163,7 @@ void apply_context::exec_one()
    r.receiver         = receiver;
    r.act_digest       = act_digest;
    r.global_sequence  = next_global_sequence();
-   r.recv_sequence    = next_recv_sequence( *receiver_account );
+   r.recv_sequence    = next_recv_sequence( receiver );
 
    const account_metadata_object* first_receiver_account = nullptr;
    if( act->account == receiver ) {
@@ -229,12 +229,12 @@ void apply_context::exec()
 } /// exec()
 
 bool apply_context::is_account( const account_name& account )const {
-   return nullptr != db.find<account_object,by_name>( account );
+   return nullptr != shared_db.find<account_object,by_name>( account );
 }
 
 void apply_context::get_code_hash(
    account_name account, uint64_t& code_sequence, fc::sha256& code_hash, uint8_t& vm_type, uint8_t& vm_version) const {
-   auto obj = db.find<account_metadata_object,by_name>(account);
+   auto obj = shared_db.find<account_metadata_object,by_name>(account);
    if(!obj || obj->code_hash == fc::sha256{}) {
       if(obj)
          code_sequence = obj->code_sequence;
@@ -1050,15 +1050,16 @@ uint64_t apply_context::next_global_sequence() {
    }
 }
 
-uint64_t apply_context::next_recv_sequence( const account_metadata_object& receiver_account ) {
+uint64_t apply_context::next_recv_sequence( account_name receiver_account ) {
+   const auto& amo = db.get<account_metadata_object,by_name>( receiver_account );
    if ( trx_context.is_read_only() ) {
       // To avoid confusion of duplicated receive sequence number, hard code to be 0.
       return 0;
    } else {
-      shared_db.modify( receiver_account, [&]( auto& ra ) {
+      db.modify( amo, [&]( auto& ra ) {
          ++ra.recv_sequence;
       });
-      return receiver_account.recv_sequence;
+      return amo.recv_sequence;
    }
 }
 uint64_t apply_context::next_auth_sequence( account_name actor ) {

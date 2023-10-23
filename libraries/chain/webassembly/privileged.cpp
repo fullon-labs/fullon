@@ -46,7 +46,7 @@ namespace eosio { namespace chain { namespace webassembly {
                   "Producer schedule cannot be empty"
       );
 
-      const size_t num_supported_key_types = context.db.get<protocol_state_object>().num_supported_key_types;
+      const size_t num_supported_key_types = context.shared_db.get<protocol_state_object>().num_supported_key_types;
 
       // check that producers are unique
       std::set<account_name> unique_producers;

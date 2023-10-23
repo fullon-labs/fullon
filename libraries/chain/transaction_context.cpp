@@ -49,7 +49,7 @@ namespace eosio { namespace chain {
                                              const packed_transaction& t,
                                              const transaction_id_type& trx_id,
                                              transaction_checktime_timer&& tmr,
-                                             chainbase::database&         shard_db,
+                                             chainbase::database&         db,
                                              chainbase::database&         shared_db,
                                              fc::time_point s,
                                              transaction_metadata::trx_type type)
@@ -59,16 +59,16 @@ namespace eosio { namespace chain {
    ,undo_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
-   ,shard_db(shard_db)
+   ,db(db)
    ,shared_db(shared_db)
    ,transaction_timer(std::move(tmr))
    ,trx_type(type)
    ,net_usage(trace->net_usage)
    ,pseudo_start(s)
    {
-      tx_shard_name = packed_trx.get_transaction().get_shard_name();
+      _shard_name = packed_trx.get_transaction().get_shard_name();
       if (!c.skip_db_sessions() && !is_read_only()) {
-         undo_session.emplace(shard_db.start_undo_session(true));   
+         undo_session.emplace(db.start_undo_session(true));   
       }
       trace->id = id;
       trace->block_num = c.head_block_num() + 1;
@@ -735,7 +735,7 @@ namespace eosio { namespace chain {
    }
 
    void transaction_context::execute_action( uint32_t action_ordinal, uint32_t recurse_depth ) {
-      apply_context acontext( control, *this, action_ordinal, shard_db, shared_db, recurse_depth );
+      apply_context acontext( control, *this, action_ordinal, db, shared_db, recurse_depth );
 
       if (recurse_depth == 0) {
          if (auto dm_logger = control.get_deep_mind_logger(is_transient())) {
