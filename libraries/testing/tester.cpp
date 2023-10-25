@@ -342,11 +342,11 @@ namespace eosio { namespace testing {
 
    void base_tester::push_block(signed_block_ptr b) {
       auto bsf = control->create_block_state_future(b->calculate_id(), b);
-      unapplied_transactions.add_aborted( control->abort_block() );
+      abort_block();
       controller::block_report br;
       control->push_block( br, bsf.get(), [this]( const branch_type& forked_branch ) {
          unapplied_transactions.add_forked( forked_branch );
-      }, [this]( const transaction_id_type& id ) {
+      }, [this]( const eosio::chain::shard_name& shard_name, const transaction_id_type& id ) {
          return unapplied_transactions.get_trx( id );
       } );
 
@@ -354,6 +354,12 @@ namespace eosio { namespace testing {
       if (itr == last_produced_block.end() || b->block_num() > block_header::num_from_id(itr->second)) {
          last_produced_block[b->producer] = b->calculate_id();
       }
+   }
+   void base_tester::abort_block() {
+      // TODO: multi shards?
+      auto unapplied_trxs = control->abort_block();
+      for ( auto receipts : unapplied_trxs )
+         unapplied_transactions.add_aborted( receipts.second );
    }
 
    signed_block_ptr base_tester::_produce_block( fc::microseconds skip_time, bool skip_pending_trxs ) {
@@ -411,7 +417,7 @@ namespace eosio { namespace testing {
          last_produced_block_num = std::max(control->last_irreversible_block_num(), block_header::num_from_id(itr->second));
       }
 
-      unapplied_transactions.add_aborted( control->abort_block() );
+      abort_block();
 
       vector<digest_type> feature_to_be_activated;
       // First add protocol features to be activated WITHOUT preactivation

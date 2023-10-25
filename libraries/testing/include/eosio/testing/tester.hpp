@@ -184,6 +184,7 @@ namespace eosio { namespace testing {
          // Produce minimal number of blocks as possible to spend the given time without having any producer become inactive
          void                 produce_min_num_of_blocks_to_spend_time_wo_inactive_prod(const fc::microseconds target_elapsed_time = fc::microseconds());
          void                 push_block(signed_block_ptr b);
+         void                 abort_block();
 
          /**
           * These transaction IDs represent transactions available in the head chain state as scheduled
@@ -499,7 +500,7 @@ namespace eosio { namespace testing {
       }
 
       signed_block_ptr produce_empty_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
-         unapplied_transactions.add_aborted( control->abort_block() );
+         abort_block();
          return _produce_block(skip_time, true);
       }
 
@@ -540,7 +541,7 @@ namespace eosio { namespace testing {
          init(def_conf.first, def_conf.second);
          execute_setup_policy(setup_policy::full);
       }
-      
+
       validating_tester( eosio::testing::setup_policy policy,const flat_set<account_name>& trusted_producers = flat_set<account_name>(),deep_mind_handler* dmlog = nullptr) {
          auto def_conf = default_config(tempdir);
 
@@ -630,7 +631,7 @@ namespace eosio { namespace testing {
       }
 
       signed_block_ptr produce_empty_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
-         unapplied_transactions.add_aborted( control->abort_block() );
+         abort_block();
          auto sb = _produce_block(skip_time, true);
          auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
          controller::block_report br;

@@ -171,15 +171,7 @@ struct building_block {
       return shards[shard_name];
    }
 
-   inline deque<transaction_metadata_ptr> extract_trx_metas() {
-      deque<transaction_metadata_ptr> result;
-      for (auto& shard : shards) {
-         fc::move_append( result, std::move(shard.second._pending_trx_metas) );
-      }
-      return result;
-   }
-
-   inline transaction_metadata_map extract_trx_meta_map() {
+   inline transaction_metadata_map extract_trx_metas() {
       transaction_metadata_map result;
       for (auto& shard : shards) {
          result[shard.first] = std::move(shard.second._pending_trx_metas);
@@ -225,15 +217,6 @@ struct assembled_block {
 
    // if the _unsigned_block pre-dates block-signing authorities this may be present.
    std::optional<producer_authority_schedule> _new_producer_authority_cache;
-
-   inline deque<transaction_metadata_ptr> extract_trx_metas() {
-      deque<transaction_metadata_ptr> trxs;
-      for (auto& metas : _trx_metas) {
-         fc::move_append( trxs, std::move(metas.second) );
-      }
-      _trx_metas.clear();
-      return trxs;
-   }
 };
 
 struct completed_block {
@@ -265,11 +248,11 @@ struct pending_state {
       return std::get<assembled_block>(_block_stage)._pending_block_header_state;
    }
 
-   deque<transaction_metadata_ptr> extract_trx_metas() {
+   transaction_metadata_map extract_trx_metas() {
       if( std::holds_alternative<building_block>(_block_stage) ) {
          return std::get<building_block>(_block_stage).extract_trx_metas();
       } else if( std::holds_alternative<assembled_block>(_block_stage) )
-         return std::get<assembled_block>(_block_stage).extract_trx_metas();
+         return std::move(std::get<assembled_block>(_block_stage)._trx_metas);
 
       return std::get<completed_block>(_block_stage)._block_state->extract_trxs_metas();
    }
@@ -2084,7 +2067,7 @@ struct controller_impl {
       pending->_block_stage = assembled_block{
                                  id,
                                  std::move( bb._pending_block_header_state ),
-                                 bb.extract_trx_meta_map(),
+                                 bb.extract_trx_metas(),
                                  std::move( block_ptr ),
                                  std::move( bb._new_pending_producer_schedule )
                               };
@@ -2269,7 +2252,7 @@ struct controller_impl {
                      shard_trx.trx_meta = bsp_caches.at( i );
                   } else {
                      const auto& pt = std::get<packed_transaction>(receipt.trx);
-                     transaction_metadata_ptr trx_meta_ptr = trx_lookup ? trx_lookup( pt.id() ) : transaction_metadata_ptr{};
+                     transaction_metadata_ptr trx_meta_ptr = trx_lookup ? trx_lookup( shard_name, pt.id() ) : transaction_metadata_ptr{};
                      if( trx_meta_ptr && *trx_meta_ptr->packed_trx() != pt ) trx_meta_ptr = nullptr;
                      if( trx_meta_ptr && ( skip_auth_checks || !trx_meta_ptr->recovered_keys().empty() ) ) {
                         shard_trx.trx_meta = trx_meta_ptr;
@@ -2615,8 +2598,8 @@ struct controller_impl {
 
    } /// push_block
 
-   deque<transaction_metadata_ptr> abort_block() {
-      deque<transaction_metadata_ptr> applied_trxs;
+   transaction_metadata_map abort_block() {
+      transaction_metadata_map applied_trxs;
       if( pending ) {
          applied_trxs = pending->extract_trx_metas();
          pending.reset();
@@ -3210,7 +3193,7 @@ void controller::commit_block() {
    my->commit_block(true);
 }
 
-deque<transaction_metadata_ptr> controller::abort_block() {
+transaction_metadata_map controller::abort_block() {
    return my->abort_block();
 }
 

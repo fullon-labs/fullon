@@ -144,6 +144,29 @@ public:
       }
    }
 
+   size_t clear_applied( const deque<transaction_receipt>& receipts ) {
+      if( empty() ) return 0;
+
+      size_t ret = 0;
+      auto& idx = queue.get<by_trx_id>();
+      for( const auto& receipt : receipts ) {
+         if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+            const auto& pt = std::get<packed_transaction>(receipt.trx);
+            auto itr = idx.find( pt.id() );
+            if( itr != idx.end() ) {
+               if( itr->next ) {
+                  itr->next( std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
+                              FC_LOG_MESSAGE( info, "duplicate transaction ${id}", ("id", itr->trx_meta->id())))));
+               }
+               removed( itr );
+               idx.erase( itr );
+               ret++;
+            }
+         }
+      }
+      return ret;
+   }
+
    void add_forked( const branch_type& forked_branch ) {
       // forked_branch is in reverse order
       for( auto ritr = forked_branch.rbegin(), rend = forked_branch.rend(); ritr != rend; ++ritr ) {
@@ -155,6 +178,18 @@ public:
             }
          }
       }
+   }
+
+   inline void add_trxs( const deque<transaction_metadata_ptr> &trxs, trx_enum_type trx_type ) {
+      for( const auto& trx : trxs ) {
+         auto insert_itr = queue.insert( { trx, trx_type } );
+         if( insert_itr.second ) added( insert_itr.first );
+      }
+   }
+
+
+   void add_forked( const deque<transaction_metadata_ptr> &trxs ) {
+      add_trxs(trxs, trx_enum_type::forked);
    }
 
    void add_aborted( deque<transaction_metadata_ptr> aborted_trxs ) {

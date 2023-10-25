@@ -44,12 +44,9 @@ namespace eosio { namespace chain {
       bool is_valid()const { return validated; }
       bool is_pub_keys_recovered()const { return _pub_keys_recovered; }
 
-      deque<transaction_metadata_ptr> extract_trxs_metas() {
+      transaction_metadata_map extract_trxs_metas() {
          _pub_keys_recovered = false;
-         deque<transaction_metadata_ptr> result;
-         for (auto& metas : _cached_trxs) {
-            fc::move_append( result, std::move(metas.second) );
-         }
+         auto result = std::move( _cached_trxs );
          _cached_trxs.clear();
          return result;
       }
@@ -57,7 +54,10 @@ namespace eosio { namespace chain {
          _pub_keys_recovered = keys_recovered;
          _cached_trxs = std::move( trxs_metas );
       }
+   public:
+      // TODO: need to change "trxs_metas" private?
       const transaction_metadata_map& trxs_metas()const { return _cached_trxs; }
+   private:
 
       bool                                                validated = false;
 
