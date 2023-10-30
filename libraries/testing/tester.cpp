@@ -5,6 +5,7 @@
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain/eosio_contract.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
+#include <eosio/chain/database_manager.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -979,8 +980,8 @@ namespace eosio { namespace testing {
    }
 
    bool base_tester::is_code_cached( eosio::chain::account_name name ) const {
-      const auto& db  = control->db();
-      const account_metadata_object* receiver_account = &db.template get<account_metadata_object,by_name>( name );
+      const auto& db  = control->dbm().shared_db();
+      const account_object* receiver_account = &db.template get<account_object,by_name>( name );
       if ( receiver_account->code_hash == digest_type() ) return false;
       return control->get_wasm_interface().is_code_cached( receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version );
    }

@@ -68,7 +68,7 @@ using contract_database_index_set = index_set<
 using shared_index_set = index_set<
    account_index,
    // TODO: shared index set
-   account_metadata_index,
+   // account_metadata_index,
    // account_ram_correction_index,
    global_property_multi_index,
    protocol_state_multi_index,
@@ -1155,11 +1155,13 @@ struct controller_impl {
    }
 
    void create_native_account( const fc::time_point& initial_timestamp, account_name name, const authority& owner, const authority& active, bool is_privileged = false ) {
-      auto& db = dbm.main_db();
+      auto&  db = dbm.main_db();
+      auto& sdb = dbm.shared_db();
       // TODO: write to shared_db
-      db.create<account_object>([&](auto& a) {
+      sdb.create<account_object>([&](auto& a) {
          a.name = name;
          a.creation_date = initial_timestamp;
+         a.set_privileged( is_privileged );
 
          if( name == config::system_account_name ) {
             // The initial eosio ABI value affects consensus; see  https://github.com/EOSIO/eos/issues/7794
@@ -1169,7 +1171,6 @@ struct controller_impl {
       });
       db.create<account_metadata_object>([&](auto & a) {
          a.name = name;
-         a.set_privileged( is_privileged );
       });
 
       const auto& owner_permission  = authorization.create_permission(name, config::owner_name, 0,
@@ -3658,7 +3659,7 @@ wasm_interface& controller::get_wasm_interface() {
 const account_object& controller::get_account( account_name name )const
 { try {
    // TODO: get from shared_db()?
-   auto& db = my->dbm.main_db();
+   auto& db = my->dbm.shared_db();
    return db.get<account_object, by_name>(name);
 } FC_CAPTURE_AND_RETHROW( (name) ) }
 

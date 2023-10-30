@@ -36,15 +36,15 @@ bool include_delta(const chain::resource_limits::resource_limits_state_object& o
        old.virtual_net_limit != curr.virtual_net_limit ||                                       //
        old.virtual_cpu_limit != curr.virtual_cpu_limit;
 }
-
+//TODO: state_history modify
 bool include_delta(const chain::account_metadata_object& old, const chain::account_metadata_object& curr) {
    return                                               //
-       old.name != curr.name ||                         //
-       old.is_privileged() != curr.is_privileged() ||   //
-       old.last_code_update != curr.last_code_update || //
-       old.vm_type != curr.vm_type ||                   //
-       old.vm_version != curr.vm_version ||             //
-       old.code_hash != curr.code_hash;
+       old.name != curr.name; //||                         //
+      //  old.is_privileged() != curr.is_privileged() ||   //
+      //  old.last_code_update != curr.last_code_update || //
+      //  old.vm_type != curr.vm_type ||                   //
+      //  old.vm_version != curr.vm_version ||             //
+      //  old.code_hash != curr.code_hash;
 }
 
 bool include_delta(const chain::code_object& old, const chain::code_object& curr) { //

@@ -34,6 +34,7 @@ BOOST_AUTO_TEST_CASE( activate_preactivate_feature ) try {
    // But the old bios contract can still be set.
    c.set_code( config::system_account_name, contracts::before_preactivate_eosio_bios_wasm() );
    c.set_abi( config::system_account_name, contracts::before_preactivate_eosio_bios_abi().data() );
+   c.produce_block();
 
    auto t = c.control->pending_block_time();
    c.control->abort_block();

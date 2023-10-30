@@ -309,8 +309,8 @@ BOOST_FIXTURE_TEST_CASE(sequence_numbers_test, read_only_trx_tester) { try {
    set_up_test_contract();
 
    const auto& p = control->get_dynamic_global_properties();
-   auto receiver_account = control->dbm().shared_db().find<account_metadata_object,by_name>("noauthtable"_n);
-   auto amo = control->dbm().shared_db().find<account_metadata_object,by_name>("alice"_n);
+   auto receiver_account = control->db().find<account_metadata_object,by_name>("noauthtable"_n);
+   auto amo = control->db().find<account_metadata_object,by_name>("alice"_n);
 
    // verify sequence numbers in state increment for non-read-only transactions
    auto prev_global_action_sequence = p.global_action_sequence;

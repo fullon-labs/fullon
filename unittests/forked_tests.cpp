@@ -248,7 +248,7 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    wlog( "c1 blocks:" );
    c.produce_blocks(12); // dan produces 12 blocks
    c.produce_block( fc::milliseconds(config::block_interval_ms * 25) ); // cam skips over sam and pam's blocks
-   c.produce_blocks(23); // cam finishes the remaining 11 blocks then dan produces his 12 blocks
+   c.produce_blocks(23-9); // cam finishes the remaining 11 blocks then dan produces his 12 blocks
    wlog( "c2 blocks:" );
    c2.produce_block( fc::milliseconds(config::block_interval_ms * 25) ); // pam skips over dan and sam's blocks
    c2.produce_blocks(11); // pam finishes the remaining 11 blocks
@@ -259,7 +259,7 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    c2.produce_block( fc::milliseconds(config::block_interval_ms * 13) ); // cam skips over pam's blocks (this block triggers a block on this branch to become irreversible)
    c2.produce_blocks(11); // cam produces the remaining 11 blocks
    b = c2.produce_block(); // dan produces a block
-
+   //ilog("c last irrblock is ${lib}",("lib",c.control->last_irreversible_block_num()));
    // a node on chain 1 now gets all but the last block from chain 2 which should cause a fork switch
    wlog( "push c2 blocks (except for the last block by dan) to c1" );
    for( uint32_t start = fork_block_num + 1, end = c2.control->head_block_num() - 1; start <= end; ++start ) {
@@ -407,7 +407,7 @@ BOOST_AUTO_TEST_CASE( read_modes ) try {
 
 BOOST_AUTO_TEST_CASE( irreversible_mode ) try {
    auto does_account_exist = []( const tester& t, account_name n ) {
-      const auto& db = t.control->db();
+      const auto& db = t.control->dbm().shared_db();
       return (db.find<account_object, by_name>( n ) != nullptr);
    };
 

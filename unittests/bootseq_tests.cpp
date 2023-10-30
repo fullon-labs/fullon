@@ -78,7 +78,7 @@ public:
                                   ("core", symbol(CORE_SYMBOL).to_string())
             );
       }
-      const auto& accnt = control->db().get<account_object,by_name>( config::system_account_name );
+      const auto& accnt = control->dbm().shared_db().get<account_object,by_name>( config::system_account_name );
       abi_def abi;
       BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
       abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
@@ -174,7 +174,7 @@ public:
         set_code(account, wasm, signer);
         set_abi(account, abi, signer);
         if (account == config::system_account_name) {
-           const auto& accnt = control->db().get<account_object,by_name>( account );
+           const auto& accnt = control->dbm().shared_db().get<account_object,by_name>( account );
            abi_def abi_definition;
            BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi_definition), true);
            abi_ser.set_abi(std::move(abi_definition), abi_serializer::create_yield_function( abi_serializer_max_time ));
@@ -212,9 +212,9 @@ BOOST_FIXTURE_TEST_CASE( bootseq_test, bootseq_tester ) {
         set_privileged("gax.token"_n);
 
         // Verify gax.msig and gax.token is privileged
-        const auto& eosio_msig_acc = get<account_metadata_object, by_name>("gax.msig"_n);
+        const auto& eosio_msig_acc = get<account_object, by_name>("gax.msig"_n);
         BOOST_TEST(eosio_msig_acc.is_privileged() == true);
-        const auto& eosio_token_acc = get<account_metadata_object, by_name>("gax.token"_n);
+        const auto& eosio_token_acc = get<account_object, by_name>("gax.token"_n);
         BOOST_TEST(eosio_token_acc.is_privileged() == true);
 
 

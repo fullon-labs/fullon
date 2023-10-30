@@ -58,8 +58,8 @@ void apply_context::exec_one()
    auto start = fc::time_point::now();
 
    digest_type act_digest;
-
-   const account_metadata_object* receiver_account = nullptr;
+   const account_object*          receiver_account  = nullptr;
+   const account_metadata_object* receiver_metadata = nullptr;
 
    auto handle_exception = [&](const auto& e)
    {
@@ -73,9 +73,9 @@ void apply_context::exec_one()
    try {
       try {
          action_return_value.clear();
-         
-         receiver_account = &shared_db.get<account_metadata_object,by_name>( receiver );
-         
+         receiver_account  = &shared_db.get<account_object,by_name>( receiver );
+         //on subshard return value may be null, especialy newaccount is called.
+         receiver_metadata = db.find<account_metadata_object,by_name>( receiver );
          if( !(context_free && control.skip_trx_checks()) ) {
             privileged = receiver_account->is_privileged();
             auto native = control.find_apply_handler( receiver, act->account, act->name );
@@ -163,13 +163,13 @@ void apply_context::exec_one()
    r.receiver         = receiver;
    r.act_digest       = act_digest;
    r.global_sequence  = next_global_sequence();
-   r.recv_sequence    = next_recv_sequence( receiver );
+   r.recv_sequence    = next_recv_sequence( *receiver_metadata );
 
-   const account_metadata_object* first_receiver_account = nullptr;
+   const account_object* first_receiver_account = nullptr;
    if( act->account == receiver ) {
       first_receiver_account = receiver_account;
    } else {   
-      first_receiver_account = &shared_db.get<account_metadata_object, by_name>(act->account);
+      first_receiver_account = &shared_db.get<account_object, by_name>(act->account);
    }
 
    r.code_sequence    = first_receiver_account->code_sequence; // could be modified by action execution above
@@ -234,7 +234,7 @@ bool apply_context::is_account( const account_name& account )const {
 
 void apply_context::get_code_hash(
    account_name account, uint64_t& code_sequence, fc::sha256& code_hash, uint8_t& vm_type, uint8_t& vm_version) const {
-   auto obj = shared_db.find<account_metadata_object,by_name>(account);
+   auto obj = shared_db.find<account_object,by_name>(account);
    if(!obj || obj->code_hash == fc::sha256{}) {
       if(obj)
          code_sequence = obj->code_sequence;
@@ -316,7 +316,7 @@ void apply_context::require_recipient( account_name recipient ) {
  *   can better understand the security risk.
  */
 void apply_context::execute_inline( action&& a ) {
-   auto* code = db.find<account_object, by_name>(a.account);
+   auto* code = shared_db.find<account_object, by_name>(a.account);
    EOS_ASSERT( code != nullptr, action_validate_exception,
                "inline action's code account ${account} does not exist", ("account", a.account) );
 
@@ -333,7 +333,7 @@ void apply_context::execute_inline( action&& a ) {
    }
 
    for( const auto& auth : a.authorization ) {
-      auto* actor = db.find<account_object, by_name>(auth.actor);
+      auto* actor = shared_db.find<account_object, by_name>(auth.actor);
       EOS_ASSERT( actor != nullptr, action_validate_exception,
                   "inline action's authorizing actor ${account} does not exist", ("account", auth.actor) );
       EOS_ASSERT( control.get_authorization_manager().find_permission(auth) != nullptr, action_validate_exception,
@@ -1050,16 +1050,15 @@ uint64_t apply_context::next_global_sequence() {
    }
 }
 
-uint64_t apply_context::next_recv_sequence( account_name receiver_account ) {
-   const auto& amo = db.get<account_metadata_object,by_name>( receiver_account );
+uint64_t apply_context::next_recv_sequence( const account_metadata_object& receiver_account ) {
    if ( trx_context.is_read_only() ) {
       // To avoid confusion of duplicated receive sequence number, hard code to be 0.
       return 0;
    } else {
-      db.modify( amo, [&]( auto& ra ) {
+      db.modify( receiver_account, [&]( auto& ra ) {
          ++ra.recv_sequence;
       });
-      return amo.recv_sequence;
+      return receiver_account.recv_sequence;
    }
 }
 uint64_t apply_context::next_auth_sequence( account_name actor ) {
