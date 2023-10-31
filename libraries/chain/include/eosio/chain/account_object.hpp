@@ -14,19 +14,18 @@ namespace eosio { namespace chain {
       enum class flags_fields : uint32_t {
          privileged = 1
       };
-      
+      //these properties only modified by main shard
       id_type              id;
       account_name         name; //< name should not be changed within a chainbase modifier lambda
       block_timestamp_type creation_date;
       shared_blob          abi;
-      //these property only modified by main shard
-      uint64_t              code_sequence = 0;
-      uint64_t              abi_sequence  = 0;
-      digest_type           code_hash;
-      time_point            last_code_update;
-      uint32_t              flags = 0;
-      uint8_t               vm_type = 0;
-      uint8_t               vm_version = 0;
+      uint64_t             code_sequence = 0;
+      uint64_t             abi_sequence  = 0;
+      digest_type          code_hash;
+      time_point           last_code_update;
+      uint32_t             flags = 0;
+      uint8_t              vm_type = 0;
+      uint8_t              vm_version = 0;
 
       account_object& operator=(const account_object& a) {
          id             = a.id;
@@ -73,27 +72,10 @@ namespace eosio { namespace chain {
    {
       OBJECT_CTOR(account_metadata_object);
 
-      // enum class flags_fields : uint32_t {
-      //    privileged = 1
-      // };
-
       id_type               id;
       account_name          name; //< name should not be changed within a chainbase modifier lambda
       uint64_t              recv_sequence = 0;
       uint64_t              auth_sequence = 0;
-      // uint64_t              code_sequence = 0;
-      // uint64_t              abi_sequence  = 0;
-      // digest_type           code_hash;
-      // time_point            last_code_update;
-      // uint32_t              flags = 0;
-      // uint8_t               vm_type = 0;
-      // uint8_t               vm_version = 0;
-
-      // bool is_privileged()const { return has_field( flags, flags_fields::privileged ); }
-
-      // void set_privileged( bool privileged )  {
-      //    flags = set_field( flags, flags_fields::privileged, privileged );
-      // }
    };
 
    struct by_name;

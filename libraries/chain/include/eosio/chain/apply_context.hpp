@@ -604,7 +604,7 @@ class apply_context {
       controller&                   control;
       chainbase::database&          db;  ///< database where state is stored
       transaction_context&          trx_context; ///< transaction context in which the action is running
-      shard_name                    _shard_name = config::main_shard_name;
+      eosio::chain::shard_name      shard_name = config::main_shard_name;
       chainbase::database&          shared_db;
    private:
       const action*                 act = nullptr; ///< action being applied

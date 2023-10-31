@@ -214,7 +214,7 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    void interface::set_privileged( account_name n, bool is_priv ) {
-      EOS_ASSERT( context._shard_name == config::main_shard_name, wasm_execution_error, "set_privileged not allowed in sub shards");
+      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "set_privileged not allowed in sub shards");
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_privileged not allowed in a readonly transaction");
       const auto& a = context.shared_db.get<account_object, by_name>( n );
       context.shared_db.modify( a, [&]( auto& ma ){

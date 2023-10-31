@@ -34,6 +34,6 @@ namespace eosio { namespace chain { namespace webassembly {
    }
    
    shard_name interface::get_shard_name() const{
-      return context._shard_name;
+      return context.shard_name;
    }
 }}} // ns eosio::chain::webassembly

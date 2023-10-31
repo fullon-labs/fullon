@@ -413,7 +413,7 @@ struct controller_impl {
     thread_pool(),
     shard_thread_pool(),
     main_thread_id( std::this_thread::get_id() ),
-    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, dbm.main_db(), conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
+    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, dbm.shared_db(), conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -1316,9 +1316,9 @@ struct controller_impl {
       transaction_checktime_timer trx_timer(timer);
       const packed_transaction trx( std::move( etrx ) );
       shard_name sname = trx.get_transaction().get_shard_name();
-      auto& shard_db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
+      auto& db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
       auto& shared_db = dbm.shared_db();
-      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), shard_db, shared_db, start );
+      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), db, shared_db, start );
 
       if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
          dm_logger->on_onerror(etrx);
@@ -1490,9 +1490,9 @@ struct controller_impl {
 
       transaction_checktime_timer trx_timer( timer );
       shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
-      auto& shard_db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
+      auto& sdb  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
       auto& shared_db = dbm.shared_db();
-      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), shard_db, shared_db );
+      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), sdb, shared_db );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
       trx_context.max_transaction_time_subjective = max_transaction_time;
@@ -1709,9 +1709,9 @@ struct controller_impl {
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
          shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
-         auto& shard_db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
+         auto& db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
          auto& shared_db = dbm.shared_db();
-         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), shard_db, shared_db, start, trx->get_trx_type());
+         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), db, shared_db, start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -2916,7 +2916,7 @@ struct controller_impl {
 #endif
       {
          // TODO: readonly threads, must supply shared_db and sub shard db
-         auto& db = dbm.main_db();
+         auto& db = dbm.shared_db();
          std::lock_guard g(threaded_wasmifs_mtx);
          // Non-EOSVMOC needs a wasmif per thread
          threaded_wasmifs[std::this_thread::get_id()]  = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());

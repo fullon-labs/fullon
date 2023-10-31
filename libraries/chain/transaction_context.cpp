@@ -67,7 +67,7 @@ namespace eosio { namespace chain {
    ,net_usage(trace->net_usage)
    ,pseudo_start(s)
    {
-      _shard_name = packed_trx.get_transaction().get_shard_name();
+      shard_name = packed_trx.get_transaction().get_shard_name();
       if (!c.skip_db_sessions() && !is_read_only()) {
          undo_session.emplace(db.start_undo_session(true));
          undo_shared_session.emplace(shared_db.start_undo_session(true));

@@ -212,7 +212,7 @@ class eos_vm_profiling_module : public wasm_instantiated_module_interface {
          if(auto it = _prof.find(account); it != _prof.end()) {
             return it->second.get();
          } else {
-            auto code_sequence = (context.control.dbm().shared_db().get<account_object, by_name>(account)).code_sequence;
+            auto code_sequence = context.shared_db.get<account_object, by_name>(account).code_sequence;
             std::string basename = account.to_string() + "." + std::to_string(code_sequence);
             auto prof = std::make_unique<profile_data>(basename + ".profile", *_instantiated_module);
             auto [pos,_] = _prof.insert(std::pair{ account, std::move(prof)});

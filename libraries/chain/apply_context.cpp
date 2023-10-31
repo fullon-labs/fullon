@@ -36,7 +36,7 @@ apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint
 :control(con)
 ,db(db)
 ,trx_context(trx_ctx)
-,_shard_name(trx_ctx._shard_name)
+,shard_name(trx_ctx.shard_name)
 ,shared_db(shared_db)
 ,recurse_depth(depth)
 ,first_receiver_action_ordinal(action_ordinal)
@@ -76,6 +76,11 @@ void apply_context::exec_one()
          receiver_account  = &shared_db.get<account_object,by_name>( receiver );
          //on subshard return value may be null, especialy newaccount is called.
          receiver_metadata = db.find<account_metadata_object,by_name>( receiver );
+         if( receiver_metadata == nullptr ) {
+            db.create<account_metadata_object>([&](auto& a) {
+               a.name = receiver;
+            });
+         }
          if( !(context_free && control.skip_trx_checks()) ) {
             privileged = receiver_account->is_privileged();
             auto native = control.find_apply_handler( receiver, act->account, act->name );
