@@ -1046,6 +1046,7 @@ BOOST_FIXTURE_TEST_CASE(noop, TESTER) try {
    set_code("noop"_n, test_contracts::noop_wasm());
 
    set_abi("noop"_n, test_contracts::noop_abi().data());
+   produce_block();
    const auto& accnt  = control->dbm().shared_db().get<account_object,by_name>("noop"_n);
    abi_def abi;
    BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);

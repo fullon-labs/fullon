@@ -281,11 +281,12 @@ namespace eosio { namespace testing {
 
          template<typename ObjectType, typename IndexBy, typename... Args>
          const auto& get( Args&&... args ) {
-            if (typeid(ObjectType) == typeid(account_object)){
-               return control->dbm().shared_db().get<ObjectType,IndexBy>( forward<Args>(args)... );
-            }else{
+            //if (typeid(ObjectType) == typeid(account_object)){
+               //TODO: subshard get from shared_db
+               //return control->dbm().shared_db().get<ObjectType,IndexBy>( forward<Args>(args)... );
+            //}else{
                return control->db().get<ObjectType,IndexBy>( forward<Args>(args)... );
-            }
+            //}
          }
 
          template<typename ObjectType, typename IndexBy, typename... Args>

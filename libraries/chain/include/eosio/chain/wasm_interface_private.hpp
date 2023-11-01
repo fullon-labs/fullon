@@ -134,7 +134,7 @@ namespace eosio { namespace chain {
                                              boost::make_tuple(code_hash, vm_type, vm_version) );
          const code_object* codeobject = nullptr;
          if(it == wasm_instantiation_cache.end()) {
-            codeobject = &shared_db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
+            codeobject = &trx_context.shared_db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
 
             it = wasm_instantiation_cache.emplace( wasm_interface_impl::wasm_cache_entry{
                                                       .code_hash = code_hash,
@@ -147,7 +147,7 @@ namespace eosio { namespace chain {
 
          if(!it->module) {
             if(!codeobject)
-               codeobject = &shared_db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
+               codeobject = &trx_context.shared_db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
 
             auto timer_pause = fc::make_scoped_exit([&](){
                trx_context.resume_billing_timer();

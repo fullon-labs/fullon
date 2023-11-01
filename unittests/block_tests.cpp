@@ -265,7 +265,10 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions, validating_tester) { try {
       trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
       auto trace = push_transaction( trx );
 
-      control->get_account( a ); // throws if it does not exist
+      BOOST_REQUIRE_EXCEPTION(control->get_account( a ), fc::exception,
+                              [a] (const fc::exception& e)->bool {
+                                 return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
+                              }); // throws if it does not exist
 
       deque<transaction_metadata_ptr> unapplied_trxs = control->abort_block();
 
@@ -311,7 +314,7 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions_tester, validating_tester) { t
       set_transaction_headers(trx);
       trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
       auto trace = push_transaction( trx );
-
+      produce_block();
       control->get_account( a ); // throws if it does not exist
 
       produce_block( fc::milliseconds(config::block_interval_ms*2) ); // aborts block, tester should reapply trx

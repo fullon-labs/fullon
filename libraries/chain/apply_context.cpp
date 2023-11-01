@@ -77,7 +77,7 @@ void apply_context::exec_one()
          //on subshard return value may be null, especialy newaccount is called.
          receiver_metadata = db.find<account_metadata_object,by_name>( receiver );
          if( receiver_metadata == nullptr ) {
-            db.create<account_metadata_object>([&](auto& a) {
+            receiver_metadata = &db.create<account_metadata_object>([&](auto& a) {
                a.name = receiver;
             });
          }

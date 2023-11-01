@@ -1156,9 +1156,9 @@ struct controller_impl {
 
    void create_native_account( const fc::time_point& initial_timestamp, account_name name, const authority& owner, const authority& active, bool is_privileged = false ) {
       auto&  db = dbm.main_db();
-      auto& sdb = dbm.shared_db();
+      // auto& sdb = dbm.shared_db();
       // TODO: write to shared_db
-      sdb.create<account_object>([&](auto& a) {
+      db.create<account_object>([&](auto& a) {
          a.name = name;
          a.creation_date = initial_timestamp;
          a.set_privileged( is_privileged );
@@ -1317,7 +1317,7 @@ struct controller_impl {
       const packed_transaction trx( std::move( etrx ) );
       shard_name sname = trx.get_transaction().get_shard_name();
       auto& db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
-      auto& shared_db = dbm.shared_db();
+      auto& shared_db = sname == config::main_shard_name ? dbm.main_db() : dbm.shared_db();
       transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), db, shared_db, start );
 
       if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
@@ -1491,7 +1491,7 @@ struct controller_impl {
       transaction_checktime_timer trx_timer( timer );
       shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
       auto& sdb  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
-      auto& shared_db = dbm.shared_db();
+      auto& shared_db = sname == config::main_shard_name ? dbm.main_db() : dbm.shared_db();
       transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), sdb, shared_db );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
@@ -1710,7 +1710,7 @@ struct controller_impl {
          transaction_checktime_timer trx_timer(timer);
          shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
          auto& db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
-         auto& shared_db = dbm.shared_db();
+         auto& shared_db = sname == config::main_shard_name ? dbm.main_db() : dbm.shared_db();
          transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), db, shared_db, start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
