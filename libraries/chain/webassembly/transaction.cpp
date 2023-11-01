@@ -32,4 +32,8 @@ namespace eosio { namespace chain { namespace webassembly {
    bool interface::cancel_deferred( legacy_ptr<const uint128_t> val ) {
       return context.cancel_deferred_transaction( *val );
    }
+   
+   shard_name interface::get_shard_name() const{
+      return context.shard_name;
+   }
 }}} // ns eosio::chain::webassembly

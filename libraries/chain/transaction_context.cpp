@@ -7,6 +7,7 @@
 #include <eosio/chain/transaction_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/database_manager.hpp>
 
 #pragma push_macro("N")
 #undef N
@@ -48,21 +49,28 @@ namespace eosio { namespace chain {
                                              const packed_transaction& t,
                                              const transaction_id_type& trx_id,
                                              transaction_checktime_timer&& tmr,
+                                             chainbase::database&         db,
+                                             chainbase::database&         shared_db,
                                              fc::time_point s,
                                              transaction_metadata::trx_type type)
    :control(c)
    ,packed_trx(t)
    ,id(trx_id)
    ,undo_session()
+   ,undo_shared_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
+   ,db(db)
+   ,shared_db(shared_db)
    ,transaction_timer(std::move(tmr))
    ,trx_type(type)
    ,net_usage(trace->net_usage)
    ,pseudo_start(s)
    {
+      shard_name = packed_trx.get_transaction().get_shard_name();
       if (!c.skip_db_sessions() && !is_read_only()) {
-         undo_session.emplace(c.mutable_db().start_undo_session(true));
+         undo_session.emplace(db.start_undo_session(true));
+         undo_shared_session.emplace(shared_db.start_undo_session(true));
       }
       trace->id = id;
       trace->block_num = c.head_block_num() + 1;
@@ -411,10 +419,12 @@ namespace eosio { namespace chain {
 
    void transaction_context::squash() {
       if (undo_session) undo_session->squash();
+      if (undo_shared_session) undo_shared_session->squash();
    }
 
    void transaction_context::undo() {
       if (undo_session) undo_session->undo();
+      if (undo_shared_session) undo_shared_session->undo();
    }
 
    void transaction_context::check_net_usage()const {
@@ -729,7 +739,7 @@ namespace eosio { namespace chain {
    }
 
    void transaction_context::execute_action( uint32_t action_ordinal, uint32_t recurse_depth ) {
-      apply_context acontext( control, *this, action_ordinal, recurse_depth );
+      apply_context acontext( control, *this, action_ordinal, db, shared_db, recurse_depth );
 
       if (recurse_depth == 0) {
          if (auto dm_logger = control.get_deep_mind_logger(is_transient())) {
@@ -792,12 +802,14 @@ namespace eosio { namespace chain {
    } /// record_transaction
 
    void transaction_context::validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const {
-      const auto& db = control.db();
+
       const auto& auth_manager = control.get_authorization_manager();
 
       if( !trx.context_free_actions.empty() && !control.skip_trx_checks() ) {
+         
          for( const auto& a : trx.context_free_actions ) {
-            auto* code = db.find<account_object, by_name>( a.account );
+               auto* code = shared_db.find<account_object, by_name>( a.account );
+            
             EOS_ASSERT( code != nullptr, transaction_exception,
                         "action's code account '${account}' does not exist", ("account", a.account) );
             EOS_ASSERT( a.authorization.size() == 0, transaction_exception,
@@ -809,7 +821,8 @@ namespace eosio { namespace chain {
 
       bool one_auth = false;
       for( const auto& a : trx.actions ) {
-         auto* code = db.find<account_object, by_name>(a.account);
+         
+         auto* code = shared_db.find<account_object, by_name>(a.account);
          EOS_ASSERT( code != nullptr, transaction_exception,
                      "action's code account '${account}' does not exist", ("account", a.account) );
          if ( is_read_only() ) {
@@ -818,7 +831,7 @@ namespace eosio { namespace chain {
          }
          for( const auto& auth : a.authorization ) {
             one_auth = true;
-            auto* actor = db.find<account_object, by_name>(auth.actor);
+            auto* actor = shared_db.find<account_object, by_name>(auth.actor);
             EOS_ASSERT( actor  != nullptr, transaction_exception,
                         "action's authorizing actor '${account}' does not exist", ("account", auth.actor) );
             EOS_ASSERT( auth_manager.find_permission(auth) != nullptr, transaction_exception,

@@ -182,7 +182,7 @@ BOOST_FIXTURE_TEST_CASE( abi_from_variant, TESTER ) try {
 
    auto resolver = [&,this]( const account_name& name ) -> std::optional<abi_serializer> {
       try {
-         const auto& accnt  = this->control->db().get<account_object,by_name>( name );
+         const auto& accnt  = this->control->dbm().shared_db().get<account_object,by_name>( name );
          if (abi_def abi; abi_serializer::to_abi(accnt.abi, abi)) {
             return abi_serializer(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
          }
@@ -224,6 +224,7 @@ BOOST_FIXTURE_TEST_CASE( f32_tests, TESTER ) try {
    produce_blocks(2);
    produce_block();
    create_accounts( {"f32.tests"_n} );
+   produce_block();
    {
       set_code("f32.tests"_n, f32_test_wast);
       produce_blocks(10);
@@ -575,7 +576,7 @@ BOOST_FIXTURE_TEST_CASE( entry_import, TESTER ) try {
    produce_block();
 
    set_code("enterimport"_n, entry_import_wast);
-
+   produce_block();
    signed_transaction trx;
    action act;
    act.account = "enterimport"_n;
@@ -1045,7 +1046,8 @@ BOOST_FIXTURE_TEST_CASE(noop, TESTER) try {
    set_code("noop"_n, test_contracts::noop_wasm());
 
    set_abi("noop"_n, test_contracts::noop_abi().data());
-   const auto& accnt  = control->db().get<account_object,by_name>("noop"_n);
+   produce_block();
+   const auto& accnt  = control->dbm().shared_db().get<account_object,by_name>("noop"_n);
    abi_def abi;
    BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
    abi_serializer abi_ser(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
@@ -1108,7 +1110,7 @@ BOOST_FIXTURE_TEST_CASE(noop, TESTER) try {
 BOOST_FIXTURE_TEST_CASE(eosio_abi, TESTER) try {
    produce_blocks(2);
 
-   const auto& accnt  = control->db().get<account_object,by_name>(config::system_account_name);
+   const auto& accnt  = control->dbm().shared_db().get<account_object,by_name>(config::system_account_name);
    abi_def abi;
    BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
    abi_serializer abi_ser(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));

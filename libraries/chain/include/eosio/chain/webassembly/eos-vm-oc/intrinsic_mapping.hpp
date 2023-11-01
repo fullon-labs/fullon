@@ -191,6 +191,7 @@ inline constexpr auto get_intrinsic_table() {
       "env.send_context_free_inline",
       "env.send_deferred",
       "env.cancel_deferred",
+      "env.get_shard_name",
       "env.get_context_free_data",
       "env.memcpy",
       "env.memmove",

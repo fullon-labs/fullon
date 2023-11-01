@@ -32,12 +32,13 @@ uint128_t transaction_id_to_sender_id( const transaction_id_type& tid ) {
 
 void validate_authority_precondition( const apply_context& context, const authority& auth ) {
    for(const auto& a : auth.accounts) {
-      auto* acct = context.db.find<account_object, by_name>(a.permission.actor);
+      
+      auto* acct = context.shared_db.find<account_object, by_name>(a.permission.actor);
       EOS_ASSERT( acct != nullptr, action_validate_exception,
                   "account '${account}' does not exist",
                   ("account", a.permission.actor)
-                );
-
+               );
+                  
       if( a.permission.permission == config::owner_name || a.permission.permission == config::active_name )
          continue; // account was already checked to exist, so its owner and active permissions should exist
 
@@ -65,6 +66,7 @@ void validate_authority_precondition( const apply_context& context, const author
  *  This method is called assuming precondition_system_newaccount succeeds a
  */
 void apply_gax_newaccount(apply_context& context) {
+   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "newaccount not allowed in sub shards");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "newaccount not allowed in read-only transaction" );
    auto create = context.get_action().data_as<newaccount>();
    try {
@@ -76,25 +78,25 @@ void apply_gax_newaccount(apply_context& context) {
    EOS_ASSERT( validate(create.active), action_validate_exception, "Invalid active authority");
 
    auto& db = context.db;
-
+   auto& shared_db = context.shared_db;
    auto name_str = name(create.name).to_string();
 
    EOS_ASSERT( !create.name.empty(), action_validate_exception, "account name cannot be empty" );
    EOS_ASSERT( name_str.size() <= 12, action_validate_exception, "account names can only be 12 chars long" );
 
    // Check if the creator is privileged
-   const auto &creator = db.get<account_metadata_object, by_name>(create.creator);
+   const auto &creator = shared_db.get<account_object, by_name>(create.creator);
    if( !creator.is_privileged() ) {
       EOS_ASSERT( name_str.find( "gax." ) != 0, action_validate_exception,
                   "only privileged accounts can have names that start with 'gax.'" );
    }
 
-   auto existing_account = db.find<account_object, by_name>(create.name);
+   auto existing_account = shared_db.find<account_object, by_name>(create.name);
    EOS_ASSERT(existing_account == nullptr, account_name_exists_exception,
               "Cannot create account named ${name}, as that name is already taken",
               ("name", create.name));
 
-   db.create<account_object>([&](auto& a) {
+   shared_db.create<account_object>([&](auto& a) {
       a.name = create.name;
       a.creation_date = context.control.pending_block_time();
    });
@@ -128,8 +130,9 @@ void apply_gax_newaccount(apply_context& context) {
 } FC_CAPTURE_AND_RETHROW( (create) ) }
 
 void apply_gax_setcode(apply_context& context) {
+   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "setcode not allowed in sub shards" );
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "setcode not allowed in read-only transaction" );
-   auto& db = context.db;
+   auto& shared_db = context.shared_db;
    auto  act = context.get_action().data_as<setcode>();
    context.require_authorization(act.account);
 
@@ -144,8 +147,8 @@ void apply_gax_setcode(apply_context& context) {
      code_hash = fc::sha256::hash( act.code.data(), (uint32_t)act.code.size() );
      wasm_interface::validate(context.control, act.code);
    }
-
-   const auto& account = db.get<account_metadata_object,by_name>(act.account);
+   
+   const auto& account = shared_db.get<account_object,by_name>(act.account);
    bool existing_code = (account.code_hash != digest_type());
 
    EOS_ASSERT( code_size > 0 || existing_code, set_exact_code, "contract is already cleared" );
@@ -154,29 +157,29 @@ void apply_gax_setcode(apply_context& context) {
    int64_t new_size  = code_size * config::setcode_ram_bytes_multiplier;
 
    if( existing_code ) {
-      const code_object& old_code_entry = db.get<code_object, by_code_hash>(boost::make_tuple(account.code_hash, account.vm_type, account.vm_version));
+      const code_object& old_code_entry = shared_db.get<code_object, by_code_hash>(boost::make_tuple(account.code_hash, account.vm_type, account.vm_version));
       EOS_ASSERT( old_code_entry.code_hash != code_hash, set_exact_code,
                   "contract is already running this version of code" );
       old_size  = (int64_t)old_code_entry.code.size() * config::setcode_ram_bytes_multiplier;
       if( old_code_entry.code_ref_count == 1 ) {
-         db.remove(old_code_entry);
+         shared_db.remove(old_code_entry);
          context.control.code_block_num_last_used(account.code_hash, account.vm_type, account.vm_version, context.control.head_block_num() + 1);
       } else {
-         db.modify(old_code_entry, [](code_object& o) {
+         shared_db.modify(old_code_entry, [](code_object& o) {
             --o.code_ref_count;
          });
       }
    }
 
    if( code_size > 0 ) {
-      const code_object* new_code_entry = db.find<code_object, by_code_hash>(
+      const code_object* new_code_entry = shared_db.find<code_object, by_code_hash>(
                                              boost::make_tuple(code_hash, act.vmtype, act.vmversion) );
       if( new_code_entry ) {
-         db.modify(*new_code_entry, [&](code_object& o) {
+         shared_db.modify(*new_code_entry, [&](code_object& o) {
             ++o.code_ref_count;
          });
       } else {
-         db.create<code_object>([&](code_object& o) {
+         shared_db.create<code_object>([&](code_object& o) {
             o.code_hash = code_hash;
             o.code.assign(act.code.data(), code_size);
             o.code_ref_count = 1;
@@ -187,7 +190,7 @@ void apply_gax_setcode(apply_context& context) {
       }
    }
 
-   db.modify( account, [&]( auto& a ) {
+   shared_db.modify( account, [&]( auto& a ) {
       a.code_sequence += 1;
       a.code_hash = code_hash;
       a.vm_type = act.vmtype;
@@ -212,25 +215,26 @@ void apply_gax_setcode(apply_context& context) {
 }
 
 void apply_gax_setabi(apply_context& context) {
+   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "setabi not allowed in sub shards");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "setabi ot allowed in read-only transaction" );
-   auto& db  = context.db;
+   auto& shared_db  = context.shared_db;
    auto  act = context.get_action().data_as<setabi>();
 
    context.require_authorization(act.account);
 
-   const auto& account = db.get<account_object,by_name>(act.account);
+   const auto& account = shared_db.get<account_object,by_name>(act.account);
 
    int64_t abi_size = act.abi.size();
 
    int64_t old_size = (int64_t)account.abi.size();
    int64_t new_size = abi_size;
 
-   db.modify( account, [&]( auto& a ) {
+   shared_db.modify( account, [&]( auto& a ) {
       a.abi.assign(act.abi.data(), abi_size);
    });
 
-   const auto& account_metadata = db.get<account_metadata_object, by_name>(act.account);
-   db.modify( account_metadata, [&]( auto& a ) {
+   const auto& account_data = shared_db.get<account_object, by_name>(act.account);
+   shared_db.modify( account_data, [&]( auto& a ) {
       a.abi_sequence += 1;
    });
 
@@ -257,7 +261,7 @@ void apply_gax_updateauth(apply_context& context) {
    context.require_authorization(update.account); // only here to mark the single authority on this action as used
 
    auto& authorization = context.control.get_mutable_authorization_manager();
-   auto& db = context.db;
+   auto& db = context.shared_db;
 
    EOS_ASSERT(!update.permission.empty(), action_validate_exception, "Cannot create authority with empty name");
    EOS_ASSERT( update.permission.to_string().find( "gax." ) != 0, action_validate_exception,
@@ -372,10 +376,10 @@ void apply_gax_linkauth(apply_context& context) {
       context.require_authorization(requirement.account); // only here to mark the single authority on this action as used
 
       auto& db = context.db;
-      const auto *account = db.find<account_object, by_name>(requirement.account);
+      const auto *account = context.shared_db.find<account_object, by_name>(requirement.account);
       EOS_ASSERT(account != nullptr, account_query_exception,
                  "Failed to retrieve account: ${account}", ("account", requirement.account)); // Redundant?
-      const auto *code = db.find<account_object, by_name>(requirement.code);
+      const auto *code = context.shared_db.find<account_object, by_name>(requirement.code);
       EOS_ASSERT(code != nullptr, account_query_exception,
                  "Failed to retrieve code for account: ${account}", ("account", requirement.code));
       if( requirement.requirement != config::eosio_any_name ) {

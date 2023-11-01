@@ -8,7 +8,7 @@
 #include <eosio/chain/resource_limits_private.hpp>
 
 #include <eosio/testing/tester_network.hpp>
-
+//#define NON_VALIDATING_TEST  //switch of only producing/producing validate
 #ifdef NON_VALIDATING_TEST
 #define TESTER tester
 #else
@@ -98,7 +98,8 @@ try {
    TESTER chain;
    chain.create_account(name("alice"));
    chain.create_account(name("bob"));
-
+   //make sure shared_db have querying item(alice) index in sharding situation.
+   chain.produce_block();
    // Deleting active or owner should fail
    BOOST_CHECK_THROW(chain.delete_authority(name("alice"), name("active")), action_validate_exception);
    BOOST_CHECK_THROW(chain.delete_authority(name("alice"), name("owner")), action_validate_exception);
@@ -230,7 +231,7 @@ BOOST_AUTO_TEST_CASE(update_auth_unknown_private_key) {
    try {
       TESTER chain;
       chain.create_account(name("alice"));
-
+      chain.produce_block();
       // public key with no corresponding private key
       fc::ecc::public_key_data data;
       data.data[0] = 0x80; // not necessary, 0 also works
@@ -270,7 +271,7 @@ BOOST_AUTO_TEST_CASE(link_auths) { try {
    const auto spending_pub_key = spending_priv_key.get_public_key();
    const auto scud_priv_key = chain.get_private_key(name("alice"), "scud");
    const auto scud_pub_key = scud_priv_key.get_public_key();
-
+   chain.produce_block();
    chain.set_authority(name("alice"), name("spending"), spending_pub_key, name("active"));
    chain.set_authority(name("alice"), name("scud"), scud_pub_key, name("spending"));
 
@@ -313,7 +314,7 @@ BOOST_AUTO_TEST_CASE(link_then_update_auth) { try {
    const auto first_pub_key = first_priv_key.get_public_key();
    const auto second_priv_key = chain.get_private_key(name("alice"), "second");
    const auto second_pub_key = second_priv_key.get_public_key();
-
+   chain.produce_block();
    chain.set_authority(name("alice"), name("first"), first_pub_key, name("active"));
 
    chain.link_authority(name("alice"), name("gax"), name("first"), name("reqauth"));

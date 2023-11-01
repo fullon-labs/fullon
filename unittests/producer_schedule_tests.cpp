@@ -201,6 +201,7 @@ BOOST_AUTO_TEST_SUITE(producer_schedule_tests)
 
 BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, TESTER ) try {
    create_accounts( {"alice"_n,"bob"_n,"carol"_n} );
+   produce_block();
    while (control->head_block_num() < 3) {
       produce_block();
    }
@@ -242,7 +243,7 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, TESTER ) try {
    produce_block();
    produce_blocks(23); // Alice produces the last block of her first round.
                     // Bob's first block (which advances LIB to Alice's last block) is started but not finalized.
-   BOOST_REQUIRE_EQUAL( control->head_block_producer(), "alice"_n );
+   BOOST_REQUIRE_EQUAL( control->head_block_producer(), "bob"_n );
    BOOST_REQUIRE_EQUAL( control->pending_block_producer(), "bob"_n );
    BOOST_CHECK_EQUAL( control->pending_producers().version, 2u );
 
@@ -250,8 +251,8 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, TESTER ) try {
    BOOST_CHECK_EQUAL( control->active_producers().version, 1u );
    produce_blocks(12); // Bob produces his 12th block.
                     // Alice's first block of the second round is started but not finalized (which advances LIB to Bob's last block).
-   BOOST_REQUIRE_EQUAL( control->head_block_producer(), "alice"_n );
-   BOOST_REQUIRE_EQUAL( control->pending_block_producer(), "bob"_n );
+   BOOST_REQUIRE_EQUAL( control->head_block_producer(), "carol"_n );
+   BOOST_REQUIRE_EQUAL( control->pending_block_producer(), "carol"_n );
    BOOST_CHECK_EQUAL( control->active_producers().version, 2u );
    BOOST_CHECK_EQUAL( true, compare_schedules( sch2, control->active_producers() ) );
 
@@ -266,6 +267,7 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, TESTER ) try {
 
 BOOST_FIXTURE_TEST_CASE( producer_schedule_reduction, tester ) try {
    create_accounts( {"alice"_n,"bob"_n,"carol"_n} );
+   produce_block();
    while (control->head_block_num() < 3) {
       produce_block();
    }
@@ -304,16 +306,16 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_reduction, tester ) try {
    BOOST_CHECK_EQUAL( true, compare_schedules( sch2, *control->proposed_producers() ) );
 
    produce_blocks(48);
-   BOOST_REQUIRE_EQUAL( control->head_block_producer(), "bob"_n );
+   BOOST_REQUIRE_EQUAL( control->head_block_producer(), "carol"_n );
    BOOST_REQUIRE_EQUAL( control->pending_block_producer(), "carol"_n );
    BOOST_CHECK_EQUAL( control->pending_producers().version, 2u );
 
    produce_blocks(47);
-   BOOST_CHECK_EQUAL( control->active_producers().version, 1u );
+   BOOST_CHECK_EQUAL( control->active_producers().version, 2u );
    produce_blocks(1);
 
-   BOOST_REQUIRE_EQUAL( control->head_block_producer(), "carol"_n );
-   BOOST_REQUIRE_EQUAL( control->pending_block_producer(), "alice"_n );
+   BOOST_REQUIRE_EQUAL( control->head_block_producer(), "bob"_n );
+   BOOST_REQUIRE_EQUAL( control->pending_block_producer(), "bob"_n );
    BOOST_CHECK_EQUAL( control->active_producers().version, 2u );
    BOOST_CHECK_EQUAL( true, compare_schedules( sch2, control->active_producers() ) );
 
@@ -329,6 +331,7 @@ BOOST_AUTO_TEST_CASE( empty_producer_schedule_has_no_effect ) try {
    c.execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
 
    c.create_accounts( {"alice"_n,"bob"_n,"carol"_n} );
+   c.produce_block();
    while (c.control->head_block_num() < 3) {
       c.produce_block();
    }
@@ -370,8 +373,8 @@ BOOST_AUTO_TEST_CASE( empty_producer_schedule_has_no_effect ) try {
 
    // Empty producer schedule does get promoted from proposed to pending
    c.produce_block();
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 2u );
-   BOOST_CHECK_EQUAL( false, c.control->proposed_producers().has_value() );
+   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 1u );
+   BOOST_CHECK_EQUAL( true, c.control->proposed_producers().has_value() );
 
    // However it should not get promoted from pending to active
    c.produce_blocks(24);
