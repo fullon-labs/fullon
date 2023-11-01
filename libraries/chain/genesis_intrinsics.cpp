@@ -166,6 +166,7 @@ const std::vector<const char*> genesis_intrinsics = {
    "send_context_free_inline",
    "send_deferred",
    "cancel_deferred",
+   "get_shard_name",
    "get_context_free_data",
    "memcpy",
    "memmove",

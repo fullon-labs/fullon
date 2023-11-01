@@ -46,7 +46,7 @@ namespace eosio { namespace chain { namespace webassembly {
                   "Producer schedule cannot be empty"
       );
 
-      const size_t num_supported_key_types = context.db.get<protocol_state_object>().num_supported_key_types;
+      const size_t num_supported_key_types = context.shared_db.get<protocol_state_object>().num_supported_key_types;
 
       // check that producers are unique
       std::set<account_name> unique_producers;
@@ -210,13 +210,14 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    bool interface::is_privileged( account_name n ) const {
-      return context.db.get<account_metadata_object, by_name>( n ).is_privileged();
+      return context.shared_db.get<account_object, by_name>( n ).is_privileged();
    }
 
    void interface::set_privileged( account_name n, bool is_priv ) {
+      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "set_privileged not allowed in sub shards");
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_privileged not allowed in a readonly transaction");
-      const auto& a = context.db.get<account_metadata_object, by_name>( n );
-      context.db.modify( a, [&]( auto& ma ){
+      const auto& a = context.shared_db.get<account_object, by_name>( n );
+      context.shared_db.modify( a, [&]( auto& ma ){
          ma.set_privileged( is_priv );
       });
    }

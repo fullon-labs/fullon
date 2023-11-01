@@ -85,7 +85,7 @@ BOOST_FIXTURE_TEST_CASE(deep_mind, deep_mind_tester)
    produce_block();
 
    create_account( "alice"_n );
-
+   produce_block();
    push_action(config::system_account_name, "updateauth"_n, "alice"_n, fc::mutable_variant_object()
                ("account", "alice")
                ("permission", "test1")

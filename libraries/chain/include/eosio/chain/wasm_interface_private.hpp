@@ -67,7 +67,7 @@ namespace eosio { namespace chain {
       };
 #endif
 
-      wasm_interface_impl(wasm_interface::vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile) : db(d), wasm_runtime_time(vm) {
+      wasm_interface_impl(wasm_interface::vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile) : shared_db(d), wasm_runtime_time(vm) {
 #ifdef EOSIO_EOS_VM_RUNTIME_ENABLED
          if(vm == wasm_interface::vm_type::eos_vm)
             runtime_interface = std::make_unique<webassembly::eos_vm_runtime::eos_vm_runtime<eosio::vm::interpreter>>();
@@ -134,7 +134,7 @@ namespace eosio { namespace chain {
                                              boost::make_tuple(code_hash, vm_type, vm_version) );
          const code_object* codeobject = nullptr;
          if(it == wasm_instantiation_cache.end()) {
-            codeobject = &db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
+            codeobject = &trx_context.shared_db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
 
             it = wasm_instantiation_cache.emplace( wasm_interface_impl::wasm_cache_entry{
                                                       .code_hash = code_hash,
@@ -147,7 +147,7 @@ namespace eosio { namespace chain {
 
          if(!it->module) {
             if(!codeobject)
-               codeobject = &db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
+               codeobject = &trx_context.shared_db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
 
             auto timer_pause = fc::make_scoped_exit([&](){
                trx_context.resume_billing_timer();
@@ -178,7 +178,7 @@ namespace eosio { namespace chain {
       > wasm_cache_index;
       wasm_cache_index wasm_instantiation_cache;
 
-      const chainbase::database& db;
+      const chainbase::database& shared_db;
       const wasm_interface::vm_type wasm_runtime_time;
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED

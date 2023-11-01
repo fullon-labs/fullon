@@ -44,6 +44,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
    c.produce_block();
 
    c.set_code( tester1_account, test_contracts::crypto_primitives_test_wasm() );
+   c.produce_block();
    c.set_abi( tester1_account, test_contracts::crypto_primitives_test_abi().data() );
    c.produce_block();
 
@@ -143,6 +144,7 @@ BOOST_AUTO_TEST_CASE( alt_bn128_add_test ) { try {
          ("expected_error", expected_error)
          ("expected_result", expected_result)
       );
+      c.produce_block();
    }
 
 } FC_LOG_AND_RETHROW() }

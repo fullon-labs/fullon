@@ -5,6 +5,7 @@
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain/eosio_contract.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
+#include <eosio/chain/database_manager.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -216,12 +217,14 @@ namespace eosio { namespace testing {
             schedule_preactivate_protocol_feature();
             produce_block();
             set_before_producer_authority_bios_contract();
+            produce_block();
             break;
          }
          case setup_policy::old_wasm_parser: {
             schedule_preactivate_protocol_feature();
             produce_block();
             set_before_producer_authority_bios_contract();
+            produce_block();
             preactivate_builtin_protocol_features({
                builtin_protocol_feature_t::only_link_to_existing_permission,
                builtin_protocol_feature_t::replace_deferred,
@@ -244,6 +247,7 @@ namespace eosio { namespace testing {
             schedule_preactivate_protocol_feature();
             produce_block();
             set_before_producer_authority_bios_contract();
+            produce_block();
             preactivate_all_builtin_protocol_features();
             produce_block();
             set_bios_contract();
@@ -589,7 +593,7 @@ namespace eosio { namespace testing {
       trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
       return push_transaction( trx );
    }
-
+   
    transaction_trace_ptr base_tester::push_transaction( packed_transaction& trx,
                                                         fc::time_point deadline,
                                                         uint32_t billed_cpu_time_us
@@ -982,8 +986,8 @@ namespace eosio { namespace testing {
    }
 
    bool base_tester::is_code_cached( eosio::chain::account_name name ) const {
-      const auto& db  = control->db();
-      const account_metadata_object* receiver_account = &db.template get<account_metadata_object,by_name>( name );
+      const auto& db  = control->dbm().shared_db();
+      const account_object* receiver_account = &db.template get<account_object,by_name>( name );
       if ( receiver_account->code_hash == digest_type() ) return false;
       return control->get_wasm_interface().is_code_cached( receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version );
    }
@@ -1113,6 +1117,7 @@ namespace eosio { namespace testing {
    void base_tester::set_bios_contract() {
       set_code(config::system_account_name, contracts::eosio_bios_wasm());
       set_abi(config::system_account_name, contracts::eosio_bios_abi().data());
+      produce_block();
    }
 
 

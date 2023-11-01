@@ -1683,10 +1683,10 @@ BOOST_AUTO_TEST_CASE( mindelay_test ) { try {
    BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
 
    // send transfer with delay_sec set to 10
-   const auto& acnt = chain.control->db().get<account_object,by_name>("gax.token"_n);
+   const auto& acnt = chain.control->dbm().shared_db().get<account_object,by_name>("gax.token"_n);
    auto abi = acnt.get_abi();
    chain::abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( chain.abi_serializer_max_time ));
-   const auto a = chain.control->db().get<account_object,by_name>("gax.token"_n).get_abi();
+   const auto a = chain.control->dbm().shared_db().get<account_object,by_name>("gax.token"_n).get_abi();
 
    string action_type_name = abis.get_action_type(name("transfer"));
 
@@ -2281,6 +2281,7 @@ BOOST_AUTO_TEST_CASE( max_transaction_delay_execute ) { try {
    const auto& tester_account = "tester"_n;
 
    chain.create_account("gax.token"_n);
+   chain.produce_block();
    chain.set_code("gax.token"_n, test_contracts::eosio_token_wasm());
    chain.set_abi("gax.token"_n, test_contracts::eosio_token_abi().data());
 

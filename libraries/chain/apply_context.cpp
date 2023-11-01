@@ -12,6 +12,7 @@
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <boost/container/flat_set.hpp>
+#include <eosio/chain/database_manager.hpp>
 
 using boost::container::flat_set;
 
@@ -31,10 +32,12 @@ static inline void print_debug(account_name receiver, const action_trace& ar) {
    }
 }
 
-apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, uint32_t depth)
+apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, chainbase::database& db, chainbase::database& shared_db,uint32_t depth)
 :control(con)
-,db(con.mutable_db())
+,db(db)
 ,trx_context(trx_ctx)
+,shard_name(trx_ctx.shard_name)
+,shared_db(shared_db)
 ,recurse_depth(depth)
 ,first_receiver_action_ordinal(action_ordinal)
 ,action_ordinal(action_ordinal)
@@ -55,8 +58,8 @@ void apply_context::exec_one()
    auto start = fc::time_point::now();
 
    digest_type act_digest;
-
-   const account_metadata_object* receiver_account = nullptr;
+   const account_object*          receiver_account  = nullptr;
+   const account_metadata_object* receiver_metadata = nullptr;
 
    auto handle_exception = [&](const auto& e)
    {
@@ -70,7 +73,14 @@ void apply_context::exec_one()
    try {
       try {
          action_return_value.clear();
-         receiver_account = &db.get<account_metadata_object,by_name>( receiver );
+         receiver_account  = &shared_db.get<account_object,by_name>( receiver );
+         //on subshard return value may be null, especialy newaccount is called.
+         receiver_metadata = db.find<account_metadata_object,by_name>( receiver );
+         if( receiver_metadata == nullptr ) {
+            receiver_metadata = &db.create<account_metadata_object>([&](auto& a) {
+               a.name = receiver;
+            });
+         }
          if( !(context_free && control.skip_trx_checks()) ) {
             privileged = receiver_account->is_privileged();
             auto native = control.find_apply_handler( receiver, act->account, act->name );
@@ -97,7 +107,7 @@ void apply_context::exec_one()
                   control.get_wasm_interface().apply( receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version, *this );
                } catch( const wasm_exit& ) {}
             }
-
+            
             if( !privileged && control.is_builtin_activated( builtin_protocol_feature_t::ram_restrictions ) ) {
                const size_t checktime_interval = 10;
                size_t counter = 0;
@@ -158,13 +168,13 @@ void apply_context::exec_one()
    r.receiver         = receiver;
    r.act_digest       = act_digest;
    r.global_sequence  = next_global_sequence();
-   r.recv_sequence    = next_recv_sequence( *receiver_account );
+   r.recv_sequence    = next_recv_sequence( *receiver_metadata );
 
-   const account_metadata_object* first_receiver_account = nullptr;
+   const account_object* first_receiver_account = nullptr;
    if( act->account == receiver ) {
       first_receiver_account = receiver_account;
-   } else {
-      first_receiver_account = &db.get<account_metadata_object, by_name>(act->account);
+   } else {   
+      first_receiver_account = &shared_db.get<account_object, by_name>(act->account);
    }
 
    r.code_sequence    = first_receiver_account->code_sequence; // could be modified by action execution above
@@ -224,13 +234,12 @@ void apply_context::exec()
 } /// exec()
 
 bool apply_context::is_account( const account_name& account )const {
-   return nullptr != db.find<account_object,by_name>( account );
+   return nullptr != shared_db.find<account_object,by_name>( account );
 }
 
 void apply_context::get_code_hash(
    account_name account, uint64_t& code_sequence, fc::sha256& code_hash, uint8_t& vm_type, uint8_t& vm_version) const {
-
-   auto obj = db.find<account_metadata_object,by_name>(account);
+   auto obj = shared_db.find<account_object,by_name>(account);
    if(!obj || obj->code_hash == fc::sha256{}) {
       if(obj)
          code_sequence = obj->code_sequence;
@@ -312,7 +321,7 @@ void apply_context::require_recipient( account_name recipient ) {
  *   can better understand the security risk.
  */
 void apply_context::execute_inline( action&& a ) {
-   auto* code = control.db().find<account_object, by_name>(a.account);
+   auto* code = shared_db.find<account_object, by_name>(a.account);
    EOS_ASSERT( code != nullptr, action_validate_exception,
                "inline action's code account ${account} does not exist", ("account", a.account) );
 
@@ -329,7 +338,7 @@ void apply_context::execute_inline( action&& a ) {
    }
 
    for( const auto& auth : a.authorization ) {
-      auto* actor = control.db().find<account_object, by_name>(auth.actor);
+      auto* actor = shared_db.find<account_object, by_name>(auth.actor);
       EOS_ASSERT( actor != nullptr, action_validate_exception,
                   "inline action's authorizing actor ${account} does not exist", ("account", auth.actor) );
       EOS_ASSERT( control.get_authorization_manager().find_permission(auth) != nullptr, action_validate_exception,
@@ -400,7 +409,7 @@ void apply_context::execute_inline( action&& a ) {
 }
 
 void apply_context::execute_context_free_inline( action&& a ) {
-   auto* code = control.db().find<account_object, by_name>(a.account);
+   auto* code = db.find<account_object, by_name>(a.account);
    EOS_ASSERT( code != nullptr, action_validate_exception,
                "inline action's code account ${account} does not exist", ("account", a.account) );
 

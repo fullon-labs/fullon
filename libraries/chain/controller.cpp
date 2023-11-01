@@ -68,7 +68,7 @@ using contract_database_index_set = index_set<
 using shared_index_set = index_set<
    account_index,
    // TODO: shared index set
-   account_metadata_index,
+   // account_metadata_index,
    // account_ram_correction_index,
    global_property_multi_index,
    protocol_state_multi_index,
@@ -396,7 +396,7 @@ struct controller_impl {
     thread_pool(),
     shard_thread_pool(),
     main_thread_id( std::this_thread::get_id() ),
-    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, dbm.main_db(), conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
+    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, dbm.shared_db(), conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -1138,11 +1138,13 @@ struct controller_impl {
    }
 
    void create_native_account( const fc::time_point& initial_timestamp, account_name name, const authority& owner, const authority& active, bool is_privileged = false ) {
-      auto& db = dbm.main_db();
+      auto&  db = dbm.main_db();
+      // auto& sdb = dbm.shared_db();
       // TODO: write to shared_db
       db.create<account_object>([&](auto& a) {
          a.name = name;
          a.creation_date = initial_timestamp;
+         a.set_privileged( is_privileged );
 
          if( name == config::system_account_name ) {
             // The initial eosio ABI value affects consensus; see  https://github.com/EOSIO/eos/issues/7794
@@ -1152,7 +1154,6 @@ struct controller_impl {
       });
       db.create<account_metadata_object>([&](auto & a) {
          a.name = name;
-         a.set_privileged( is_privileged );
       });
 
       const auto& owner_permission  = authorization.create_permission(name, config::owner_name, 0,
@@ -1297,7 +1298,10 @@ struct controller_impl {
 
       transaction_checktime_timer trx_timer(timer);
       const packed_transaction trx( std::move( etrx ) );
-      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), start );
+      shard_name sname = trx.get_transaction().get_shard_name();
+      auto& db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
+      auto& shared_db = sname == config::main_shard_name ? dbm.main_db() : dbm.shared_db();
+      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), db, shared_db, start );
 
       if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
          dm_logger->on_onerror(etrx);
@@ -1468,7 +1472,10 @@ struct controller_impl {
       uint32_t cpu_time_to_bill_us = billed_cpu_time_us;
 
       transaction_checktime_timer trx_timer( timer );
-      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer) );
+      shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
+      auto& sdb  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
+      auto& shared_db = sname == config::main_shard_name ? dbm.main_db() : dbm.shared_db();
+      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), sdb, shared_db );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
       trx_context.max_transaction_time_subjective = max_transaction_time;
@@ -1684,7 +1691,10 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
-         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), start, trx->get_trx_type());
+         shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
+         auto& db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
+         auto& shared_db = sname == config::main_shard_name ? dbm.main_db() : dbm.shared_db();
+         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), db, shared_db, start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -2889,7 +2899,7 @@ struct controller_impl {
 #endif
       {
          // TODO: readonly threads, must supply shared_db and sub shard db
-         auto& db = dbm.main_db();
+         auto& db = dbm.shared_db();
          std::lock_guard g(threaded_wasmifs_mtx);
          // Non-EOSVMOC needs a wasmif per thread
          threaded_wasmifs[std::this_thread::get_id()]  = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
@@ -3632,7 +3642,7 @@ wasm_interface& controller::get_wasm_interface() {
 const account_object& controller::get_account( account_name name )const
 { try {
    // TODO: get from shared_db()?
-   auto& db = my->dbm.main_db();
+   auto& db = my->dbm.shared_db();
    return db.get<account_object, by_name>(name);
 } FC_CAPTURE_AND_RETHROW( (name) ) }
 

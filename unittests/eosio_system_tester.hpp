@@ -42,8 +42,9 @@ public:
       produce_blocks( 100 );
 
       set_code( "gax.token"_n, test_contracts::eosio_token_wasm() );
+      produce_block();
       set_abi( "gax.token"_n, test_contracts::eosio_token_abi().data() );
-
+      produce_block();
       {
          const auto& accnt = control->db().get<account_object,by_name>( "gax.token"_n );
          abi_def abi;
@@ -57,7 +58,7 @@ public:
 
       set_code( config::system_account_name, test_contracts::eosio_system_wasm() );
       set_abi( config::system_account_name, test_contracts::eosio_system_abi().data() );
-
+      produce_block();
       base_tester::push_action(config::system_account_name, "init"_n,
                             config::system_account_name,  mutable_variant_object()
                             ("version", 0)

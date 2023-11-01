@@ -551,7 +551,14 @@ namespace webassembly {
           * @return current block number.
          */
          uint32_t get_block_num() const;
-
+         
+         /**
+         *Return the current tx shard name
+         *@ingroup transaction
+         *@return trx shard name
+         */
+         shard_name get_shard_name() const;
+         
          /**
           * Returns the transaction's publication time.
           *

@@ -125,7 +125,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper<std:
    fc::raw::pack(ds, obj.obj.second);
    return ds;
 }
-
+//TODO: state_history modify
 template <typename ST>
 datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper<eosio::chain::account_object>& obj) {
    fc::raw::pack(ds, fc::unsigned_int(0));
@@ -134,21 +134,21 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper<eosi
    fc::raw::pack(ds, as_type<eosio::chain::shared_string>(obj.obj.abi));
    return ds;
 }
-
+//TODO: state_history modify
 template <typename ST>
 datastream<ST>& operator<<(datastream<ST>&                                                      ds,
                            const history_serial_wrapper<eosio::chain::account_metadata_object>& obj) {
    fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.name.to_uint64_t()));
-   fc::raw::pack(ds, as_type<bool>(obj.obj.is_privileged()));
-   fc::raw::pack(ds, as_type<fc::time_point>(obj.obj.last_code_update));
-   bool has_code = obj.obj.code_hash != eosio::chain::digest_type();
-   fc::raw::pack(ds, has_code);
-   if (has_code) {
-      fc::raw::pack(ds, as_type<uint8_t>(obj.obj.vm_type));
-      fc::raw::pack(ds, as_type<uint8_t>(obj.obj.vm_version));
-      fc::raw::pack(ds, as_type<eosio::chain::digest_type>(obj.obj.code_hash));
-   }
+   // fc::raw::pack(ds, as_type<bool>(obj.obj.is_privileged()));
+   // fc::raw::pack(ds, as_type<fc::time_point>(obj.obj.last_code_update));
+   // bool has_code = obj.obj.code_hash != eosio::chain::digest_type();
+   // fc::raw::pack(ds, has_code);
+   // if (has_code) {
+   //    fc::raw::pack(ds, as_type<uint8_t>(obj.obj.vm_type));
+   //    fc::raw::pack(ds, as_type<uint8_t>(obj.obj.vm_version));
+   //    fc::raw::pack(ds, as_type<eosio::chain::digest_type>(obj.obj.code_hash));
+   // }
    return ds;
 }
 

@@ -22,12 +22,12 @@ namespace bfs = boost::filesystem;
 bool include_delta(const account_metadata_object& old, const account_metadata_object& curr) {
    return
       old.name != curr.name ||
-      old.recv_sequence != curr.recv_sequence ||
-      old.is_privileged() != curr.is_privileged() ||
-      old.last_code_update != curr.last_code_update ||
-      old.vm_type != curr.vm_type ||
-      old.vm_version != curr.vm_version ||
-      old.code_hash != curr.code_hash;
+      old.recv_sequence != curr.recv_sequence;// ||
+      // old.is_privileged() != curr.is_privileged() ||
+      // old.last_code_update != curr.last_code_update ||
+      // old.vm_type != curr.vm_type ||
+      // old.vm_version != curr.vm_version ||
+      // old.code_hash != curr.code_hash;
 }
 
 struct account_object_info {
@@ -288,17 +288,17 @@ BOOST_AUTO_TEST_SUITE(database_tests)
 
          const auto& main_acct_idx = main_db.get_index<account_index>();
          const auto& shared_acct_idx = shared_db.get_index<account_index>();
-         // wdump((main_acct_idx.size()));
-         // wdump((shared_acct_idx.size()));
+         wdump((main_acct_idx.size()));
+         wdump((shared_acct_idx.size()));
          BOOST_REQUIRE_EQUAL( main_acct_idx.size(), shared_acct_idx.size() );
          BOOST_REQUIRE_EQUAL( shared_acct_idx.size(), 3 );
 
-         // wdump(("main db")(acct_idx_helper::get_rows(main_db)));
-         // wdump(("shared db")(acct_idx_helper::get_rows(shared_db)));
+         wdump(("main db")(acct_idx_helper::get_rows(main_db)));
+         wdump(("shared db")(acct_idx_helper::get_rows(shared_db)));
          auto main_accts = acct_idx_helper::get_rows(main_db);
          auto shared_accts = acct_idx_helper::get_rows(shared_db);
-         // wdump((main_accts));
-         // wdump((shared_accts));
+         wdump((main_accts));
+         wdump((shared_accts));
          BOOST_REQUIRE( main_accts == shared_accts );
 
          BOOST_REQUIRE_EQUAL( shared_accts[0].name, config::system_account_name );
@@ -324,7 +324,7 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          BOOST_REQUIRE_EQUAL( shared_accts[5].name, "carol"_n );
          BOOST_REQUIRE( bool(shared_db.find<account_object,by_name>("carol"_n)) );
 
-         // auto head = control.head_block_header();
+         auto head = control.head_block_header();
 
          test.close();
          auto cfg = test.get_config();
@@ -347,8 +347,8 @@ BOOST_AUTO_TEST_SUITE(database_tests)
             const auto& main_acct_idx2 = main_db2.get_index<account_index>();
             const auto& shared_acct_idx2 = shared_db2.get_index<account_index>();
 
-            // wdump((head));
-            // wdump((control2.head_block_header()));
+            wdump((head));
+            wdump((control2.head_block_header()));
 
             BOOST_REQUIRE_EQUAL( main_acct_idx2.size(), shared_acct_idx2.size() );
             BOOST_REQUIRE_EQUAL( shared_acct_idx2.size(), 6 );
@@ -356,8 +356,8 @@ BOOST_AUTO_TEST_SUITE(database_tests)
             auto shared_accts2 = acct_idx_helper::get_rows(shared_db2);
 
             BOOST_REQUIRE( main_accts2 == main_accts );
-            // wdump((main_accts2));
-            // wdump((shared_accts2));
+            wdump((main_accts2));
+            wdump((shared_accts2));
             BOOST_REQUIRE( shared_accts2 == main_accts2 );
          }
       } FC_LOG_AND_RETHROW()

@@ -5,6 +5,7 @@
 #include <eosio/chain/account_object.hpp>
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/chain/unapplied_transaction_queue.hpp>
+#include <eosio/chain/database_manager.hpp>
 #include <fc/io/json.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/tuple/tuple_io.hpp>
@@ -281,7 +282,12 @@ namespace eosio { namespace testing {
 
          template<typename ObjectType, typename IndexBy, typename... Args>
          const auto& get( Args&&... args ) {
-            return control->db().get<ObjectType,IndexBy>( forward<Args>(args)... );
+            //if (typeid(ObjectType) == typeid(account_object)){
+               //TODO: subshard get from shared_db
+               //return control->dbm().shared_db().get<ObjectType,IndexBy>( forward<Args>(args)... );
+            //}else{
+               return control->db().get<ObjectType,IndexBy>( forward<Args>(args)... );
+            //}
          }
 
          template<typename ObjectType, typename IndexBy, typename... Args>
@@ -341,7 +347,7 @@ namespace eosio { namespace testing {
          auto get_resolver() {
             return [this]( const account_name& name ) -> std::optional<abi_serializer> {
                try {
-                  const auto& accnt = control->db().get<account_object, by_name>( name );
+                  const auto& accnt = control->dbm().shared_db().get<account_object, by_name>( name );
                   if( abi_def abi; abi_serializer::to_abi( accnt.abi, abi )) {
                      return abi_serializer( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
                   }

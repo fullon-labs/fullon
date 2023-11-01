@@ -16,7 +16,7 @@
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
-
+#include <eosio/chain/database_manager.hpp>
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 
 #include <chainbase/environment.hpp>
@@ -2315,14 +2315,13 @@ read_only::get_abi_results read_only::get_abi( const get_abi_params& params, con
 read_only::get_code_results read_only::get_code( const get_code_params& params, const fc::time_point& deadline )const {
    get_code_results result;
    result.account_name = params.account_name;
-   const auto& d = db.db();
-   const auto& accnt_obj          = d.get<account_object,by_name>( params.account_name );
-   const auto& accnt_metadata_obj = d.get<account_metadata_object,by_name>( params.account_name );
+   const auto& shared_db = db.dbm().shared_db();
+   const auto& accnt_obj          = shared_db.get<account_object,by_name>( params.account_name );
 
    EOS_ASSERT( params.code_as_wasm, unsupported_feature, "Returning WAST from get_code is no longer supported" );
 
-   if( accnt_metadata_obj.code_hash != digest_type() ) {
-      const auto& code_obj = d.get<code_object, by_code_hash>(accnt_metadata_obj.code_hash);
+   if( accnt_obj.code_hash != digest_type() ) {
+      const auto& code_obj = shared_db.get<code_object, by_code_hash>(accnt_obj.code_hash);
       result.wasm = string(code_obj.code.begin(), code_obj.code.end());
       result.code_hash = code_obj.code_hash;
    }
@@ -2337,8 +2336,8 @@ read_only::get_code_results read_only::get_code( const get_code_params& params, 
 read_only::get_code_hash_results read_only::get_code_hash( const get_code_hash_params& params, const fc::time_point& deadline )const {
    get_code_hash_results result;
    result.account_name = params.account_name;
-   const auto& d = db.db();
-   const auto& accnt  = d.get<account_metadata_object,by_name>( params.account_name );
+   const auto& shared_db = db.dbm().shared_db();
+   const auto& accnt  = shared_db.get<account_object,by_name>( params.account_name );
 
    if( accnt.code_hash != digest_type() )
       result.code_hash = accnt.code_hash;
@@ -2349,12 +2348,10 @@ read_only::get_code_hash_results read_only::get_code_hash( const get_code_hash_p
 read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi( const get_raw_code_and_abi_params& params, const fc::time_point& deadline)const {
    get_raw_code_and_abi_results result;
    result.account_name = params.account_name;
-
-   const auto& d = db.db();
-   const auto& accnt_obj          = d.get<account_object,by_name>(params.account_name);
-   const auto& accnt_metadata_obj = d.get<account_metadata_object,by_name>(params.account_name);
-   if( accnt_metadata_obj.code_hash != digest_type() ) {
-      const auto& code_obj = d.get<code_object, by_code_hash>(accnt_metadata_obj.code_hash);
+   const auto& shared_db = db.dbm().shared_db();
+   const auto& accnt_obj          = shared_db.get<account_object,by_name>(params.account_name);
+   if( accnt_obj.code_hash != digest_type() ) {
+      const auto& code_obj = shared_db.get<code_object, by_code_hash>(accnt_obj.code_hash);
       result.wasm = blob{{code_obj.code.begin(), code_obj.code.end()}};
    }
    result.abi = blob{{accnt_obj.abi.begin(), accnt_obj.abi.end()}};
@@ -2366,12 +2363,11 @@ read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params&
    get_raw_abi_results result;
    result.account_name = params.account_name;
 
-   const auto& d = db.db();
-   const auto& accnt_obj          = d.get<account_object,by_name>(params.account_name);
-   const auto& accnt_metadata_obj = d.get<account_metadata_object,by_name>(params.account_name);
+   const auto& shared_db          = db.dbm().shared_db();
+   const auto& accnt_obj          = shared_db.get<account_object,by_name>(params.account_name);
    result.abi_hash = fc::sha256::hash( accnt_obj.abi.data(), accnt_obj.abi.size() );
-   if( accnt_metadata_obj.code_hash != digest_type() )
-      result.code_hash = accnt_metadata_obj.code_hash;
+   if( accnt_obj.code_hash != digest_type() )
+      result.code_hash = accnt_obj.code_hash;
    if( !params.abi_hash || *params.abi_hash != result.abi_hash )
       result.abi = blob{{accnt_obj.abi.begin(), accnt_obj.abi.end()}};
 
@@ -2391,10 +2387,10 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    rm.get_account_limits( result.account_name, result.ram_quota, result.net_weight, result.cpu_weight );
 
    const auto& accnt_obj = db.get_account( result.account_name );
-   const auto& accnt_metadata_obj = db.db().get<account_metadata_object,by_name>( result.account_name );
+   //const auto& accnt_metadata_obj = db.dbm().shared_db().get<account_metadata_object,by_name>( result.account_name );
 
-   result.privileged       = accnt_metadata_obj.is_privileged();
-   result.last_code_update = accnt_metadata_obj.last_code_update;
+   result.privileged       = accnt_obj.is_privileged();
+   result.last_code_update = accnt_obj.last_code_update;
    result.created          = accnt_obj.creation_date;
 
    uint32_t greylist_limit = db.is_resource_greylisted(result.account_name) ? 1 : config::maximum_elastic_resource_multiplier;
