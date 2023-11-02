@@ -25,6 +25,7 @@
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/shard_object.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -53,7 +54,9 @@ using controller_index_set = index_set<
    generated_transaction_multi_index,
    table_id_multi_index,
    code_index,
-   database_header_multi_index
+   database_header_multi_index,
+   shard_index,
+   shard_change_index
 >;
 
 using contract_database_index_set = index_set<
@@ -74,7 +77,8 @@ using shared_index_set = index_set<
    protocol_state_multi_index,
    // dynamic_global_property_multi_index,
    // block_summary_multi_index,
-   code_index
+   code_index,
+   shard_index
 >;
 
 template<typename DatabaseType>
@@ -1960,6 +1964,29 @@ struct controller_impl {
                gp.proposed_schedule.producers.clear();
             });
          }
+
+         // TODO: should move to finalize_block()?
+         const auto& sc_indx = main_db.get_index<shard_change_index, by_id>();
+         for( auto itr = sc_indx.begin(); itr != sc_indx.end() && itr->block_num <= pbhs.dpos_irreversible_blocknum; itr = sc_indx.begin() ) {
+            const auto* sp = main_db.find<shard_object, by_name>( itr->name );
+            if (sp == nullptr) {
+               // create new shard
+               main_db.create<shard_object>( [&]( auto& s ) {
+                  s.name        = itr->name;
+                  s.enabled     = itr->enabled;
+                  s.creation_at = pbhs.timestamp;
+               });
+               // TODO: create shard db
+            } else {
+               // modify shard
+               main_db.modify( *sp, [&]( auto& s ) {
+                  s.enabled     = itr->enabled;
+               });
+               // TODO: check shard db exists?
+            }
+            main_db.remove( *itr );
+         }
+
 
          try {
             transaction_metadata_ptr onbtrx =

@@ -249,6 +249,15 @@ namespace webassembly {
          */
          void set_privileged(account_name account, bool is_priv);
 
+         /**
+          * Register shard, include `enabled` status.
+          *
+          * @ingroup privileged
+          * @param name - name of the shard that we want to register.
+          * @param enabled - enabled status (true or false).
+         */
+         void register_shard( shard_name name, bool enabled );
+
          // softfloat api
          float _eosio_f32_add(float, float) const;
          float _eosio_f32_sub(float, float) const;
@@ -551,14 +560,14 @@ namespace webassembly {
           * @return current block number.
          */
          uint32_t get_block_num() const;
-         
+
          /**
          *Return the current tx shard name
          *@ingroup transaction
          *@return trx shard name
          */
          shard_name get_shard_name() const;
-         
+
          /**
           * Returns the transaction's publication time.
           *
@@ -1730,11 +1739,11 @@ namespace webassembly {
          int32_t alt_bn128_mul(span<const char> g1_point, span<const char> scalar, span<char> result) const;
 
          /**
-          * Host function for optimal ate pairing check on the elliptic curve alt_bn128 
+          * Host function for optimal ate pairing check on the elliptic curve alt_bn128
           *
           * @ingroup crypto
           * @param g1_g2_pairs - a span containing pairs of G1,G2 points. (2 * 32 bytes) + (2 * 64 bytes)
-          * @return -1 if there was an error, 1 if false and 0 if true 
+          * @return -1 if there was an error, 1 if false and 0 if true
          */
          int32_t alt_bn128_pair(span<const char> g1_g2_pairs) const;
 

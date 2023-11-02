@@ -4,6 +4,7 @@
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/apply_context.hpp>
+#include <eosio/chain/shard_object.hpp>
 
 #include <vector>
 #include <set>
@@ -172,7 +173,7 @@ namespace eosio { namespace chain { namespace webassembly {
               gprops.configuration = cfg;
       });
    }
-   
+
    uint32_t interface::get_parameters_packed( span<const char> packed_parameter_ids, span<char> packed_parameters) const{
       datastream<const char*> ds_ids( packed_parameter_ids.data(), packed_parameter_ids.size() );
 
@@ -180,14 +181,14 @@ namespace eosio { namespace chain { namespace webassembly {
       std::vector<fc::unsigned_int> ids;
       fc::raw::unpack(ds_ids, ids);
       const config_range config_range(cfg, std::move(ids), {context.control});
-      
+
       auto size = fc::raw::pack_size( config_range );
       if( packed_parameters.size() == 0 ) return size;
 
       EOS_ASSERT(size <= packed_parameters.size(),
                  chain::config_parse_error,
                  "get_parameters_packed: buffer size is smaller than ${size}", ("size", size));
-      
+
       datastream<char*> ds( packed_parameters.data(), size );
       fc::raw::pack( ds, config_range );
       return size;
@@ -201,7 +202,7 @@ namespace eosio { namespace chain { namespace webassembly {
       config_range config_range(cfg, {context.control});
 
       fc::raw::unpack(ds, config_range);
-      
+
       config_range.config.validate();
       context.db.modify( context.control.get_global_properties(),
          [&]( auto& gprops ) {
@@ -221,4 +222,33 @@ namespace eosio { namespace chain { namespace webassembly {
          ma.set_privileged( is_priv );
       });
    }
+
+   void interface::register_shard( shard_name name, bool enabled ) {
+      // TODO: main_shard_only_error
+      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "register_shard not allowed in sub shard" );
+      EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "register_shard not allowed in a readonly transaction");
+      const auto* s = context.shared_db.find<shard_object, by_name>( name );
+      const auto* sc = context.db.find<shard_change_object, by_name>( name );
+      // TODO: how to increase ram of user?
+      if (sc == nullptr) {
+         if (s != nullptr && enabled != s->enabled) {
+            // TODO: shard_no_change_error
+            EOS_ASSERT(false, wasm_execution_error, "shard no change");
+         }
+      } else {
+         // TODO: shard_no_change_error
+         EOS_ASSERT(enabled != sc->enabled, wasm_execution_error, "shard no change");
+         context.shared_db.remove( *s ); // remove the old one and create new one to ensure changes are orderd by block_num( by id )
+         if (s != nullptr && s->enabled == enabled) { // no change
+            return; // the existed change has been removed, and ignore new change
+         }
+      }
+
+      context.db.create<shard_change_object>( [&]( auto& change ) {
+         change.name        = name;
+         change.enabled     = enabled;
+         change.block_num   = context.control.pending_block_num();
+      });
+   }
+
 }}} // ns eosio::chain::webassembly

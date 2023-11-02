@@ -188,6 +188,9 @@ namespace eosio { namespace chain {
       account_ram_correction_object_type,
       code_object_type,
       database_header_object_type,
+      // reserve 10 tables
+      shard_object_type          = 51,
+      shard_change_object_type   = 52,
       OBJECT_TYPE_COUNT ///< Sentry value which contains the number of different object types
    };
 
