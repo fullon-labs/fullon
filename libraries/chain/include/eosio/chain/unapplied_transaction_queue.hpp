@@ -27,6 +27,8 @@ enum class trx_enum_type {
    incoming_p2p = 4 // incoming_end() needs to be updated if this changes
 };
 
+using trx_enum_type_dump = fc::enum_type<uint8_t,trx_enum_type>;
+
 using next_func_t = std::function<void(const std::variant<fc::exception_ptr, transaction_trace_ptr>&)>;
 
 struct unapplied_transaction {
@@ -38,7 +40,8 @@ struct unapplied_transaction {
    const transaction_id_type& id()const { return trx_meta->id(); }
    fc::time_point_sec expiration()const { return trx_meta->packed_trx()->expiration(); }
 
-   unapplied_transaction(const unapplied_transaction&) = delete;
+   // unapplied_transaction(const unapplied_transaction&) = delete;
+   unapplied_transaction(const unapplied_transaction&) = default; // TODO: delete instead
    unapplied_transaction() = delete;
    unapplied_transaction& operator=(const unapplied_transaction&) = delete;
    unapplied_transaction(unapplied_transaction&&) = default;
@@ -141,6 +144,29 @@ public:
       }
    }
 
+   size_t clear_applied( const deque<transaction_receipt>& receipts ) {
+      if( empty() ) return 0;
+
+      size_t ret = 0;
+      auto& idx = queue.get<by_trx_id>();
+      for( const auto& receipt : receipts ) {
+         if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+            const auto& pt = std::get<packed_transaction>(receipt.trx);
+            auto itr = idx.find( pt.id() );
+            if( itr != idx.end() ) {
+               if( itr->next ) {
+                  itr->next( std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
+                              FC_LOG_MESSAGE( info, "duplicate transaction ${id}", ("id", itr->trx_meta->id())))));
+               }
+               removed( itr );
+               idx.erase( itr );
+               ret++;
+            }
+         }
+      }
+      return ret;
+   }
+
    void add_forked( const branch_type& forked_branch ) {
       // forked_branch is in reverse order
       for( auto ritr = forked_branch.rbegin(), rend = forked_branch.rend(); ritr != rend; ++ritr ) {
@@ -152,6 +178,18 @@ public:
             }
          }
       }
+   }
+
+   inline void add_trxs( const deque<transaction_metadata_ptr> &trxs, trx_enum_type trx_type ) {
+      for( const auto& trx : trxs ) {
+         auto insert_itr = queue.insert( { trx, trx_type } );
+         if( insert_itr.second ) added( insert_itr.first );
+      }
+   }
+
+
+   void add_forked( const deque<transaction_metadata_ptr> &trxs ) {
+      add_trxs(trxs, trx_enum_type::forked);
    }
 
    void add_aborted( deque<transaction_metadata_ptr> aborted_trxs ) {
@@ -172,6 +210,20 @@ public:
          if( next ) {
             next( std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
                   FC_LOG_MESSAGE( info, "duplicate transaction ${id}", ("id", trx->id()) ) ) ) );
+         }
+      }
+   }
+
+   void add_trx( unapplied_transaction&& trx ) {
+      auto itr = queue.get<by_trx_id>().find( trx.trx_meta->id() );
+      if( itr == queue.get<by_trx_id>().end() ) {
+         auto insert_itr = queue.insert( std::move(trx) );
+         if( insert_itr.second ) added( insert_itr.first );
+      } else {
+         if( itr->trx_meta == trx.trx_meta ) return; // same trx meta pointer
+         if( trx.next ) {
+            trx.next( std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
+                  FC_LOG_MESSAGE( info, "duplicate transaction ${id}", ("id", itr->trx_meta->id()) ) ) ) );
          }
       }
    }
@@ -231,3 +283,6 @@ private:
 };
 
 } } //eosio::chain
+
+
+FC_REFLECT_ENUM( eosio::chain::trx_enum_type, (unknown)(forked)(aborted)(incoming_api)(incoming_p2p) )

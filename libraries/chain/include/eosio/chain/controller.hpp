@@ -44,7 +44,7 @@ namespace eosio { namespace chain {
    using apply_handler = std::function<void(apply_context&)>;
    using forked_branch_callback = std::function<void(const branch_type&)>;
    // lookup transaction_metadata via supplied function to avoid re-creation
-   using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
+   using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const eosio::chain::shard_name&, const transaction_id_type&)>;
 
    class fork_database;
 
@@ -139,7 +139,7 @@ namespace eosio { namespace chain {
          /**
           * @return transactions applied in aborted block
           */
-         deque<transaction_metadata_ptr> abort_block();
+         transaction_metadata_map abort_block();
 
        /**
         *

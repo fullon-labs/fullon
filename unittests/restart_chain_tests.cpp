@@ -72,7 +72,7 @@ class replay_tester : public base_tester {
 
    signed_block_ptr
    produce_empty_block(fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms)) override {
-      unapplied_transactions.add_aborted(control->abort_block());
+      abort_block();
       return _produce_block(skip_time, true);
    }
 

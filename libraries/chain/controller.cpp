@@ -25,6 +25,7 @@
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/shard_object.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -53,7 +54,9 @@ using controller_index_set = index_set<
    generated_transaction_multi_index,
    table_id_multi_index,
    code_index,
-   database_header_multi_index
+   database_header_multi_index,
+   shard_index,
+   shard_change_index
 >;
 
 using contract_database_index_set = index_set<
@@ -74,7 +77,8 @@ using shared_index_set = index_set<
    protocol_state_multi_index,
    // dynamic_global_property_multi_index,
    // block_summary_multi_index,
-   code_index
+   code_index,
+   shard_index
 >;
 
 template<typename DatabaseType>
@@ -171,15 +175,7 @@ struct building_block {
       return shards[shard_name];
    }
 
-   inline deque<transaction_metadata_ptr> extract_trx_metas() {
-      deque<transaction_metadata_ptr> result;
-      for (auto& shard : shards) {
-         fc::move_append( result, std::move(shard.second._pending_trx_metas) );
-      }
-      return result;
-   }
-
-   inline transaction_metadata_map extract_trx_meta_map() {
+   inline transaction_metadata_map extract_trx_metas() {
       transaction_metadata_map result;
       for (auto& shard : shards) {
          result[shard.first] = std::move(shard.second._pending_trx_metas);
@@ -225,15 +221,6 @@ struct assembled_block {
 
    // if the _unsigned_block pre-dates block-signing authorities this may be present.
    std::optional<producer_authority_schedule> _new_producer_authority_cache;
-
-   inline deque<transaction_metadata_ptr> extract_trx_metas() {
-      deque<transaction_metadata_ptr> trxs;
-      for (auto& metas : _trx_metas) {
-         fc::move_append( trxs, std::move(metas.second) );
-      }
-      _trx_metas.clear();
-      return trxs;
-   }
 };
 
 struct completed_block {
@@ -265,11 +252,11 @@ struct pending_state {
       return std::get<assembled_block>(_block_stage)._pending_block_header_state;
    }
 
-   deque<transaction_metadata_ptr> extract_trx_metas() {
+   transaction_metadata_map extract_trx_metas() {
       if( std::holds_alternative<building_block>(_block_stage) ) {
          return std::get<building_block>(_block_stage).extract_trx_metas();
       } else if( std::holds_alternative<assembled_block>(_block_stage) )
-         return std::get<assembled_block>(_block_stage).extract_trx_metas();
+         return std::move(std::get<assembled_block>(_block_stage)._trx_metas);
 
       return std::get<completed_block>(_block_stage)._block_state->extract_trxs_metas();
    }
@@ -1978,6 +1965,29 @@ struct controller_impl {
             });
          }
 
+         // TODO: should move to finalize_block()?
+         const auto& sc_indx = main_db.get_index<shard_change_index, by_id>();
+         for( auto itr = sc_indx.begin(); itr != sc_indx.end() && itr->block_num <= pbhs.dpos_irreversible_blocknum; itr = sc_indx.begin() ) {
+            const auto* sp = main_db.find<shard_object, by_name>( itr->name );
+            if (sp == nullptr) {
+               // create new shard
+               main_db.create<shard_object>( [&]( auto& s ) {
+                  s.name        = itr->name;
+                  s.enabled     = itr->enabled;
+                  s.creation_at = pbhs.timestamp;
+               });
+               // TODO: create shard db
+            } else {
+               // modify shard
+               main_db.modify( *sp, [&]( auto& s ) {
+                  s.enabled     = itr->enabled;
+               });
+               // TODO: check shard db exists?
+            }
+            main_db.remove( *itr );
+         }
+
+
          try {
             transaction_metadata_ptr onbtrx =
                   transaction_metadata::create_no_recover_keys( std::make_shared<packed_transaction>( get_on_block_transaction() ),
@@ -2094,7 +2104,7 @@ struct controller_impl {
       pending->_block_stage = assembled_block{
                                  id,
                                  std::move( bb._pending_block_header_state ),
-                                 bb.extract_trx_meta_map(),
+                                 bb.extract_trx_metas(),
                                  std::move( block_ptr ),
                                  std::move( bb._new_pending_producer_schedule )
                               };
@@ -2279,7 +2289,7 @@ struct controller_impl {
                      shard_trx.trx_meta = bsp_caches.at( i );
                   } else {
                      const auto& pt = std::get<packed_transaction>(receipt.trx);
-                     transaction_metadata_ptr trx_meta_ptr = trx_lookup ? trx_lookup( pt.id() ) : transaction_metadata_ptr{};
+                     transaction_metadata_ptr trx_meta_ptr = trx_lookup ? trx_lookup( shard_name, pt.id() ) : transaction_metadata_ptr{};
                      if( trx_meta_ptr && *trx_meta_ptr->packed_trx() != pt ) trx_meta_ptr = nullptr;
                      if( trx_meta_ptr && ( skip_auth_checks || !trx_meta_ptr->recovered_keys().empty() ) ) {
                         shard_trx.trx_meta = trx_meta_ptr;
@@ -2625,8 +2635,8 @@ struct controller_impl {
 
    } /// push_block
 
-   deque<transaction_metadata_ptr> abort_block() {
-      deque<transaction_metadata_ptr> applied_trxs;
+   transaction_metadata_map abort_block() {
+      transaction_metadata_map applied_trxs;
       if( pending ) {
          applied_trxs = pending->extract_trx_metas();
          pending.reset();
@@ -3220,7 +3230,7 @@ void controller::commit_block() {
    my->commit_block(true);
 }
 
-deque<transaction_metadata_ptr> controller::abort_block() {
+transaction_metadata_map controller::abort_block() {
    return my->abort_block();
 }
 

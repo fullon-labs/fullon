@@ -270,11 +270,14 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions, validating_tester) { try {
                                  return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
                               }); // throws if it does not exist
 
-      deque<transaction_metadata_ptr> unapplied_trxs = control->abort_block();
+      auto unapplied_trxs = control->abort_block();
 
       // verify transaction returned from abort_block()
       BOOST_REQUIRE_EQUAL( 1,  unapplied_trxs.size() );
-      BOOST_REQUIRE_EQUAL( trx.id(), unapplied_trxs.at(0)->id() );
+      auto main_shard_itr = unapplied_trxs.find(config::main_shard_name);
+      BOOST_REQUIRE(main_shard_itr != unapplied_trxs.end());
+      BOOST_REQUIRE_EQUAL( 1,  main_shard_itr->second.size() );
+      BOOST_REQUIRE_EQUAL( trx.id(), main_shard_itr->second.at(0)->id() );
 
       // account does not exist block was aborted which had transaction
       BOOST_REQUIRE_EXCEPTION(control->get_account( a ), fc::exception,
@@ -321,7 +324,7 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions_tester, validating_tester) { t
 
       control->get_account( a ); // throws if it does not exist
 
-      deque<transaction_metadata_ptr> unapplied_trxs = control->abort_block(); // should be empty now
+      auto unapplied_trxs = control->abort_block(); // should be empty now
 
       BOOST_REQUIRE_EQUAL( 0,  unapplied_trxs.size() );
 

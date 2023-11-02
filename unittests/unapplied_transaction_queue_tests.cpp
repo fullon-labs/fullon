@@ -128,7 +128,10 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
 
    // clear applied
    q.add_aborted( { trx1, trx2, trx3 } );
-   q.clear_applied( create_test_block_state( { trx1, trx3, trx4 } ) );
+   auto bsp = create_test_block_state( { trx1, trx3, trx4 } );
+   auto shard_itr = bsp->block->transactions.find(config::main_shard_name);
+   BOOST_CHECK( shard_itr != bsp->block->transactions.end() );
+   q.clear_applied( shard_itr->second );
    BOOST_CHECK( q.size() == 1 );
    BOOST_REQUIRE( next( q ) == trx2 );
    BOOST_CHECK( q.size() == 0 );

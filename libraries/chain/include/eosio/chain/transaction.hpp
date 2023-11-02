@@ -180,6 +180,9 @@ namespace eosio { namespace chain {
       digest_type packed_digest()const;
 
       const transaction_id_type& id()const { return trx_id; }
+      const eosio::chain::shard_name& get_shard_name() const {
+         return unpacked_trx.get_shard_name();
+      }
       bytes               get_raw_transaction()const;
 
       time_point_sec                expiration()const { return unpacked_trx.expiration; }
