@@ -32,8 +32,8 @@
 
 namespace eosio { namespace chain {
 
-   wasm_interface::wasm_interface(vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
-     : my( new wasm_interface_impl(vm, eosvmoc_tierup, d, data_dir, eosvmoc_config, profile) ), vm( vm ) {}
+   wasm_interface::wasm_interface(vm_type vm, bool eosvmoc_tierup, const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
+     : my( new wasm_interface_impl(vm, eosvmoc_tierup, data_dir, eosvmoc_config, profile) ), vm( vm ) {}
 
    wasm_interface::~wasm_interface() {}
 
@@ -94,7 +94,7 @@ namespace eosio { namespace chain {
          const chain::eosvmoc::code_descriptor* cd = nullptr;
          chain::eosvmoc::code_cache_base::get_cd_failure failure = chain::eosvmoc::code_cache_base::get_cd_failure::temporary;
          try {
-            cd = my->eosvmoc->cc.get_descriptor_for_code(code_hash, vm_version, context.control.is_write_window(), failure);
+            cd = my->eosvmoc->cc.get_descriptor_for_code(code_hash, vm_version, context.shared_db, context.control.is_write_window(), failure);
          }
          catch(...) {
             //swallow errors here, if EOS VM OC has gone in to the weeds we shouldn't bail: continue to try and run baseline

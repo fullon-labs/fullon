@@ -413,7 +413,7 @@ struct controller_impl {
     thread_pool(),
     shard_thread_pool(),
     main_thread_id( std::this_thread::get_id() ),
-    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, dbm.shared_db(), conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
+    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -2916,10 +2916,10 @@ struct controller_impl {
 #endif
       {
          // TODO: readonly threads, must supply shared_db and sub shard db
-         auto& db = dbm.shared_db();
+         // auto& db = dbm.shared_db();
          std::lock_guard g(threaded_wasmifs_mtx);
          // Non-EOSVMOC needs a wasmif per thread
-         threaded_wasmifs[std::this_thread::get_id()]  = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+         threaded_wasmifs[std::this_thread::get_id()]  = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
       }
    }
 

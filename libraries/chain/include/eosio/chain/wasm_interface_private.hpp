@@ -48,8 +48,8 @@ namespace eosio { namespace chain {
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       struct eosvmoc_tier {
-         eosvmoc_tier(const boost::filesystem::path& d, const eosvmoc::config& c, const chainbase::database& db)
-          : cc(d, c, db) {
+         eosvmoc_tier(const boost::filesystem::path& d, const eosvmoc::config& c )
+          : cc(d, c) {
              // construct exec for the main thread
              init_thread_local_data();
           }
@@ -67,7 +67,7 @@ namespace eosio { namespace chain {
       };
 #endif
 
-      wasm_interface_impl(wasm_interface::vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile) : shared_db(d), wasm_runtime_time(vm) {
+      wasm_interface_impl(wasm_interface::vm_type vm, bool eosvmoc_tierup, const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile) : wasm_runtime_time(vm) {
 #ifdef EOSIO_EOS_VM_RUNTIME_ENABLED
          if(vm == wasm_interface::vm_type::eos_vm)
             runtime_interface = std::make_unique<webassembly::eos_vm_runtime::eos_vm_runtime<eosio::vm::interpreter>>();
@@ -82,7 +82,7 @@ namespace eosio { namespace chain {
 #endif
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
          if(vm == wasm_interface::vm_type::eos_vm_oc)
-            runtime_interface = std::make_unique<webassembly::eosvmoc::eosvmoc_runtime>(data_dir, eosvmoc_config, d);
+            runtime_interface = std::make_unique<webassembly::eosvmoc::eosvmoc_runtime>(data_dir, eosvmoc_config);
 #endif
          if(!runtime_interface)
             EOS_THROW(wasm_exception, "${r} wasm runtime not supported on this platform and/or configuration", ("r", vm));
@@ -90,7 +90,7 @@ namespace eosio { namespace chain {
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
          if(eosvmoc_tierup) {
             EOS_ASSERT(vm != wasm_interface::vm_type::eos_vm_oc, wasm_exception, "You can't use EOS VM OC as the base runtime when tier up is activated");
-            eosvmoc.emplace(data_dir, eosvmoc_config, d);
+            eosvmoc.emplace(data_dir, eosvmoc_config);
          }
 #endif
       }
@@ -178,7 +178,6 @@ namespace eosio { namespace chain {
       > wasm_cache_index;
       wasm_cache_index wasm_instantiation_cache;
 
-      const chainbase::database& shared_db;
       const wasm_interface::vm_type wasm_runtime_time;
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED

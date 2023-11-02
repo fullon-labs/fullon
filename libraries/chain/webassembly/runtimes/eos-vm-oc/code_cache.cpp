@@ -39,8 +39,8 @@ static constexpr size_t descriptor_ptr_from_file_start = header_offset + offseto
 
 static_assert(sizeof(code_cache_header) <= header_size, "code_cache_header too big");
 
-code_cache_async::code_cache_async(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
-   code_cache_base(data_dir, eosvmoc_config, db),
+code_cache_async::code_cache_async(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config ) 
+:code_cache_base(data_dir, eosvmoc_config),
    _result_queue(eosvmoc_config.threads * 2),
    _threads(eosvmoc_config.threads)
 {
@@ -107,7 +107,7 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
 }
 
 
-const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure) {
+const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, const chainbase::database& shared_db, bool is_write_window, get_cd_failure& failure) {
    //if there are any outstanding compiles, process the result queue now
    //When app is in write window, all tasks are running sequentially and read-only threads
    //are not running. Safe to update cache entries.
@@ -122,7 +122,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
 
          //it's not clear this check is required: if apply() was called for code then it existed in the code_index; and then
          // if we got notification of it no longer existing we would have removed it from queued_compiles
-         const code_object* const codeobject = _db.find<code_object,by_code_hash>(boost::make_tuple(nextup->code_id, 0, nextup->vm_version));
+         const code_object* const codeobject = shared_db.find<code_object,by_code_hash>(boost::make_tuple(nextup->code_id, 0, nextup->vm_version));
          if(codeobject) {
             _outstanding_compiles_and_poison.emplace(*nextup, false);
             std::vector<wrapped_fd> fds_to_pass;
@@ -168,7 +168,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
       return nullptr;
    }
 
-   const code_object* const codeobject = _db.find<code_object,by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
+   const code_object* const codeobject = shared_db.find<code_object,by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
    if(!codeobject) { //should be impossible right?
       failure = get_cd_failure::permanent; // Compile will not start
       return nullptr;
@@ -191,7 +191,7 @@ code_cache_sync::~code_cache_sync() {
       elog("unexpected response from EOS VM OC compile monitor during shutdown");
 }
 
-const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window) {
+const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const digest_type& code_id, const uint8_t& vm_version, const chainbase::database& shared_db, bool is_write_window) {
    //check for entry in cache
    code_cache_index::index<by_hash>::type::iterator it = _cache_index.get<by_hash>().find(boost::make_tuple(code_id, vm_version));
    if(it != _cache_index.get<by_hash>().end()) {
@@ -202,7 +202,7 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
    if(!is_write_window)
       return nullptr;
 
-   const code_object* const codeobject = _db.find<code_object,by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
+   const code_object* const codeobject = shared_db.find<code_object,by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
    if(!codeobject) //should be impossible right?
       return nullptr;
 
@@ -222,8 +222,7 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
    return &*_cache_index.push_front(std::move(std::get<code_descriptor>(result.result))).first;
 }
 
-code_cache_base::code_cache_base(const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
-   _db(db),
+code_cache_base::code_cache_base(const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config ) :
    _cache_file_path(data_dir/"code_cache.bin")
 {
    static_assert(sizeof(allocator_t) <= header_offset, "header offset intersects with allocator");
