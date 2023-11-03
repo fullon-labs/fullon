@@ -40,7 +40,7 @@ struct config;
 
 class code_cache_base {
    public:
-      code_cache_base(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      code_cache_base(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config );
       ~code_cache_base();
 
       const int& fd() const { return _cache_fd; }
@@ -70,7 +70,6 @@ class code_cache_base {
       > code_cache_index;
       code_cache_index _cache_index;
 
-      const chainbase::database& _db;
 
       bfs::path _cache_file_path;
       int _cache_fd;
@@ -96,13 +95,13 @@ class code_cache_base {
 
 class code_cache_async : public code_cache_base {
    public:
-      code_cache_async(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      code_cache_async(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config );
       ~code_cache_async();
 
       //If code is in cache: returns pointer & bumps to front of MRU list
       //If code is not in cache, and not blacklisted, and not currently compiling: return nullptr and kick off compile
       //otherwise: return nullptr
-      const code_descriptor* const get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure);
+      const code_descriptor* const get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, const chainbase::database& shared_db, bool is_write_window, get_cd_failure& failure);
 
    private:
       std::thread _monitor_reply_thread;
@@ -119,7 +118,7 @@ class code_cache_sync : public code_cache_base {
       ~code_cache_sync();
 
       //Can still fail and return nullptr if, for example, there is an expected instantiation failure
-      const code_descriptor* const get_descriptor_for_code_sync(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window);
+      const code_descriptor* const get_descriptor_for_code_sync(const digest_type& code_id, const uint8_t& vm_version, const chainbase::database& shared_db, bool is_write_window);
 };
 
 }}}

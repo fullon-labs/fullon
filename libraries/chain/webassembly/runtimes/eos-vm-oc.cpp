@@ -28,7 +28,7 @@ class eosvmoc_instantiated_module : public wasm_instantiated_module_interface {
       bool is_main_thread() { return _main_thread_id == std::this_thread::get_id(); };
 
       void apply(apply_context& context) override {
-         const code_descriptor* const cd = _eosvmoc_runtime.cc.get_descriptor_for_code_sync(_code_hash, _vm_version, context.control.is_write_window());
+         const code_descriptor* const cd = _eosvmoc_runtime.cc.get_descriptor_for_code_sync(_code_hash, _vm_version, context.shared_db, context.control.is_write_window());
          EOS_ASSERT(cd, wasm_execution_error, "EOS VM OC instantiation failed");
 
          if ( is_main_thread() )
@@ -43,8 +43,8 @@ class eosvmoc_instantiated_module : public wasm_instantiated_module_interface {
       std::thread::id                _main_thread_id;
 };
 
-eosvmoc_runtime::eosvmoc_runtime(const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db)
-   : cc(data_dir, eosvmoc_config, db), exec(cc), mem(wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size) {
+eosvmoc_runtime::eosvmoc_runtime(const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config)
+   : cc(data_dir, eosvmoc_config), exec(cc), mem(wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size) {
 }
 
 eosvmoc_runtime::~eosvmoc_runtime() {
