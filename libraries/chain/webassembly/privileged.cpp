@@ -227,6 +227,7 @@ namespace eosio { namespace chain { namespace webassembly {
       // TODO: main_shard_only_error
       EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "register_shard not allowed in sub shard" );
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "register_shard not allowed in a readonly transaction");
+      EOS_ASSERT(name != config::main_shard_name, wasm_execution_error, "can not register main shard");
       const auto* s = context.shared_db.find<shard_object, by_name>( name );
       const auto* sc = context.db.find<shard_change_object, by_name>( name );
       // TODO: how to increase ram of user?

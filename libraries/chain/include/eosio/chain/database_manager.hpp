@@ -17,7 +17,9 @@ namespace eosio{ namespace chain {
 
          using database_index_row_count_multiset = std::multiset<std::pair<unsigned, std::string>>;
 
-         database_manager(const path& dir, open_flags write = open_flags::read_only, uint64_t shared_file_size = 0, bool allow_dirty = false,
+         database_manager(const path& dir, open_flags write = open_flags::read_only,
+                  uint64_t shared_file_size = 0, uint64_t main_file_size = 0,
+                  bool allow_dirty = false,
                   pinnable_mapped_file::map_mode = pinnable_mapped_file::map_mode::mapped);
          ~database_manager();
          database_manager(database_manager&&) = default;
@@ -30,9 +32,7 @@ namespace eosio{ namespace chain {
 
          const database& main_db() const { return _main_db; }
          database& main_db() { return _main_db; }
-         
-         void create_shard_db( db_name shard_name, const path& dir, open_flags flag = open_flags::read_only, uint64_t shared_file_size = 0, bool allow_dirty = false,
-                  pinnable_mapped_file::map_mode db_map_mode = pinnable_mapped_file::map_mode::mapped);
+
          const database& shard_db(db_name shard_name)  const { return _shard_db_map.at(shard_name);}
          database& shard_db( db_name shard_name) { return _shard_db_map.at(shard_name);}
 
@@ -77,11 +77,11 @@ namespace eosio{ namespace chain {
          int64_t revision()const {
             return _main_db.revision();
          }
-         
+
          int64_t shard_revision( db_name shard_name ) const {
             return _shard_db_map.at(shard_name).revision();
          }
-         
+
          void undo();
          void squash();
          void commit( int64_t revision );
@@ -100,6 +100,8 @@ namespace eosio{ namespace chain {
                db.second.set_revision( revision );
             }
          }
+
+         database& add_shard( const shard_name& name, uint64_t shared_file_size = 0 );
 
          template<typename MultiIndexType>
          void add_index() {
@@ -138,10 +140,14 @@ namespace eosio{ namespace chain {
          }
 
       private:
-         database                                                    _shared_db;
-         database                                                    _main_db;
-         std::map<db_name, database>                                 _shard_db_map;
-         bool                                                        _read_only = false;
+         path                             _dir;
+         open_flags                       _flags;
+         bool                             _allow_dirty = false;
+         pinnable_mapped_file::map_mode   _db_map_mode = pinnable_mapped_file::map_mode::mapped;
+         database                         _shared_db;
+         database                         _main_db;
+         std::map<db_name, database>      _shard_db_map;
+         bool                             _read_only = false;
 
          /**
           * _read_only_mode is dynamic which can be toggled back and for

@@ -383,12 +383,13 @@ struct controller_impl {
       apply_handlers[receiver][make_pair(contract,action)] = v;
    }
 
+   // TODO: cfg.main_state_size, cfg.shared_state_size
    controller_impl( const controller::config& cfg, controller& s, protocol_feature_set&& pfs, const chain_id_type& chain_id )
    :rnh(),
     self(s),
     dbm( cfg.state_dir,
         cfg.read_only ? database::read_only : database::read_write,
-        cfg.state_size, false, cfg.db_map_mode ),
+        cfg.state_size, cfg.state_size, false, cfg.db_map_mode ),
     blog( cfg.blocks_dir, cfg.blog ),
     fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
     resource_limits( dbm.main_db(), [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
@@ -407,10 +408,6 @@ struct controller_impl {
                             const vector<digest_type>& new_features )
                            { check_protocol_features( timestamp, cur_features, new_features ); }
       );
-      //TODO: validator node create shard_db that is cared about, and producer node create all shard_db.
-      dbm.create_shard_db( "shard1"_n, cfg.state_dir,
-        cfg.read_only ? database::read_only : database::read_write,
-        cfg.state_size, false, cfg.db_map_mode );
       thread_pool.start( cfg.thread_pool_size, [this]( const fc::exception& e ) {
          elog( "Exception in chain thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          if( shutdown ) shutdown();
@@ -884,6 +881,11 @@ struct controller_impl {
 
       // add indices to shared db
       shared_index_set::add_indices(dbm.shared_db());
+   }
+
+   void add_shard_db(const shard_name& name) {
+      // TODO: conf.shard_state_size
+      dbm.add_shard(name, conf.state_size);
    }
 
    void clear_all_undo() {
@@ -1976,7 +1978,7 @@ struct controller_impl {
                   s.enabled     = itr->enabled;
                   s.creation_at = pbhs.timestamp;
                });
-               // TODO: create shard db
+               add_shard_db(itr->name);
             } else {
                // modify shard
                main_db.modify( *sp, [&]( auto& s ) {

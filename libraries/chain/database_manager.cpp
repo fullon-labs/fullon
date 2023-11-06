@@ -25,10 +25,15 @@ namespace eosio { namespace chain {
    // typedef boost::interprocess::interprocess_sharable_mutex read_write_mutex;
    // typedef boost::interprocess::sharable_lock< read_write_mutex > read_lock;
 
-   database_manager::database_manager(const database_manager::path& dir, open_flags flags, uint64_t shared_file_size, bool allow_dirty,
-                      pinnable_mapped_file::map_mode db_map_mode) :
+   database_manager::database_manager(const database_manager::path& dir, open_flags flags,
+                     uint64_t shared_file_size, uint64_t main_file_size, bool allow_dirty,
+                     pinnable_mapped_file::map_mode db_map_mode) :
+      _dir(dir),
+      _flags(flags),
+      _allow_dirty(allow_dirty),
+      _db_map_mode(db_map_mode),
       _shared_db(dir / "shared", flags, shared_file_size, allow_dirty, db_map_mode),
-      _main_db(dir / "main", flags, shared_file_size, allow_dirty, db_map_mode),
+      _main_db(dir / "main", flags, main_file_size, allow_dirty, db_map_mode),
       _read_only(flags == open_flags::read_only)
    {
       _read_only_mode = _read_only;
@@ -100,11 +105,16 @@ namespace eosio { namespace chain {
          return session();
       }
    }
-   
-   void database_manager::create_shard_db(db_name shard_name, const path& dir, open_flags flag , uint64_t shared_file_size , bool allow_dirty ,
-                  pinnable_mapped_file::map_mode db_map_mode){              
-      _shard_db_map.emplace(std::piecewise_construct,std::forward_as_tuple(shard_name), std::forward_as_tuple(dir/shard_name.to_string(), flag, shared_file_size, allow_dirty, db_map_mode));
-      _read_only_mode = flag == open_flags::read_only;
+
+   database_manager::database& database_manager::add_shard( const shard_name& name, uint64_t file_size ) {
+      auto itr = _shard_db_map.find(name);
+      if (itr == _shard_db_map.end()) {
+         // TODO: should add sub shard root dir 'dir/"shards"/name.to_string()'
+         auto new_ret = _shard_db_map.emplace(std::piecewise_construct,std::forward_as_tuple(name),
+            std::forward_as_tuple(_dir/name.to_string(), _flags, file_size, _allow_dirty, _db_map_mode) );
+         itr = new_ret.first;
+      }
+      return itr->second;
    }
 
 }}  // namespace eosio::chain
