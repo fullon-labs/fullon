@@ -133,12 +133,16 @@ using dbm_maybe_session = maybe_session<database_manager>;
 using db_maybe_session = maybe_session<database>;
 
 struct building_shard {
-   database*                                    _db_ptr = nullptr;
+   shard_name                                   _name;
+   database&                                    _db;
+   database&                                    _shared_db;
    deque<transaction_metadata_ptr>              _pending_trx_metas;
    deque<transaction_receipt>                   _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
    digests_t                                    _trx_mroot_or_receipt_digests;
    digests_t                                    _action_receipt_digests;
 
+   building_shard(const shard_name& name, database& db, database& shared_db):
+      _name(name), _db(db), _shared_db(shared_db) {}
 };
 
 struct shard_transaction_metadata {
@@ -175,7 +179,13 @@ struct building_block {
       // must run in main thread
       auto itr = shards.find(name);
       if ( itr != shards.end() ) {
-         auto new_ret = shards.emplace(name, building_shard()); // TODO: set shard db
+         // TODO: check shard exist in shard table of shared_db
+         auto db_ptr = dbm.find_shard_db(name);
+         EOS_ASSERT( db_ptr, unavailable_shard_exception, "shard db not found" );
+         auto& shared_db = name == config::main_shard_name ? *db_ptr : dbm.shared_db();
+         auto new_ret = shards.emplace( std::piecewise_construct,
+                                        std::forward_as_tuple( name ),
+                                        std::forward_as_tuple( name, *db_ptr, shared_db ) );
          itr = new_ret.first;
       }
       return itr->second;
@@ -1429,11 +1439,12 @@ struct controller_impl {
                                                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    { try {
       // TODO: run in main shard only
+      assert( shard._name == config::main_shard_name );
       auto start = fc::time_point::now();
       const bool validating = !self.is_speculative_block();
       EOS_ASSERT( !validating || explicit_billed_cpu_time, transaction_exception, "validating requires explicit billing" );
 
-      auto& db = dbm.main_db();
+      auto& db = shard._db;
       db_maybe_session undo_session;
       if ( !self.skip_db_sessions() )
          undo_session = maybe_session(db);
@@ -1490,7 +1501,7 @@ struct controller_impl {
 
       transaction_checktime_timer trx_timer( timer );
       assert(trx->packed_trx()->get_transaction().get_shard_name() == config::main_shard_name);
-      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), dbm.main_db(), dbm.main_db() );
+      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), shard._db, shard._shared_db );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
       trx_context.max_transaction_time_subjective = max_transaction_time;
@@ -1704,10 +1715,7 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
-         shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
-         auto& db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
-         auto& shared_db = sname == config::main_shard_name ? dbm.main_db() : dbm.shared_db();
-         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), db, shared_db, start, trx->get_trx_type());
+         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), shard._db, shard._shared_db, start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -2075,8 +2083,6 @@ struct controller_impl {
       // size_t num_new = std::distance(acct_undo.new_values.begin(), acct_undo.new_values.end());
       // wdump((pbhs.block_num)(acct_idx.undo_stack_revision_range())(num_old)(num_rm)(num_new));
       shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
-
-      // TODO: clear empty trx receipts
 
       // Create (unsigned) block:
       auto block_ptr = std::make_shared<signed_block>( pbhs.make_block_header(
