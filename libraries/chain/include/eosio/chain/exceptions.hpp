@@ -160,6 +160,7 @@ namespace eosio { namespace chain {
     *   |- block_log_exception
     *   |- resource_limit_exception
     *   |- contract_api_exception
+    *   |- shard_exception
     */
 
     FC_DECLARE_DERIVED_EXCEPTION( chain_type_exception, chain_exception,
@@ -646,4 +647,8 @@ namespace eosio { namespace chain {
                                     3250002, "Protocol feature exception (invalid block)" )
       FC_DECLARE_DERIVED_EXCEPTION( protocol_feature_iterator_exception, protocol_feature_exception,
                                     3250003, "Protocol feature iterator exception" )
+   FC_DECLARE_DERIVED_EXCEPTION( shard_exception,    chain_exception,
+                                 3510000, "Shard exception" )
+      FC_DECLARE_DERIVED_EXCEPTION( building_shard_exception,      shard_exception,
+                                    3040001, "Building shard exception" )
 } } // eosio::chain

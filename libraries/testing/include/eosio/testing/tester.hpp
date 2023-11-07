@@ -202,6 +202,14 @@ namespace eosio { namespace testing {
          transaction_trace_ptr    push_transaction( packed_transaction& trx, fc::time_point deadline = fc::time_point::maximum(), uint32_t billed_cpu_time_us = DEFAULT_BILLED_CPU_TIME_US );
          transaction_trace_ptr    push_transaction( signed_transaction& trx, fc::time_point deadline = fc::time_point::maximum(), uint32_t billed_cpu_time_us = DEFAULT_BILLED_CPU_TIME_US, bool no_throw = false, transaction_metadata::trx_type trx_type = transaction_metadata::trx_type::input );
 
+         transaction_trace_ptr push_transaction( const transaction_metadata_ptr& trx,
+                                                 fc::time_point deadline, fc::microseconds max_transaction_time,
+                                                 uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
+                                                 int64_t subjective_cpu_bill_us );
+
+         transaction_trace_ptr push_scheduled_transaction( const transaction_id_type& scheduled,
+                                                           fc::time_point block_deadline, fc::microseconds max_transaction_time,
+                                                           uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time );
          [[nodiscard]]
          action_result            push_action(action&& cert_act, uint64_t authorizer); // TODO/QUESTION: Is this needed?
 

@@ -383,7 +383,9 @@ namespace eosio { namespace testing {
 
       if( !skip_pending_trxs ) {
          for( auto itr = unapplied_transactions.begin(); itr != unapplied_transactions.end();  ) {
-            auto trace = control->push_transaction( itr->trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
+            auto building_shard = control->init_building_shard(itr->trx_meta->get_shard_name());
+            FC_ASSERT( building_shard, "Init building shard failed" );
+            auto trace = control->push_transaction( *building_shard, itr->trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
             traces.emplace_back( trace );
             if(!no_throw && trace->except) {
                // this always throws an fc::exception, since the original exception is copied into an fc::exception
@@ -393,9 +395,12 @@ namespace eosio { namespace testing {
          }
 
          vector<transaction_id_type> scheduled_trxs;
+
+         auto main_building_shard = control->init_building_shard(config::main_shard_name);
+         FC_ASSERT( main_building_shard, "Init main building shard failed" );
          while ((scheduled_trxs = get_scheduled_transactions()).size() > 0 ) {
             for( const auto& trx : scheduled_trxs ) {
-               auto trace = control->push_scheduled_transaction( trx, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true );
+               auto trace = control->push_scheduled_transaction( *main_building_shard, trx, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true );
                traces.emplace_back( trace );
                if( !no_throw && trace->except ) {
                   // this always throws an fc::exception, since the original exception is copied into an fc::exception
@@ -593,7 +598,7 @@ namespace eosio { namespace testing {
       trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
       return push_transaction( trx );
    }
-   
+
    transaction_trace_ptr base_tester::push_transaction( packed_transaction& trx,
                                                         fc::time_point deadline,
                                                         uint32_t billed_cpu_time_us
@@ -607,7 +612,7 @@ namespace eosio { namespace testing {
             fc::microseconds::maximum() :
             fc::microseconds( deadline - fc::time_point::now() );
       auto fut = transaction_metadata::start_recover_keys( ptrx, control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
-      auto r = control->push_transaction( fut.get(), deadline, fc::microseconds::maximum(), billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
+      auto r = push_transaction( fut.get(), deadline, fc::microseconds::maximum(), billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
       if( r->except ) throw *r->except;
       return r;
@@ -633,13 +638,32 @@ namespace eosio { namespace testing {
             fc::microseconds( deadline - fc::time_point::now() );
       auto ptrx = std::make_shared<packed_transaction>( trx, c );
       auto fut = transaction_metadata::start_recover_keys( ptrx, control->get_thread_pool(), control->get_chain_id(), time_limit, trx_type );
-      auto r = control->push_transaction( fut.get(), deadline, fc::microseconds::maximum(), billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
+      auto r = push_transaction( fut.get(), deadline, fc::microseconds::maximum(), billed_cpu_time_us, billed_cpu_time_us > 0, 0 );
       if (no_throw) return r;
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
       if( r->except)  throw *r->except;
       return r;
    } FC_RETHROW_EXCEPTIONS( warn, "transaction_header: ${header}, billed_cpu_time_us: ${billed}",
                             ("header", transaction_header(trx) ) ("billed", billed_cpu_time_us))
+   }
+
+   transaction_trace_ptr base_tester::push_transaction( const transaction_metadata_ptr& trx,
+                                       fc::time_point deadline, fc::microseconds max_transaction_time,
+                                       uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
+                                       int64_t subjective_cpu_bill_us ) {
+      auto building_shard = control->init_building_shard(trx->get_shard_name());
+      FC_ASSERT( building_shard, "Init building shard failed" );
+      return control->push_transaction( *building_shard, trx, deadline, max_transaction_time,
+         billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
+   }
+
+   transaction_trace_ptr base_tester::push_scheduled_transaction( const transaction_id_type& scheduled,
+                                       fc::time_point block_deadline, fc::microseconds max_transaction_time,
+                                       uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time ) {
+      auto building_shard = control->init_building_shard(config::main_shard_name);
+      FC_ASSERT( building_shard, "Init building shard failed" );
+      return control->push_scheduled_transaction( *building_shard, scheduled, block_deadline,
+          max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
    }
 
    typename base_tester::action_result base_tester::push_action(action&& act, uint64_t authorizer) {

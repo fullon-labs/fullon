@@ -36,6 +36,9 @@ namespace eosio{ namespace chain {
          const database& shard_db(db_name shard_name)  const { return _shard_db_map.at(shard_name);}
          database& shard_db( db_name shard_name) { return _shard_db_map.at(shard_name);}
 
+         database* find_shard_db(const shard_name& name);
+         std::map<db_name, database>& shard_dbs() { return _shard_db_map; }
+
          struct session {
             public:
                session( session&& s ):_db_sessions( std::move(s._db_sessions) ){}
@@ -101,7 +104,7 @@ namespace eosio{ namespace chain {
             }
          }
 
-         database& add_shard( const shard_name& name, uint64_t shared_file_size = 0 );
+         database* add_shard_db( const shard_name& name, uint64_t shared_file_size = 0 );
 
          template<typename MultiIndexType>
          void add_index() {

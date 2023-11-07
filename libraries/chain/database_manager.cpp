@@ -1,4 +1,5 @@
 #include <eosio/chain/database_manager.hpp>
+#include <eosio/chain/config.hpp>
 #include <boost/array.hpp>
 
 #include <iostream>
@@ -106,7 +107,7 @@ namespace eosio { namespace chain {
       }
    }
 
-   database_manager::database& database_manager::add_shard( const shard_name& name, uint64_t file_size ) {
+   database_manager::database* database_manager::add_shard_db( const shard_name& name, uint64_t file_size ) {
       auto itr = _shard_db_map.find(name);
       if (itr == _shard_db_map.end()) {
          // TODO: should add sub shard root dir 'dir/"shards"/name.to_string()'
@@ -114,7 +115,17 @@ namespace eosio { namespace chain {
             std::forward_as_tuple(_dir/name.to_string(), _flags, file_size, _allow_dirty, _db_map_mode) );
          itr = new_ret.first;
       }
-      return itr->second;
+      return &itr->second;
    }
-
+   database_manager::database* database_manager::find_shard_db(const shard_name& name) {
+      if (name == config::main_shard_name) {
+         return &_main_db;
+      } else {
+         auto itr = _shard_db_map.find(name);
+         if (itr != _shard_db_map.end()) {
+            return &itr->second;
+         }
+      }
+      return nullptr;
+   }
 }}  // namespace eosio::chain
