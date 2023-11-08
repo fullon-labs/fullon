@@ -348,7 +348,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       bool remove_expired_blacklisted_trxs( const fc::time_point& deadline );
       // bool process_unapplied_trxs( const fc::time_point& deadline );
       bool process_unapplied_trx_one( const fc::time_point& deadline, processing_shard_map::iterator shard_itr );
-      void process_scheduled_and_incoming_trxs( const fc::time_point& deadline, processing_shard_map::iterator shard_itr );
+      void process_scheduled_trxs( const fc::time_point& deadline, processing_shard_map::iterator shard_itr );
       bool process_incoming_trx_one( const fc::time_point& deadline, processing_shard_map::iterator shard_itr );
       bool process_trx_one( const fc::time_point& deadline, processing_shard_map::iterator shard_itr );
 
@@ -2582,7 +2582,7 @@ bool producer_plugin_impl::process_unapplied_trx_one( const fc::time_point& dead
    return push_transaction_one( deadline, shard_itr, std::move(trx) );
 }
 
-void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_point& deadline, processing_shard_map::iterator shard_itr )
+void producer_plugin_impl::process_scheduled_trxs( const fc::time_point& deadline, processing_shard_map::iterator shard_itr )
 {
    assert(shard_itr != _shards.end());
    assert(shard_itr->first == config::main_shard_name);
@@ -2602,10 +2602,13 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
       return; // TODO: check in caller of this function?
    }
 
-   // auto end = _unapplied_transactions.incoming_end();
+   auto& unapplied_transactions = shard_itr->second.unapplied_transactions;
+   if ( shard.incoming_trx_weight > 1.0 && unapplied_transactions.incoming_size() > 0) {
+      shard.incoming_trx_weight -= 1.0;
+      return; // and then will pushing incoming trx
+   }
+
    const auto& sch_idx = chain.db().get_index<generated_transaction_multi_index,by_delay>();
-   // const auto scheduled_trxs_size = sch_idx.size();
-   // auto sch_itr = sch_idx.begin();
 
    auto sch_itr = sch_idx.lower_bound( boost::make_tuple( shard.next_schedule_trx_delay_until, shard.next_schedule_trx_id ) );
    bool found = false;
@@ -2646,6 +2649,7 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
       }
 
       shard.num_schedule_trx_processed++;
+      shard.incoming_trx_weight += _incoming_defer_ratio;
 
       auto start = fc::time_point::now();
       fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
@@ -2721,7 +2725,6 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                   shard.num_schedule_trx_applied++;
                }
 
-               shard.incoming_trx_weight += self->_incoming_defer_ratio;
                self->process_trx_one(deadline, shard_itr);
             });
 
@@ -2760,6 +2763,7 @@ bool producer_plugin_impl::process_trx_one( const fc::time_point& deadline, proc
 {
    assert(shard_itr != _shards.end());
    auto& shard = shard_itr->second;
+   const auto& shard_name = shard_itr->first;
    try {
       const chain::controller& chain = chain_plug->chain();
       if ( !chain.is_building_block() ) {
@@ -2776,14 +2780,14 @@ bool producer_plugin_impl::process_trx_one( const fc::time_point& deadline, proc
 
       process_unapplied_trx_one(deadline, shard_itr);
 
-      if (!shard.trx_task_fut.valid()) {
-         process_scheduled_and_incoming_trxs(deadline, shard_itr);
+      if (shard_name == config::main_shard_name && !shard.trx_task_fut.valid()) {
+         // scheduled trx can only be in main shard
+         process_scheduled_trxs(deadline, shard_itr);
       }
 
       if (!shard.trx_task_fut.valid()) {
          process_incoming_trx_one(deadline, shard_itr);
       }
-
 
       if (!shard.trx_task_fut.valid()) {
          // TODO: may_be_produce?
@@ -3163,12 +3167,14 @@ bool producer_plugin_impl::read_only_execution_task(uint32_t pending_block_num) 
          self->switch_to_write_window();
       } );
       // last thread post any exhausted back into read_only queue with slightly higher priority (low+1) so they are executed first
-      ro_trx_t t;
-      while( _ro_exhausted_trx_queue.pop_front(t) ) {
-         app().executor().post(priority::low+1, exec_queue::read_only, [this, trx{std::move(t.trx)}, next{std::move(t.next)}]() mutable {
-            // push_read_only_transaction( std::move(trx), std::move(next) );
-         } );
-      }
+
+      // TODO: push_read_only_transaction
+      // ro_trx_t t;
+      // while( _ro_exhausted_trx_queue.pop_front(t) ) {
+      //    app().executor().post(priority::low+1, exec_queue::read_only, [this, trx{std::move(t.trx)}, next{std::move(t.next)}]() mutable {
+      //       push_read_only_transaction( std::move(trx), std::move(next) );
+      //    } );
+      // }
    }
 
    return true;
@@ -3177,17 +3183,18 @@ bool producer_plugin_impl::read_only_execution_task(uint32_t pending_block_num) 
 // Called from app thread during start block.
 // Reschedule any exhausted read-only transactions from the last block
 void producer_plugin_impl::repost_exhausted_transactions(const fc::time_point& deadline) {
-   if ( !_ro_exhausted_trx_queue.empty() ) {
-      chain::controller& chain = chain_plug->chain();
-      uint32_t pending_block_num = chain.pending_block_num();
-      // post any exhausted back into read_only queue with slightly higher priority (low+1) so they are executed first
-      ro_trx_t t;
-      while( !should_interrupt_start_block( deadline, pending_block_num ) && _ro_exhausted_trx_queue.pop_front(t) ) {
-         app().executor().post(priority::low+1, exec_queue::read_only, [this, trx{std::move(t.trx)}, next{std::move(t.next)}]() mutable {
-            // push_read_only_transaction( std::move(trx), std::move(next) );
-         } );
-      }
-   }
+   // TODO: push_read_only_transaction
+   // if ( !_ro_exhausted_trx_queue.empty() ) {
+   //    chain::controller& chain = chain_plug->chain();
+   //    uint32_t pending_block_num = chain.pending_block_num();
+   //    // post any exhausted back into read_only queue with slightly higher priority (low+1) so they are executed first
+   //    ro_trx_t t;
+   //    while( !should_interrupt_start_block( deadline, pending_block_num ) && _ro_exhausted_trx_queue.pop_front(t) ) {
+   //       app().executor().post(priority::low+1, exec_queue::read_only, [this, trx{std::move(t.trx)}, next{std::move(t.next)}]() mutable {
+   //          // push_read_only_transaction( std::move(trx), std::move(next) );
+   //       } );
+   //    }
+   // }
 }
 
 // TODO: push_read_only_transaction
