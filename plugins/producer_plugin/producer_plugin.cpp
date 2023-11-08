@@ -2412,11 +2412,10 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
 
    assert(!shard.trx_task_fut.valid());
 
-   auto* building_shard = chain.init_building_shard(shard_itr->first);
-   EOS_ASSERT(building_shard, producer_exception, "Init building shard failed");
+   auto& building_shard = chain.init_building_shard(shard_itr->first);
    // TODO: params should use reference &?
    shard.trx_task_fut = post_async_task( _shard_thread_pool.get_executor(), [
-                                 self = this, shard_itr{std::move(shard_itr)}, building_shard,
+                                 self = this, shard_itr{std::move(shard_itr)}, &building_shard,
                                  block_seq{shard.block_seq}, trx_seq{shard.trx_seq},
                                  unapplied_trx{std::move(unapplied_trx)}, block_deadline,
                                  start, disable_subjective_enforcement, first_auth, max_trx_time,
@@ -2427,7 +2426,7 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
             // check block seq to ensure that current thead is running in expected block producing.
             EOS_ASSERT(shard_itr->second.block_seq == block_seq, producer_exception, "Building block sequence error");
 
-            auto trace = chain.push_transaction( *building_shard, unapplied_trx.trx_meta, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
+            auto trace = chain.push_transaction( building_shard, unapplied_trx.trx_meta, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
 
             auto ttt = std::move(unapplied_trx);
             app().executor().post( priority::low, exec_queue::read_write, [self, shard_itr{std::move(shard_itr)}, block_seq, trx_seq, block_deadline, start, disable_subjective_enforcement, first_auth, prev_billed_cpu_time_us, sub_bill, unapplied_trx{std::move(unapplied_trx)}, trace{std::move(trace)}]() mutable {
@@ -2652,18 +2651,17 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
       fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
       if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
-      auto* building_shard = chain.init_building_shard(shard_itr->first);
-      EOS_ASSERT(building_shard, producer_exception, "Init building shard failed");
+      auto& building_shard = chain.init_building_shard(shard_itr->first);
       shard.trx_task_fut = post_async_task( _shard_thread_pool.get_executor(), [
                                  self = this, shard_itr{std::move(shard_itr)},
-                                 building_shard, block_seq{shard.block_seq},
+                                 &building_shard, block_seq{shard.block_seq},
                                  trx_seq{shard.trx_seq}, trx_id{sch_itr->trx_id}, deadline,
                                  start, max_trx_time, sch_expiration] () {
          try {
             chain::controller& chain = self->chain_plug->chain();
             // check block seq to ensure that current thead is running in expected block producing.
             EOS_ASSERT(shard_itr->second.block_seq == block_seq, producer_exception, "Building block sequence error");
-            auto trace = chain.push_scheduled_transaction(*building_shard, trx_id, deadline, max_trx_time, 0, false);
+            auto trace = chain.push_scheduled_transaction(building_shard, trx_id, deadline, max_trx_time, 0, false);
 
             app().executor().post( priority::low, exec_queue::read_write, [self, shard_itr{std::move(shard_itr)}, block_seq, trx_seq, deadline, start, trace{std::move(trace)}, trx_id{std::move(trx_id)}, sch_expiration]() mutable {
                chain::controller& chain = self->chain_plug->chain();

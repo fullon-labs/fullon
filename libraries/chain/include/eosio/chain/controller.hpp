@@ -142,7 +142,7 @@ namespace eosio { namespace chain {
           */
          transaction_metadata_map abort_block();
 
-         building_shard* init_building_shard(const shard_name& name);
+         building_shard& init_building_shard(const shard_name& name);
 
        /**
         *

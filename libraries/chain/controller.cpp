@@ -143,6 +143,9 @@ struct building_shard {
 
    building_shard(const shard_name& name, database& db, database& shared_db):
       _name(name), _db(db), _shared_db(shared_db) {}
+   building_shard(const building_shard&) = delete;
+   building_shard() = delete;
+   building_shard& operator=(const building_shard&) = delete;
 };
 
 struct shard_transaction_metadata {
@@ -173,27 +176,11 @@ struct building_block {
    vector<digest_type>                        _new_protocol_feature_activations;
    size_t                                     _num_new_protocol_features_that_have_activated = 0;
    std::optional<checksum256_type>            _trx_mroot;
-   std::map<shard_name, building_shard>       shards;
-
-   inline building_shard& init_shard(const chain::shard_name& name) {
-      // must run in main thread
-      auto itr = shards.find(name);
-      if ( itr != shards.end() ) {
-         // TODO: check shard exist in shard table of shared_db
-         auto db_ptr = dbm.find_shard_db(name);
-         EOS_ASSERT( db_ptr, unavailable_shard_exception, "shard db not found" );
-         auto& shared_db = name == config::main_shard_name ? *db_ptr : dbm.shared_db();
-         auto new_ret = shards.emplace( std::piecewise_construct,
-                                        std::forward_as_tuple( name ),
-                                        std::forward_as_tuple( name, *db_ptr, shared_db ) );
-         itr = new_ret.first;
-      }
-      return itr->second;
-   }
+   std::map<shard_name, building_shard>       _shards;
 
    inline transaction_metadata_map extract_trx_metas() {
       transaction_metadata_map result;
-      for (auto& shard : shards) {
+      for (auto& shard : _shards) {
          result[shard.first] = std::move(shard.second._pending_trx_metas);
       }
       return result;
@@ -201,7 +188,7 @@ struct building_block {
 
    inline transaction_receipt_map extract_trx_receipt_map() {
       transaction_receipt_map result;
-      for (auto& shard : shards) {
+      for (auto& shard : _shards) {
          result[shard.first] = std::move(shard.second._pending_trx_receipts);
       }
       return result;
@@ -209,7 +196,7 @@ struct building_block {
 
    inline digests_t extract_receipt_digests() {
       digests_t result;
-      for (auto& shard : shards) {
+      for (auto& shard : _shards) {
          fc::move_append( result, std::move(shard.second._trx_mroot_or_receipt_digests) );
       }
       return result;
@@ -217,7 +204,7 @@ struct building_block {
 
    inline digests_t extract_action_receipt_digests() {
       digests_t result;
-      for (auto& shard : shards) {
+      for (auto& shard : _shards) {
          fc::move_append( result, std::move(shard.second._action_receipt_digests) );
       }
       return result;
@@ -914,6 +901,23 @@ struct controller_impl {
          db_ptr = dbm.add_shard_db(name, conf.state_size);
          add_indices_to_shard_db(*db_ptr);
       }
+   }
+
+   inline building_shard& init_building_shard(const shard_name& name) {
+      // must run in main thread
+      auto& bb = std::get<building_block>(pending->_block_stage);
+      auto itr = bb._shards.find(name);
+      if ( itr != bb._shards.end() ) {
+         // TODO: check shard exist in shard table of shared_db
+         auto db_ptr = dbm.find_shard_db(name);
+         EOS_ASSERT( db_ptr, unavailable_shard_exception, "shard db not found" );
+         auto& shared_db = name == config::main_shard_name ? *db_ptr : dbm.shared_db();
+         auto new_ret = bb._shards.emplace( std::piecewise_construct,
+                                        std::forward_as_tuple( name ),
+                                        std::forward_as_tuple( name, *db_ptr, shared_db ) );
+         itr = new_ret.first;
+      }
+      return itr->second;
    }
 
    void clear_all_undo() {
@@ -2010,7 +2014,7 @@ struct controller_impl {
                   in_trx_requiring_checks = old_value;
                });
             in_trx_requiring_checks = true;
-            auto& shard = std::get<building_block>(pending->_block_stage).init_shard(config::main_shard_name);
+            auto& shard = init_building_shard(config::main_shard_name);
             auto trace = push_transaction( shard, onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
                                            gpo.configuration.min_transaction_cpu_usage, true, 0 );
             if( trace->except ) {
@@ -2277,7 +2281,7 @@ struct controller_impl {
             const auto& trx_receipts = trx_receipts_pair.second;
             // TODO: check trx_receipts.size() > 0
 
-            auto& pending_shard = std::get<building_block>(pending->_block_stage).init_shard(shard_name);
+            auto& pending_shard = init_building_shard(shard_name);
 
             auto& shard_context = shard_contexts.emplace_back(pending_shard);
             auto cache_map_itr = bsp_cache_map.end();
@@ -2650,13 +2654,6 @@ struct controller_impl {
          log_irreversible();
 
    } /// push_block
-
-
-   building_shard* init_building_shard(const shard_name& name)  {
-      EOS_ASSERT( pending && std::holds_alternative<building_block>(pending->_block_stage), transaction_exception, "Can not push transaction when state not in building block mode." );
-      auto& pending_shard = std::get<building_block>(pending->_block_stage).init_shard(name);
-      return &pending_shard;
-   }
 
    transaction_metadata_map abort_block() {
       transaction_metadata_map applied_trxs;
@@ -3253,7 +3250,8 @@ void controller::commit_block() {
    my->commit_block(true);
 }
 
-building_shard* controller::init_building_shard(const shard_name& name) {
+building_shard& controller::init_building_shard(const shard_name& name) {
+   EOS_ASSERT( my->pending && std::holds_alternative<building_block>(my->pending->_block_stage), transaction_exception, "Can not push transaction when state not in building block mode." );
    return my->init_building_shard(name);
 }
 

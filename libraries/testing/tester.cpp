@@ -383,9 +383,7 @@ namespace eosio { namespace testing {
 
       if( !skip_pending_trxs ) {
          for( auto itr = unapplied_transactions.begin(); itr != unapplied_transactions.end();  ) {
-            auto building_shard = control->init_building_shard(itr->trx_meta->get_shard_name());
-            FC_ASSERT( building_shard, "Init building shard failed" );
-            auto trace = control->push_transaction( *building_shard, itr->trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
+            auto trace = push_transaction( itr->trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
             traces.emplace_back( trace );
             if(!no_throw && trace->except) {
                // this always throws an fc::exception, since the original exception is copied into an fc::exception
@@ -396,11 +394,9 @@ namespace eosio { namespace testing {
 
          vector<transaction_id_type> scheduled_trxs;
 
-         auto main_building_shard = control->init_building_shard(config::main_shard_name);
-         FC_ASSERT( main_building_shard, "Init main building shard failed" );
          while ((scheduled_trxs = get_scheduled_transactions()).size() > 0 ) {
             for( const auto& trx : scheduled_trxs ) {
-               auto trace = control->push_scheduled_transaction( *main_building_shard, trx, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true );
+               auto trace = push_scheduled_transaction( trx, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true );
                traces.emplace_back( trace );
                if( !no_throw && trace->except ) {
                   // this always throws an fc::exception, since the original exception is copied into an fc::exception
@@ -651,18 +647,16 @@ namespace eosio { namespace testing {
                                        fc::time_point deadline, fc::microseconds max_transaction_time,
                                        uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
                                        int64_t subjective_cpu_bill_us ) {
-      auto building_shard = control->init_building_shard(trx->get_shard_name());
-      FC_ASSERT( building_shard, "Init building shard failed" );
-      return control->push_transaction( *building_shard, trx, deadline, max_transaction_time,
+      auto& building_shard = control->init_building_shard(trx->get_shard_name());
+      return control->push_transaction( building_shard, trx, deadline, max_transaction_time,
          billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
    }
 
    transaction_trace_ptr base_tester::push_scheduled_transaction( const transaction_id_type& scheduled,
                                        fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                        uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time ) {
-      auto building_shard = control->init_building_shard(config::main_shard_name);
-      FC_ASSERT( building_shard, "Init building shard failed" );
-      return control->push_scheduled_transaction( *building_shard, scheduled, block_deadline,
+      auto& building_shard = control->init_building_shard(config::main_shard_name);
+      return control->push_scheduled_transaction( building_shard, scheduled, block_deadline,
           max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
    }
 
