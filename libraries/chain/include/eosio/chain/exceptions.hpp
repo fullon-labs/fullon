@@ -650,7 +650,15 @@ namespace eosio { namespace chain {
    FC_DECLARE_DERIVED_EXCEPTION( shard_exception,    chain_exception,
                                  3510000, "Shard exception" )
       FC_DECLARE_DERIVED_EXCEPTION( building_shard_exception,      shard_exception,
-                                    3040001, "Building shard exception" )
+                                    3510001, "Building shard exception" )
       FC_DECLARE_DERIVED_EXCEPTION( unavailable_shard_exception,      shard_exception,
-                                    3040001, "Unavailable shard  exception" )
+                                    3510002, "Unavailable shard  exception" )
+
+      FC_DECLARE_DERIVED_EXCEPTION( shard_db_exception,      shard_exception,
+                                    3511000, "shard database exception" )
+      FC_DECLARE_DERIVED_EXCEPTION( shard_db_catalog_exception,   shard_db_exception,
+                                    3511001, "shard database catalog exception" )
+
+
+
 } } // eosio::chain

@@ -142,11 +142,13 @@ namespace eosio{ namespace chain {
             }
          }
 
+      public:
+         path                             dir;
+         open_flags                       flags;
+         bool                             allow_dirty = false;
+         pinnable_mapped_file::map_mode   db_map_mode = pinnable_mapped_file::map_mode::mapped;
+
       private:
-         path                             _dir;
-         open_flags                       _flags;
-         bool                             _allow_dirty = false;
-         pinnable_mapped_file::map_mode   _db_map_mode = pinnable_mapped_file::map_mode::mapped;
          database                         _shared_db;
          database                         _main_db;
          std::map<db_name, database>      _shard_db_map;
@@ -163,6 +165,26 @@ namespace eosio{ namespace chain {
          bool                                                        _read_only_mode = false;
    };
 
-   template<typename Object, typename... Args>
-   using shared_multi_index_container = boost::multi_index_container<Object,Args..., chainbase::node_allocator<Object> >;
+   // struct shard_db_info {
+
+
+   // };
+
+
+
+   struct shard_db_catalog {
+      static const uint32_t magic_number;
+      static const uint32_t min_supported_version;
+      static const uint32_t max_supported_version;
+
+      std::vector<shard_name> shards;
+      std::string error_msg;
+
+      static void save(database_manager& dbm);
+      static shard_db_catalog load(const fc::path& dir);
+   };
+
 }}  // namepsace chainbase
+
+
+// FC_REFLECT(eosio::chain::shard_db_info, (shards))

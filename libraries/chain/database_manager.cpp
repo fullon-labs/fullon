@@ -1,8 +1,10 @@
 #include <eosio/chain/database_manager.hpp>
 #include <eosio/chain/config.hpp>
+#include <eosio/chain/shard_object.hpp>
 #include <boost/array.hpp>
 
 #include <iostream>
+#include <fc/io/fstream.hpp>
 
 #ifndef _WIN32
 #include <sys/mman.h>
@@ -10,31 +12,20 @@
 
 namespace eosio { namespace chain {
 
-      // namespace bip = boost::interprocess;
-   // namespace bfs = boost::filesystem;
-   // using std::unique_ptr;
-   // using std::vector;
 
-   // template<typename T>
-   // using allocator = bip::allocator<T, pinnable_mapped_file::segment_manager>;
-
-   // template<typename T>
-   // using node_allocator = chainbase_node_allocator<T, pinnable_mapped_file::segment_manager>;
-
-   // using shared_string = shared_cow_string;
-
-   // typedef boost::interprocess::interprocess_sharable_mutex read_write_mutex;
-   // typedef boost::interprocess::sharable_lock< read_write_mutex > read_lock;
+   const uint32_t shard_db_catalog::magic_number              = 0x30510FDB;
+   const uint32_t shard_db_catalog::min_supported_version     = 1;
+   const uint32_t shard_db_catalog::max_supported_version     = 1;
 
    database_manager::database_manager(const database_manager::path& dir, open_flags flags,
                      uint64_t shared_file_size, uint64_t main_file_size, bool allow_dirty,
                      pinnable_mapped_file::map_mode db_map_mode) :
-      _dir(dir),
-      _flags(flags),
-      _allow_dirty(allow_dirty),
-      _db_map_mode(db_map_mode),
-      _shared_db(dir / "shared", flags, shared_file_size, allow_dirty, db_map_mode),
-      _main_db(dir / "main", flags, main_file_size, allow_dirty, db_map_mode),
+      dir(dir),
+      flags(flags),
+      allow_dirty(allow_dirty),
+      db_map_mode(db_map_mode),
+      _shared_db(dir / config::share_db_name.to_string(), flags, shared_file_size, allow_dirty, db_map_mode),
+      _main_db(dir / config::main_shard_name.to_string(), flags, main_file_size, allow_dirty, db_map_mode),
       _read_only(flags == open_flags::read_only)
    {
       _read_only_mode = _read_only;
@@ -112,7 +103,7 @@ namespace eosio { namespace chain {
       if (itr == _shard_db_map.end()) {
          // TODO: should add sub shard root dir 'dir/"shards"/name.to_string()'
          auto new_ret = _shard_db_map.emplace(std::piecewise_construct,std::forward_as_tuple(name),
-            std::forward_as_tuple(_dir/name.to_string(), _flags, file_size, _allow_dirty, _db_map_mode) );
+            std::forward_as_tuple(dir / name.to_string(), flags, file_size, allow_dirty, db_map_mode) );
          itr = new_ret.first;
       }
       return &itr->second;
@@ -128,4 +119,96 @@ namespace eosio { namespace chain {
       }
       return nullptr;
    }
+
+   void shard_db_catalog::save(database_manager& dbm) {
+      auto catalog_dat = dbm.dir / config::shard_db_catalog_filename;
+
+      // TODO: backup the existed file?
+
+      std::ofstream out( catalog_dat.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
+      fc::raw::pack( out, shard_db_catalog::magic_number );
+      fc::raw::pack( out, shard_db_catalog::max_supported_version ); // write out current version which is always max_supported_version
+
+
+      // TODO: shard_db_info {
+      //    name, approved_block_num
+      // }
+      std::vector<shard_name> shards;
+      const auto& shared_db = dbm.shared_db();
+      std::string error_msg;
+
+      const auto& s_indx = shared_db.get_index<shard_index, by_id>();
+      for( auto itr = s_indx.begin(); itr != s_indx.end(); itr = s_indx.begin() ) {
+         // TODO: check if control->config (itr->name)
+         auto db_ptr = dbm.find_shard_db(itr->name);
+         if (!db_ptr) {
+            error_msg = "The shard " + itr->name.to_string() + " is listened, but shard db does not exist";
+            elog( error_msg );
+            continue;
+         }
+         shards.push_back(itr->name);
+      }
+
+      fc::raw::pack( shards );
+      // TODO: calc and pack check sum
+   }
+
+   shard_db_catalog shard_db_catalog::load(const fc::path& dir) {
+
+      shard_db_catalog catalog;
+
+      if (!fc::is_directory(dir))
+         fc::create_directories(dir);
+
+      auto catalog_dat = dir / config::shard_db_catalog_filename;
+      if( !fc::exists( catalog_dat ) ) {
+         return catalog;
+      }
+
+      try {
+         string content;
+         fc::read_file_contents( catalog_dat, content );
+
+         fc::datastream<const char*> ds( content.data(), content.size() );
+
+         // validate totem
+         uint32_t totem = 0;
+         fc::raw::unpack( ds, totem );
+         EOS_ASSERT( totem == shard_db_catalog::magic_number, shard_db_catalog_exception,
+                     "Shard db catalog file '${filename}' has unexpected magic number: ${actual_totem}. Expected ${expected_totem}",
+                     ("filename", catalog_dat.generic_string())
+                     ("actual_totem", totem)
+                     ("expected_totem", shard_db_catalog::magic_number)
+         );
+
+         // validate version
+         uint32_t version = 0;
+         fc::raw::unpack( ds, version );
+         EOS_ASSERT( version >= shard_db_catalog::min_supported_version && version <= shard_db_catalog::max_supported_version,
+                     shard_db_catalog_exception,
+                     "Unsupported version of shard db catalog file '${filename}'. "
+                     "Shard db catalog version is ${version} while code supports version(s) [${min},${max}]",
+                     ("filename", catalog_dat.generic_string())
+                     ("version", version)
+                     ("min", shard_db_catalog::min_supported_version)
+                     ("max", shard_db_catalog::max_supported_version)
+         );
+
+
+         fc::raw::unpack( ds, catalog.shards );
+         fc::raw::unpack( ds, catalog.error_msg );
+
+         if (!catalog.error_msg.empty()) {
+            EOS_ASSERT( totem == shard_db_catalog::magic_number, shard_db_catalog_exception,
+                        "Shard db catalog file ${filename} has been broken before saving, error_msg: ${e}",
+                        ("filename", catalog_dat.generic_string())
+                        ("e", catalog.error_msg)
+            );
+         }
+      } FC_CAPTURE_AND_RETHROW( (catalog_dat) )
+
+      return catalog;
+   }
+
+
 }}  // namespace eosio::chain

@@ -3937,7 +3937,7 @@ std::optional<chain_id_type> controller::extract_chain_id_from_db( const path& s
    try {
       // TODO: shared_db()?
       // TODO: main db dir
-      chainbase::database db( state_dir / "main", chainbase::database::read_only );
+      chainbase::database db( state_dir / eosio::chain::config::main_shard_name.to_string(), chainbase::database::read_only );
 
       db.add_index<database_header_multi_index>();
       db.add_index<global_property_multi_index>();
