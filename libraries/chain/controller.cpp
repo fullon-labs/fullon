@@ -809,7 +809,8 @@ struct controller_impl {
 
       // upgrade to the latest compatible version
       if (header_itr->version != database_header_object::current_version) {
-         // TODO: modify shared_db() instead?
+         // TODO: modify shared_db() instead?         // TODO: modify shared_db() instead?
+         // TODO: need to save to all sub shard db?
          dbm.main_db().modify(*header_itr, [](auto& header) {
             header.version = database_header_object::current_version;
          });
@@ -874,6 +875,19 @@ struct controller_impl {
       //only log this not just if configured to, but also if initialization made it to the point we'd log the startup too
       if(okay_to_print_integrity_hash_on_stop && conf.integrity_hash_on_stop)
          ilog( "chain database stopped with hash: ${hash}", ("hash", calculate_integrity_hash()) );
+   }
+
+   void init_db() {
+      // TODO: move to database_manager
+      shared_index_set::add_indices(dbm.shared_db());
+      add_indices_to_shard_db(dbm.main_db());
+
+      auto catalog = shard_db_catalog::load(conf.state_dir);
+      for (const auto& shard : catalog.shards) {
+         add_shard_db(shard);
+         // TODO: validate shard dbs?
+      }
+      dbm.enable_saving_catalog(); // TODO: Is it appropriate to call here
    }
 
    void add_indices() {

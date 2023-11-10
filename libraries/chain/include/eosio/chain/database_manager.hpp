@@ -142,6 +142,10 @@ namespace eosio{ namespace chain {
             }
          }
 
+         void enable_saving_catalog() {
+            _is_saving_catalog = true;
+         }
+
       public:
          path                             dir;
          open_flags                       flags;
@@ -162,7 +166,8 @@ namespace eosio{ namespace chain {
           * chainbase. This ensures state is not modified by mistake when
           * application does not intend to change state.
           */
-         bool                                                        _read_only_mode = false;
+         bool                             _read_only_mode = false;
+         bool                             _is_saving_catalog;
    };
 
    // struct shard_db_info {

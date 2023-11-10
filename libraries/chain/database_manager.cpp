@@ -33,6 +33,10 @@ namespace eosio { namespace chain {
 
    database_manager::~database_manager()
    {
+      if (_is_saving_catalog) {
+         shard_db_catalog::save(*this);
+         _is_saving_catalog = false;
+      }
    }
 
    void database_manager::undo()
@@ -209,6 +213,5 @@ namespace eosio { namespace chain {
 
       return catalog;
    }
-
 
 }}  // namespace eosio::chain
