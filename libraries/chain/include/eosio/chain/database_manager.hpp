@@ -17,7 +17,9 @@ namespace eosio{ namespace chain {
 
          using database_index_row_count_multiset = std::multiset<std::pair<unsigned, std::string>>;
 
-         database_manager(const path& dir, open_flags write = open_flags::read_only, uint64_t shared_file_size = 0, bool allow_dirty = false,
+         database_manager(const path& dir, open_flags write = open_flags::read_only,
+                  uint64_t shared_file_size = 0, uint64_t main_file_size = 0,
+                  bool allow_dirty = false,
                   pinnable_mapped_file::map_mode = pinnable_mapped_file::map_mode::mapped);
          ~database_manager();
          database_manager(database_manager&&) = default;
@@ -30,11 +32,12 @@ namespace eosio{ namespace chain {
 
          const database& main_db() const { return _main_db; }
          database& main_db() { return _main_db; }
-         
-         void create_shard_db( db_name shard_name, const path& dir, open_flags flag = open_flags::read_only, uint64_t shared_file_size = 0, bool allow_dirty = false,
-                  pinnable_mapped_file::map_mode db_map_mode = pinnable_mapped_file::map_mode::mapped);
+
          const database& shard_db(db_name shard_name)  const { return _shard_db_map.at(shard_name);}
          database& shard_db( db_name shard_name) { return _shard_db_map.at(shard_name);}
+
+         database* find_shard_db(const shard_name& name);
+         std::map<db_name, database>& shard_dbs() { return _shard_db_map; }
 
          struct session {
             public:
@@ -77,7 +80,7 @@ namespace eosio{ namespace chain {
          int64_t revision()const {
             return _main_db.revision();
          }
-         
+
          int64_t shard_revision( db_name shard_name ) const {
             return _shard_db_map.at(shard_name).revision();
          }
@@ -100,6 +103,8 @@ namespace eosio{ namespace chain {
                db.second.set_revision( revision );
             }
          }
+
+         database* add_shard_db( const shard_name& name, uint64_t shared_file_size = 0 );
 
          template<typename MultiIndexType>
          void add_index() {
@@ -137,11 +142,21 @@ namespace eosio{ namespace chain {
             }
          }
 
+         void enable_saving_catalog() {
+            _is_saving_catalog = true;
+         }
+
+      public:
+         path                             dir;
+         open_flags                       flags;
+         bool                             allow_dirty = false;
+         pinnable_mapped_file::map_mode   db_map_mode = pinnable_mapped_file::map_mode::mapped;
+
       private:
-         database                                                    _shared_db;
-         database                                                    _main_db;
-         std::map<db_name, database>                                 _shard_db_map;
-         bool                                                        _read_only = false;
+         database                         _shared_db;
+         database                         _main_db;
+         std::map<db_name, database>      _shard_db_map;
+         bool                             _read_only = false;
 
          /**
           * _read_only_mode is dynamic which can be toggled back and for
@@ -151,9 +166,30 @@ namespace eosio{ namespace chain {
           * chainbase. This ensures state is not modified by mistake when
           * application does not intend to change state.
           */
-         bool                                                        _read_only_mode = false;
+         bool                             _read_only_mode = false;
+         bool                             _is_saving_catalog;
    };
 
-   template<typename Object, typename... Args>
-   using shared_multi_index_container = boost::multi_index_container<Object,Args..., chainbase::node_allocator<Object> >;
+   // struct shard_db_info {
+
+
+   // };
+
+
+
+   struct shard_db_catalog {
+      static const uint32_t magic_number;
+      static const uint32_t min_supported_version;
+      static const uint32_t max_supported_version;
+
+      std::vector<shard_name> shards;
+      std::string error_msg;
+
+      static void save(database_manager& dbm);
+      static shard_db_catalog load(const fc::path& dir);
+   };
+
 }}  // namepsace chainbase
+
+
+// FC_REFLECT(eosio::chain::shard_db_info, (shards))

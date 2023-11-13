@@ -31,6 +31,7 @@ namespace eosio { namespace chain {
    };
 
    struct controller_impl;
+   struct building_shard; // TODO: should remove me?
    using chainbase::database;
    using chainbase::pinnable_mapped_file;
    using boost::signals2::signal;
@@ -141,10 +142,12 @@ namespace eosio { namespace chain {
           */
          transaction_metadata_map abort_block();
 
+         building_shard& init_building_shard(const shard_name& name);
+
        /**
         *
         */
-         transaction_trace_ptr push_transaction( const transaction_metadata_ptr& trx,
+         transaction_trace_ptr push_transaction( building_shard& shard, const transaction_metadata_ptr& trx,
                                                  fc::time_point deadline, fc::microseconds max_transaction_time,
                                                  uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
                                                  int64_t subjective_cpu_bill_us );
@@ -153,7 +156,7 @@ namespace eosio { namespace chain {
           * Attempt to execute a specific transaction in our deferred trx database
           *
           */
-         transaction_trace_ptr push_scheduled_transaction( const transaction_id_type& scheduled,
+         transaction_trace_ptr push_scheduled_transaction( building_shard& shard, const transaction_id_type& scheduled,
                                                            fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                            uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time );
 

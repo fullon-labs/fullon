@@ -973,7 +973,7 @@ void push_trx(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cpu
    auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), test.control->get_thread_pool(),
                                                         test.control->get_chain_id(), fc::microseconds::maximum(),
                                                         trx_type );
-   auto res = test.control->push_transaction( fut.get(), fc::time_point::now() + fc::milliseconds(max_block_cpu_ms),
+   auto res = test.push_transaction( fut.get(), fc::time_point::now() + fc::milliseconds(max_block_cpu_ms),
                                               fc::milliseconds(max_cpu_usage_ms), billed_cpu_time_us, explicit_bill, 0 );
    if( res->except_ptr ) std::rethrow_exception( res->except_ptr );
    if( res->except ) throw *res->except;
@@ -1559,7 +1559,7 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
       ptrx = std::make_shared<packed_transaction>( pkt );
 
       auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
-      auto r = control->push_transaction( fut.get(), fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
+      auto r = push_transaction( fut.get(), fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
       if( r->except) throw *r->except;
       tx_trace = r;
@@ -1740,7 +1740,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
       auto dtrxs = get_scheduled_transactions();
       BOOST_CHECK_EQUAL(dtrxs.size(), 1);
       for (const auto& trx: dtrxs) {
-         control->push_scheduled_transaction(trx, fc::time_point::maximum(), fc::microseconds::maximum(), 0, false);
+         push_scheduled_transaction(trx, fc::time_point::maximum(), fc::microseconds::maximum(), 0, false);
       }
       BOOST_CHECK_EQUAL(1, count);
       BOOST_REQUIRE(trace);
@@ -1767,7 +1767,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
       auto dtrxs = get_scheduled_transactions();
       BOOST_CHECK_EQUAL(dtrxs.size(), 1);
       for (const auto& trx: dtrxs) {
-         control->push_scheduled_transaction(trx, fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
+         push_scheduled_transaction(trx, fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
       }
       BOOST_CHECK_EQUAL(1, count);
       BOOST_CHECK(trace);

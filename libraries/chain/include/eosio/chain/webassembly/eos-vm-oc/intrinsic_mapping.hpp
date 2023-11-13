@@ -191,7 +191,6 @@ inline constexpr auto get_intrinsic_table() {
       "env.send_context_free_inline",
       "env.send_deferred",
       "env.cancel_deferred",
-      "env.get_shard_name",
       "env.get_context_free_data",
       "env.memcpy",
       "env.memmove",
@@ -268,7 +267,13 @@ inline constexpr auto get_intrinsic_table() {
       "env.sha3",
       "env.blake2_f",
       "env.k1_recover",
-      "env.get_block_num"
+      "env.get_block_num",
+
+      // shard relacted interfaces
+
+      "env.get_shard_name",
+      "register_shard"
+
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {

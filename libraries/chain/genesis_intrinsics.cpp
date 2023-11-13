@@ -51,7 +51,6 @@ const std::vector<const char*> genesis_intrinsics = {
    "get_resource_limits",
    "set_resource_limits",
    "set_proposed_producers",
-   "register_shard",
    "get_blockchain_parameters_packed",
    "set_blockchain_parameters_packed",
    "is_privileged",
@@ -167,12 +166,15 @@ const std::vector<const char*> genesis_intrinsics = {
    "send_context_free_inline",
    "send_deferred",
    "cancel_deferred",
-   "get_shard_name",
    "get_context_free_data",
    "memcpy",
    "memmove",
    "memcmp",
-   "memset"
+   "memset",
+
+   // shard relacted interfaces
+   "get_shard_name",
+   "register_shard"
 };
 
 } } // namespace eosio::chain

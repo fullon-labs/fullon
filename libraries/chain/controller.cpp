@@ -133,11 +133,19 @@ using dbm_maybe_session = maybe_session<database_manager>;
 using db_maybe_session = maybe_session<database>;
 
 struct building_shard {
+   shard_name                                   _name;
+   database&                                    _db;
+   database&                                    _shared_db;
    deque<transaction_metadata_ptr>              _pending_trx_metas;
    deque<transaction_receipt>                   _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
    digests_t                                    _trx_mroot_or_receipt_digests;
    digests_t                                    _action_receipt_digests;
 
+   building_shard(const shard_name& name, database& db, database& shared_db):
+      _name(name), _db(db), _shared_db(shared_db) {}
+   building_shard(const building_shard&) = delete;
+   building_shard() = delete;
+   building_shard& operator=(const building_shard&) = delete;
 };
 
 struct shard_transaction_metadata {
@@ -168,16 +176,11 @@ struct building_block {
    vector<digest_type>                        _new_protocol_feature_activations;
    size_t                                     _num_new_protocol_features_that_have_activated = 0;
    std::optional<checksum256_type>            _trx_mroot;
-   std::map<shard_name, building_shard>       shards;
-
-   inline building_shard& get_shard(const chain::shard_name& shard_name) {
-      // todo: lock and get
-      return shards[shard_name];
-   }
+   std::map<shard_name, building_shard>       _shards;
 
    inline transaction_metadata_map extract_trx_metas() {
       transaction_metadata_map result;
-      for (auto& shard : shards) {
+      for (auto& shard : _shards) {
          result[shard.first] = std::move(shard.second._pending_trx_metas);
       }
       return result;
@@ -185,7 +188,7 @@ struct building_block {
 
    inline transaction_receipt_map extract_trx_receipt_map() {
       transaction_receipt_map result;
-      for (auto& shard : shards) {
+      for (auto& shard : _shards) {
          result[shard.first] = std::move(shard.second._pending_trx_receipts);
       }
       return result;
@@ -193,7 +196,7 @@ struct building_block {
 
    inline digests_t extract_receipt_digests() {
       digests_t result;
-      for (auto& shard : shards) {
+      for (auto& shard : _shards) {
          fc::move_append( result, std::move(shard.second._trx_mroot_or_receipt_digests) );
       }
       return result;
@@ -201,7 +204,7 @@ struct building_block {
 
    inline digests_t extract_action_receipt_digests() {
       digests_t result;
-      for (auto& shard : shards) {
+      for (auto& shard : _shards) {
          fc::move_append( result, std::move(shard.second._action_receipt_digests) );
       }
       return result;
@@ -383,12 +386,13 @@ struct controller_impl {
       apply_handlers[receiver][make_pair(contract,action)] = v;
    }
 
+   // TODO: cfg.main_state_size, cfg.shared_state_size
    controller_impl( const controller::config& cfg, controller& s, protocol_feature_set&& pfs, const chain_id_type& chain_id )
    :rnh(),
     self(s),
     dbm( cfg.state_dir,
         cfg.read_only ? database::read_only : database::read_write,
-        cfg.state_size, false, cfg.db_map_mode ),
+        cfg.state_size, cfg.state_size, false, cfg.db_map_mode ),
     blog( cfg.blocks_dir, cfg.blog ),
     fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
     resource_limits( dbm, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
@@ -407,10 +411,6 @@ struct controller_impl {
                             const vector<digest_type>& new_features )
                            { check_protocol_features( timestamp, cur_features, new_features ); }
       );
-      //TODO: validator node create shard_db that is cared about, and producer node create all shard_db.
-      dbm.create_shard_db( "shard1"_n, cfg.state_dir,
-        cfg.read_only ? database::read_only : database::read_write,
-        cfg.state_size, false, cfg.db_map_mode );
       thread_pool.start( cfg.thread_pool_size, [this]( const fc::exception& e ) {
          elog( "Exception in chain thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          if( shutdown ) shutdown();
@@ -809,7 +809,8 @@ struct controller_impl {
 
       // upgrade to the latest compatible version
       if (header_itr->version != database_header_object::current_version) {
-         // TODO: modify shared_db() instead?
+         // TODO: modify shared_db() instead?         // TODO: modify shared_db() instead?
+         // TODO: need to save to all sub shard db?
          dbm.main_db().modify(*header_itr, [](auto& header) {
             header.version = database_header_object::current_version;
          });
@@ -876,16 +877,62 @@ struct controller_impl {
          ilog( "chain database stopped with hash: ${hash}", ("hash", calculate_integrity_hash()) );
    }
 
-   void add_indices() {
-      //these index are added to both main and shard dbs.
-      dbm.add_indices_to_shard_db<controller_index_set>();
-      dbm.add_indices_to_shard_db<contract_database_index_set>();
-      dbm.add_indices_to_shard_db<authorization_manager>();
-      dbm.add_indices_to_shard_db<resource_limits_manager>();
-
-      // add indices to shared db
+   void init_db() {
+      // TODO: move to database_manager
       shared_index_set::add_indices(dbm.shared_db());
-      resource_limits_manager::add_shared_indices(dbm.shared_db());
+      add_indices_to_shard_db(dbm.main_db());
+
+      auto catalog = shard_db_catalog::load(conf.state_dir);
+      for (const auto& shard : catalog.shards) {
+         add_shard_db(shard);
+         // TODO: validate shard dbs?
+      }
+      dbm.enable_saving_catalog(); // TODO: Is it appropriate to call here
+   }
+
+   void add_indices() {
+      // TODO: move to database_manager
+      shared_index_set::add_indices(dbm.shared_db());
+      add_indices_to_shard_db(dbm.main_db());
+
+      for (auto& item : dbm.shard_dbs()) {
+         add_indices_to_shard_db(item.second);
+      }
+	  resource_limits_manager::add_shared_indices(dbm.shared_db());
+   }
+
+   void add_indices_to_shard_db(database& db) {
+      // TODO: move to database_manager
+      controller_index_set::add_indices(db);
+      contract_database_index_set::add_indices(db);
+      authorization_manager::add_indices(db);
+      resource_limits_manager::add_indices(db);
+   }
+
+   void add_shard_db(const shard_name& name) {
+      // TODO: conf.shard_state_size
+      auto db_ptr = dbm.find_shard_db(name);
+      if (!db_ptr) {
+         db_ptr = dbm.add_shard_db(name, conf.state_size);
+         add_indices_to_shard_db(*db_ptr);
+      }
+   }
+
+   inline building_shard& init_building_shard(const shard_name& name) {
+      // must run in main thread
+      auto& bb = std::get<building_block>(pending->_block_stage);
+      auto itr = bb._shards.find(name);
+      if ( itr != bb._shards.end() ) {
+         // TODO: check shard exist in shard table of shared_db
+         auto db_ptr = dbm.find_shard_db(name);
+         EOS_ASSERT( db_ptr, unavailable_shard_exception, "shard db not found" );
+         auto& shared_db = name == config::main_shard_name ? *db_ptr : dbm.shared_db();
+         auto new_ret = bb._shards.emplace( std::piecewise_construct,
+                                        std::forward_as_tuple( name ),
+                                        std::forward_as_tuple( name, *db_ptr, shared_db ) );
+         itr = new_ret.first;
+      }
+      return itr->second;
    }
 
    void clear_all_undo() {
@@ -1247,7 +1294,7 @@ struct controller_impl {
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
-   fc::scoped_exit<std::function<void()>> make_block_restore_point( const name& shard_name, bool is_read_only = false ) {
+   fc::scoped_exit<std::function<void()>> make_block_restore_point( building_shard& shard, bool is_read_only = false ) {
       // TODO: input shard as arg of function
       if ( is_read_only ) {
          std::function<void()> callback = []() { };
@@ -1255,21 +1302,17 @@ struct controller_impl {
       }
 
       auto& bb = std::get<building_block>(pending->_block_stage);
-      // TODO: lock and get: bb.get_shard()
-      auto& shard = bb.get_shard(shard_name);
       auto orig_trx_receipts_size           = shard._pending_trx_receipts.size();
       auto orig_trx_metas_size              = shard._pending_trx_metas.size();
       auto orig_trx_receipt_digests_size    = !bb._trx_mroot ? shard._trx_mroot_or_receipt_digests.size() : 0;
       auto orig_action_receipt_digests_size = shard._action_receipt_digests.size();
-      std::function<void()> callback = [this, &shard_name,
+      std::function<void()> callback = [this, &shard,
             orig_trx_receipts_size,
             orig_trx_metas_size,
             orig_trx_receipt_digests_size,
             orig_action_receipt_digests_size]()
       {
          auto& bb = std::get<building_block>(pending->_block_stage);
-         // TODO: lock and get: bb.get_shard()
-         auto& shard = bb.get_shard(shard_name);
          shard._pending_trx_receipts.resize(orig_trx_receipts_size);
          shard._pending_trx_metas.resize(orig_trx_metas_size);
          if( !bb._trx_mroot )
@@ -1280,7 +1323,8 @@ struct controller_impl {
       return fc::make_scoped_exit( std::move(callback) );
    }
 
-   transaction_trace_ptr apply_onerror( const generated_transaction& gtrx,
+   transaction_trace_ptr apply_onerror( building_shard& shard,
+                                        const generated_transaction& gtrx,
                                         fc::time_point block_deadline,
                                         fc::microseconds max_transaction_time,
                                         fc::time_point start,
@@ -1305,10 +1349,8 @@ struct controller_impl {
 
       transaction_checktime_timer trx_timer(timer);
       const packed_transaction trx( std::move( etrx ) );
-      shard_name sname = trx.get_transaction().get_shard_name();
-      auto& db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
-      auto& shared_db = sname == config::main_shard_name ? dbm.main_db() : dbm.shared_db();
-      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), db, shared_db, start );
+      assert(trx.get_transaction().get_shard_name() == config::main_shard_name);
+      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), dbm.main_db(), dbm.main_db(), start );
 
       if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
          dm_logger->on_onerror(etrx);
@@ -1335,11 +1377,9 @@ struct controller_impl {
          trx_context.execute_action( trx_context.schedule_action( trx.get_transaction().actions.back(), gtrx.sender, false, 0, 0 ), 0 );
          trx_context.finalize(); // Automatically rounds up network and CPU usage in trace and bills payers if successful
 
-         auto restore = make_block_restore_point(config::main_shard_name);
-         trace->receipt = push_receipt( config::main_shard_name, gtrx.trx_id, transaction_receipt::soft_fail,
+         auto restore = make_block_restore_point(shard);
+         trace->receipt = push_receipt( shard, gtrx.trx_id, transaction_receipt::soft_fail,
                                         trx_context.billed_cpu_time_us, trace->net_usage );
-         // TODO: input shard as arg of function
-         auto& shard = std::get<building_block>(pending->_block_stage).shards[config::main_shard_name];
          fc::move_append( shard._action_receipt_digests,
                           std::move(trx_context.executed_action_receipt_digests) );
 
@@ -1403,7 +1443,7 @@ struct controller_impl {
              || failure_is_subjective(e);
    }
 
-   transaction_trace_ptr push_scheduled_transaction( const transaction_id_type& trxid,
+   transaction_trace_ptr push_scheduled_transaction( building_shard& shard, const transaction_id_type& trxid,
                                                      fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    {
@@ -1411,19 +1451,20 @@ struct controller_impl {
       const auto& idx = db.get_index<generated_transaction_multi_index,by_trx_id>();
       auto itr = idx.find( trxid );
       EOS_ASSERT( itr != idx.end(), unknown_transaction_exception, "unknown transaction" );
-      return push_scheduled_transaction( *itr, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
+      return push_scheduled_transaction( shard, *itr, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
    }
 
-   transaction_trace_ptr push_scheduled_transaction( const generated_transaction_object& gto,
+   transaction_trace_ptr push_scheduled_transaction( building_shard& shard, const generated_transaction_object& gto,
                                                      fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    { try {
       // TODO: run in main shard only
-      auto& db = dbm.main_db();
+      assert( shard._name == config::main_shard_name );
       auto start = fc::time_point::now();
       const bool validating = !self.is_speculative_block();
       EOS_ASSERT( !validating || explicit_billed_cpu_time, transaction_exception, "validating requires explicit billing" );
 
+      auto& db = shard._db;
       db_maybe_session undo_session;
       if ( !self.skip_db_sessions() )
          undo_session = maybe_session(db);
@@ -1458,7 +1499,7 @@ struct controller_impl {
          trace->block_time = self.pending_block_time();
          trace->producer_block_id = self.pending_producer_block_id();
          trace->scheduled = true;
-         trace->receipt = push_receipt( config::main_shard_name, gtrx.trx_id, transaction_receipt::expired, billed_cpu_time_us, 0 ); // expire the transaction
+         trace->receipt = push_receipt( shard, gtrx.trx_id, transaction_receipt::expired, billed_cpu_time_us, 0 ); // expire the transaction
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
          trace->elapsed = fc::time_point::now() - start;
          pending->_block_report.total_cpu_usage_us += billed_cpu_time_us;
@@ -1479,10 +1520,8 @@ struct controller_impl {
       uint32_t cpu_time_to_bill_us = billed_cpu_time_us;
 
       transaction_checktime_timer trx_timer( timer );
-      shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
-      auto& sdb  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
-      auto& shared_db = sname == config::main_shard_name ? dbm.main_db() : dbm.shared_db();
-      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), sdb, shared_db );
+      assert(trx->packed_trx()->get_transaction().get_shard_name() == config::main_shard_name);
+      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), shard._db, shard._shared_db );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
       trx_context.max_transaction_time_subjective = max_transaction_time;
@@ -1520,10 +1559,9 @@ struct controller_impl {
 
          trx_context.exec();
          trx_context.finalize(); // Automatically rounds up network and CPU usage in trace and bills payers if successful
-         auto& shard = std::get<building_block>(pending->_block_stage).shards[config::main_shard_name];
-         auto restore = make_block_restore_point(config::main_shard_name);
+         auto restore = make_block_restore_point(shard);
 
-         trace->receipt = push_receipt( config::main_shard_name, gtrx.trx_id,
+         trace->receipt = push_receipt( shard, gtrx.trx_id,
                                         transaction_receipt::executed,
                                         trx_context.billed_cpu_time_us,
                                         trace->net_usage );
@@ -1570,7 +1608,7 @@ struct controller_impl {
       if( gtrx.sender != account_name() && !(validating ? failure_is_subjective(*trace->except) : scheduled_failure_is_subjective(*trace->except))) {
          // Attempt error handling for the generated transaction.
 
-         auto error_trace = apply_onerror( gtrx, block_deadline, max_transaction_time, trx_context.pseudo_start,
+         auto error_trace = apply_onerror( shard, gtrx, block_deadline, max_transaction_time, trx_context.pseudo_start,
                                            cpu_time_to_bill_us, billed_cpu_time_us, explicit_billed_cpu_time,
                                            trx_context.enforce_whiteblacklist );
          error_trace->failed_dtrx_trace = trace;
@@ -1621,7 +1659,7 @@ struct controller_impl {
          resource_limits.add_transaction_usage( trx_context.bill_to_accounts, cpu_time_to_bill_us, 0,
                                                 block_timestamp_type(self.pending_block_time()).slot, trx_context.db, trx_context.shared_db ); // Should never fail
 
-         trace->receipt = push_receipt(config::main_shard_name, gtrx.trx_id, transaction_receipt::hard_fail, cpu_time_to_bill_us, 0);
+         trace->receipt = push_receipt(shard, gtrx.trx_id, transaction_receipt::hard_fail, cpu_time_to_bill_us, 0);
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
          emit( self.accepted_transaction, trx );
@@ -1648,13 +1686,11 @@ struct controller_impl {
     *  Adds the transaction receipt to the pending block and returns it.
     */
    template<typename T>
-   const transaction_receipt& push_receipt( const name& shard_name, const T& trx, transaction_receipt_header::status_enum status,
+   const transaction_receipt& push_receipt( building_shard& shard, const T& trx, transaction_receipt_header::status_enum status,
                                             uint64_t cpu_usage_us, uint64_t net_usage ) {
       uint64_t net_usage_words = net_usage / 8;
       EOS_ASSERT( net_usage_words*8 == net_usage, transaction_exception, "net_usage is not divisible by 8" );
       auto& bb = std::get<building_block>(pending->_block_stage);
-      // TODO: input shard as function args
-      auto& shard = bb.get_shard(shard_name);
       shard._pending_trx_receipts.emplace_back( trx );
       transaction_receipt& r = shard._pending_trx_receipts.back();
       r.cpu_usage_us         = cpu_usage_us;
@@ -1671,7 +1707,8 @@ struct controller_impl {
     *  determine whether to execute it now or to delay it. Lastly it inserts a transaction receipt into
     *  the pending block.
     */
-   transaction_trace_ptr push_transaction( const transaction_metadata_ptr& trx,
+   transaction_trace_ptr push_transaction( building_shard& shard,
+                                           const transaction_metadata_ptr& trx,
                                            fc::time_point block_deadline,
                                            fc::microseconds max_transaction_time,
                                            uint32_t billed_cpu_time_us,
@@ -1698,10 +1735,7 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
-         shard_name sname = trx->packed_trx()->get_transaction().get_shard_name();
-         auto& db  = sname == config::main_shard_name ? dbm.main_db() : dbm.shard_db(sname);
-         auto& shared_db = sname == config::main_shard_name ? dbm.main_db() : dbm.shared_db();
-         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), db, shared_db, start, trx->get_trx_type());
+         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), shard._db, shard._shared_db, start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -1745,17 +1779,14 @@ struct controller_impl {
             trx_context.exec();
             trx_context.finalize(); // Automatically rounds up network and CPU usage in trace and bills payers if successful
 
-            // TODO: input shard as args of function
-            auto& shard = std::get<building_block>(pending->_block_stage).get_shard(trn.shard_name);
-
-            auto restore = make_block_restore_point( trn.shard_name, trx->is_read_only() );
+            auto restore = make_block_restore_point( shard, trx->is_read_only() );
 
             trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
             if (!trx->implicit() && !trx->is_read_only()) {
                transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
                                                     ? transaction_receipt::executed
                                                     : transaction_receipt::delayed;
-               trace->receipt = push_receipt( trn.shard_name, *trx->packed_trx(), s, trx_context.billed_cpu_time_us, trace->net_usage);
+               trace->receipt = push_receipt( shard, *trx->packed_trx(), s, trx_context.billed_cpu_time_us, trace->net_usage);
 
                shard._pending_trx_metas.emplace_back(trx);
             } else {
@@ -1979,7 +2010,7 @@ struct controller_impl {
                   s.enabled     = itr->enabled;
                   s.creation_at = pbhs.timestamp;
                });
-               // TODO: create shard db
+               add_shard_db(itr->name);
             } else {
                // modify shard
                main_db.modify( *sp, [&]( auto& s ) {
@@ -1999,7 +2030,8 @@ struct controller_impl {
                   in_trx_requiring_checks = old_value;
                });
             in_trx_requiring_checks = true;
-            auto trace = push_transaction( onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
+            auto& shard = init_building_shard(config::main_shard_name);
+            auto trace = push_transaction( shard, onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
                                            gpo.configuration.min_transaction_cpu_usage, true, 0 );
             if( trace->except ) {
                wlog("onblock ${block_num} is REJECTING: ${entire_trace}",("block_num", head->block_num + 1)("entire_trace", trace));
@@ -2267,7 +2299,7 @@ struct controller_impl {
             const auto& trx_receipts = trx_receipts_pair.second;
             // TODO: check trx_receipts.size() > 0
 
-            auto& pending_shard = std::get<building_block>(pending->_block_stage).shards[shard_name];
+            auto& pending_shard = init_building_shard(shard_name);
 
             auto& shard_context = shard_contexts.emplace_back(pending_shard);
             auto cache_map_itr = bsp_cache_map.end();
@@ -2305,6 +2337,10 @@ struct controller_impl {
                               std::move( ptrx ), thread_pool.get_executor(), chain_id, microseconds::maximum(), transaction_metadata::trx_type::input  );
                      }
                   }
+               } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
+                  EOS_ASSERT( shard_name == config::main_shard_name, block_validate_exception, "schedule trx only allowed in main shard" );
+               } else {
+                  EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
                }
             }
          }
@@ -2323,10 +2359,9 @@ struct controller_impl {
                      const auto& trx_meta = ( bool(shard_trx.trx_meta ) ?
                                                                   shard_trx.trx_meta
                                                                   : shard_trx.trx_meta_future.get() );
-                     trace = push_transaction( trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
+                     trace = push_transaction( shard_context.pending_shard, trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
                   } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
-                     // TODO: delayed transaction can only run in main shard
-                     trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
+                     trace = push_scheduled_transaction( shard_context.pending_shard, std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
                   } else {
                      EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
                   }
@@ -3233,6 +3268,11 @@ void controller::commit_block() {
    my->commit_block(true);
 }
 
+building_shard& controller::init_building_shard(const shard_name& name) {
+   EOS_ASSERT( my->pending && std::holds_alternative<building_block>(my->pending->_block_stage), transaction_exception, "Can not push transaction when state not in building block mode." );
+   return my->init_building_shard(name);
+}
+
 transaction_metadata_map controller::abort_block() {
    return my->abort_block();
 }
@@ -3258,23 +3298,27 @@ void controller::push_block( controller::block_report& br,
    my->push_block( br, bsp, forked_branch_cb, trx_lookup );
 }
 
-transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
+transaction_trace_ptr controller::push_transaction( building_shard& shard, const transaction_metadata_ptr& trx,
                                                     fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                     uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
                                                     int64_t subjective_cpu_bill_us ) {
    validate_db_available_size();
    EOS_ASSERT( get_read_mode() != db_read_mode::IRREVERSIBLE, transaction_type_exception, "push transaction not allowed in irreversible mode" );
    EOS_ASSERT( trx && !trx->implicit() && !trx->scheduled(), transaction_type_exception, "Implicit/Scheduled transaction not allowed" );
-   return my->push_transaction(trx, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
+   EOS_ASSERT( my->pending && std::holds_alternative<building_block>(my->pending->_block_stage),
+               transaction_exception, "Can not push transaction when state not in building block mode." );
+   return my->push_transaction(shard, trx, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
 }
 
-transaction_trace_ptr controller::push_scheduled_transaction( const transaction_id_type& trxid,
+transaction_trace_ptr controller::push_scheduled_transaction( building_shard& shard, const transaction_id_type& trxid,
                                                               fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                               uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time )
 {
    EOS_ASSERT( get_read_mode() != db_read_mode::IRREVERSIBLE, transaction_type_exception, "push scheduled transaction not allowed in irreversible mode" );
+   EOS_ASSERT( my->pending && std::holds_alternative<building_block>(my->pending->_block_stage),
+               transaction_exception, "Can not push transaction when state not in building block mode." );
    validate_db_available_size();
-   return my->push_scheduled_transaction( trxid, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
+   return my->push_scheduled_transaction( shard, trxid, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
 }
 
 const flat_set<account_name>& controller::get_actor_whitelist() const {
@@ -3911,7 +3955,7 @@ std::optional<chain_id_type> controller::extract_chain_id_from_db( const path& s
    try {
       // TODO: shared_db()?
       // TODO: main db dir
-      chainbase::database db( state_dir / "main", chainbase::database::read_only );
+      chainbase::database db( state_dir / eosio::chain::config::main_shard_name.to_string(), chainbase::database::read_only );
 
       db.add_index<database_header_multi_index>();
       db.add_index<global_property_multi_index>();

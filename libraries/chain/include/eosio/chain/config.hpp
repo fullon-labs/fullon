@@ -12,6 +12,7 @@ const static auto reversible_blocks_dir_name = "reversible";
 
 const static auto default_state_dir_name     = "state";
 const static auto forkdb_filename            = "fork_db.dat";
+const static auto shard_db_catalog_filename  = "shard_db_catalog.dat";
 const static auto default_state_size            = 1*1024*1024*1024ll;
 const static auto default_state_guard_size      =    128*1024*1024ll;
 
@@ -33,6 +34,7 @@ const static name eosio_any_name  { "gax.any"_n };
 const static name eosio_code_name { "gax.code"_n };
 
 const static name main_shard_name { "main"_n };
+const static name share_db_name { "share"_n };
 
 const static int      block_interval_ms = 500;
 const static int      block_interval_us = block_interval_ms*1000;
