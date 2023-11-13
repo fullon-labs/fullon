@@ -1263,7 +1263,7 @@ std::string itoh(I n, size_t hlen = sizeof(I)<<1) {
       r[i] = digits[(n>>j) & 0x0f];
    return r;
 }
-
+//TODO: check special subshard resource state.
 read_only::get_info_results read_only::get_info(const read_only::get_info_params&, const fc::time_point&) const {
    const auto& rm = db.get_resource_limits_manager();
 
@@ -1278,8 +1278,8 @@ read_only::get_info_results read_only::get_info(const read_only::get_info_params
       db.head_block_producer(),
       rm.get_virtual_block_cpu_limit(),
       rm.get_virtual_block_net_limit(),
-      rm.get_block_cpu_limit(),
-      rm.get_block_net_limit(),
+      rm.get_block_cpu_limit(db.dbm().main_db()),
+      rm.get_block_net_limit(db.dbm().main_db()),
       //std::bitset<64>(db.get_dynamic_global_properties().recent_slots_filled).to_string(),
       //__builtin_popcountll(db.get_dynamic_global_properties().recent_slots_filled) / 64.0,
       app().version_string(),
@@ -2384,7 +2384,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    result.head_block_num  = db.head_block_num();
    result.head_block_time = db.head_block_time();
 
-   rm.get_account_limits( result.account_name, result.ram_quota, result.net_weight, result.cpu_weight );
+   rm.get_account_limits( result.account_name, result.ram_quota, result.net_weight, result.cpu_weight, d );
 
    const auto& accnt_obj = db.get_account( result.account_name );
    //const auto& accnt_metadata_obj = db.dbm().shared_db().get<account_metadata_object,by_name>( result.account_name );
@@ -2395,15 +2395,15 @@ read_only::get_account_results read_only::get_account( const get_account_params&
 
    uint32_t greylist_limit = db.is_resource_greylisted(result.account_name) ? 1 : config::maximum_elastic_resource_multiplier;
    const block_timestamp_type current_usage_time (db.head_block_time());
-   result.net_limit.set( rm.get_account_net_limit_ex( result.account_name, greylist_limit, current_usage_time).first );
+   result.net_limit.set( rm.get_account_net_limit_ex( result.account_name, d, d, greylist_limit, current_usage_time).first );
    if ( result.net_limit.last_usage_update_time && (result.net_limit.last_usage_update_time->slot == 0) ) {   // account has no action yet
       result.net_limit.last_usage_update_time = accnt_obj.creation_date;
    }
-   result.cpu_limit.set( rm.get_account_cpu_limit_ex( result.account_name, greylist_limit, current_usage_time).first );
+   result.cpu_limit.set( rm.get_account_cpu_limit_ex( result.account_name, d, d, greylist_limit, current_usage_time).first );
    if ( result.cpu_limit.last_usage_update_time && (result.cpu_limit.last_usage_update_time->slot == 0) ) {   // account has no action yet
       result.cpu_limit.last_usage_update_time = accnt_obj.creation_date;
    }
-   result.ram_usage = rm.get_account_ram_usage( result.account_name );
+   result.ram_usage = rm.get_account_ram_usage( result.account_name, d );
 
    if ( producer_plug ) {  // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
       eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;

@@ -2389,7 +2389,9 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
    if( in_producing_mode() && prev_billed_cpu_time_us > 0 ) {
       const auto& rl = chain.get_resource_limits_manager();
-      if ( !_subjective_billing.is_account_disabled( first_auth ) && !rl.is_unlimited_cpu( first_auth ) ) {
+      auto shard_name = trx->packed_trx()->get_transaction().get_shard_name();
+      auto& shared_db = shard_name == config::main_shard_name ? chain.dbm().main_db(): chain.dbm().shared_db();
+      if ( !_subjective_billing.is_account_disabled( first_auth ) && !rl.is_unlimited_cpu( first_auth, shared_db ) ) {
          int64_t prev_billed_plus100_us = prev_billed_cpu_time_us + EOS_PERCENT( prev_billed_cpu_time_us, 100 * config::percent_1 );
          if( prev_billed_plus100_us < max_trx_time.count() ) max_trx_time = fc::microseconds( prev_billed_plus100_us );
       }
@@ -2451,7 +2453,9 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
    auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
    if( in_producing_mode() && prev_billed_cpu_time_us > 0 ) {
       const auto& rl = chain.get_resource_limits_manager();
-      if ( !_subjective_billing.is_account_disabled( first_auth ) && !rl.is_unlimited_cpu( first_auth ) ) {
+      auto shard_name = trx->packed_trx()->get_transaction().get_shard_name();
+      auto& shared_db = shard_name == config::main_shard_name ? chain.dbm().main_db(): chain.dbm().shared_db();
+      if ( !_subjective_billing.is_account_disabled( first_auth ) && !rl.is_unlimited_cpu( first_auth, shared_db ) ) {
          int64_t prev_billed_plus100_us = prev_billed_cpu_time_us + EOS_PERCENT( prev_billed_cpu_time_us, 100 * config::percent_1 );
          if( prev_billed_plus100_us < max_trx_time.count() ) max_trx_time = fc::microseconds( prev_billed_plus100_us );
       }
@@ -2826,9 +2830,9 @@ bool producer_plugin_impl::block_is_exhausted() const {
    const chain::controller& chain = chain_plug->chain();
    const auto& rl = chain.get_resource_limits_manager();
 
-   const uint64_t cpu_limit = rl.get_block_cpu_limit();
+   const uint64_t cpu_limit = rl.get_block_cpu_limit( chain.dbm().main_db() );
    if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
-   const uint64_t net_limit = rl.get_block_net_limit();
+   const uint64_t net_limit = rl.get_block_net_limit( chain.dbm().main_db() );
    if( net_limit < _max_block_net_usage_threshold_bytes ) return true;
    return false;
 }

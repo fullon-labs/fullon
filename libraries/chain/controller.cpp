@@ -391,7 +391,7 @@ struct controller_impl {
         cfg.state_size, false, cfg.db_map_mode ),
     blog( cfg.blocks_dir, cfg.blog ),
     fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
-    resource_limits( dbm.main_db(), [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
+    resource_limits( dbm, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
     authorization( s, dbm.main_db() ),
     protocol_features( std::move(pfs), [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); } ),
     conf( cfg ),
@@ -877,6 +877,7 @@ struct controller_impl {
    }
 
    void add_indices() {
+      //these index are added to both main and shard dbs.
       dbm.add_indices_to_shard_db<controller_index_set>();
       dbm.add_indices_to_shard_db<contract_database_index_set>();
       dbm.add_indices_to_shard_db<authorization_manager>();
@@ -884,6 +885,7 @@ struct controller_impl {
 
       // add indices to shared db
       shared_index_set::add_indices(dbm.shared_db());
+      resource_limits_manager::add_shared_indices(dbm.shared_db());
    }
 
    void clear_all_undo() {
@@ -1177,8 +1179,8 @@ struct controller_impl {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", name)), "account", "add", "newaccount");
       }
 
-      resource_limits.add_pending_ram_usage(name, ram_delta, false); // false for doing dm logging
-      resource_limits.verify_account_ram_usage(name);
+      resource_limits.add_pending_ram_usage(name, ram_delta, db, false); // false for doing dm logging
+      resource_limits.verify_account_ram_usage(name, db, db);
    }
 
    void initialize_database(const genesis_state& genesis) {
@@ -1241,6 +1243,7 @@ struct controller_impl {
                                                                              genesis.initial_timestamp );
 
       shared_index_set::copy_data(dbm.main_db(), dbm.shared_db());
+      resource_limits_manager::copy_data(dbm.main_db(), dbm.shared_db());
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
@@ -1368,9 +1371,9 @@ struct controller_impl {
 
       int64_t ram_delta = -(config::billable_size_v<generated_transaction_object> + gto.packed_trx.size());
       // TODO: must run in main shard
-      resource_limits.add_pending_ram_usage( gto.payer, ram_delta, false ); // false for doing dm logging
-      // No need to verify_account_ram_usage since we are only reducing memory
       auto& db = dbm.main_db();
+      resource_limits.add_pending_ram_usage( gto.payer, ram_delta, db, false ); // false for doing dm logging
+      // No need to verify_account_ram_usage since we are only reducing memory
       db.remove( gto );
       return ram_delta;
    }
@@ -1603,7 +1606,7 @@ struct controller_impl {
 
          if( !validating ) {
             auto& rl = self.get_mutable_resource_limits_manager();
-            rl.update_account_usage( trx_context.bill_to_accounts, block_timestamp_type(self.pending_block_time()).slot );
+            rl.update_account_usage( trx_context.bill_to_accounts, block_timestamp_type(self.pending_block_time()).slot , trx_context.db, trx_context.shared_db );
             int64_t account_cpu_limit = 0;
             std::tie( std::ignore, account_cpu_limit, std::ignore, std::ignore ) = trx_context.max_bandwidth_billed_accounts_can_pay( true );
 
@@ -1616,7 +1619,7 @@ struct controller_impl {
          }
 
          resource_limits.add_transaction_usage( trx_context.bill_to_accounts, cpu_time_to_bill_us, 0,
-                                                block_timestamp_type(self.pending_block_time()).slot ); // Should never fail
+                                                block_timestamp_type(self.pending_block_time()).slot, trx_context.db, trx_context.shared_db ); // Should never fail
 
          trace->receipt = push_receipt(config::main_shard_name, gtrx.trx_id, transaction_receipt::hard_fail, cpu_time_to_bill_us, 0);
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
@@ -2068,7 +2071,7 @@ struct controller_impl {
       // size_t num_new = std::distance(acct_undo.new_values.begin(), acct_undo.new_values.end());
       // wdump((pbhs.block_num)(acct_idx.undo_stack_revision_range())(num_old)(num_rm)(num_new));
       shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
-
+      resource_limits_manager::copy_changes(dbm.main_db(), dbm.shared_db());
       // TODO: clear empty trx receipts
 
       // Create (unsigned) block:
@@ -3961,8 +3964,8 @@ void controller::replace_account_keys( name account, name permission, const publ
       p.auth = authority(key);
    });
    int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
-   rlm.add_pending_ram_usage(account, new_size - old_size, false); // false for doing dm logging
-   rlm.verify_account_ram_usage(account);
+   rlm.add_pending_ram_usage(account, new_size - old_size, db, false); // false for doing dm logging
+   rlm.verify_account_ram_usage(account, db, db);
 }
 
 void controller::set_db_read_only_mode() {
@@ -4018,7 +4021,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
    auto& db = dbm.main_db();
    const auto& indx = db.get_index<account_ram_correction_index, by_id>();
    for( auto itr = indx.begin(); itr != indx.end(); itr = indx.begin() ) {
-      int64_t current_ram_usage = resource_limits.get_account_ram_usage( itr->name );
+      int64_t current_ram_usage = resource_limits.get_account_ram_usage( itr->name , db );
       int64_t ram_delta = -static_cast<int64_t>(itr->ram_correction);
       if( itr->ram_correction > static_cast<uint64_t>(current_ram_usage) ) {
          ram_delta = -current_ram_usage;
@@ -4031,7 +4034,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
          dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", itr->id._id)), "deferred_trx", "correction", "deferred_trx_ram_correction");
       }
 
-      resource_limits.add_pending_ram_usage( itr->name, ram_delta, false ); // false for doing dm logging
+      resource_limits.add_pending_ram_usage( itr->name, ram_delta, db, false ); // false for doing dm logging
       db.remove( *itr );
    }
 }
