@@ -26,6 +26,7 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/shard_object.hpp>
+#include <eosio/chain/shared_contract_table_objects.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -56,7 +57,8 @@ using controller_index_set = index_set<
    code_index,
    database_header_multi_index,
    shard_index,
-   shard_change_index
+   shard_change_index,
+   shared_table_id_multi_index
 >;
 
 using contract_database_index_set = index_set<
@@ -78,7 +80,8 @@ using shared_index_set = index_set<
    // dynamic_global_property_multi_index,
    // block_summary_multi_index,
    code_index,
-   shard_index
+   shard_index,
+   shared_table_id_multi_index
 >;
 
 template<typename DatabaseType>
@@ -945,6 +948,7 @@ struct controller_impl {
    }
 
    void add_contract_tables_to_snapshot( database& db, const snapshot_writer_ptr& snapshot ) const {
+      // TODO: support shared_table_id_multi_index
       snapshot->write_section("contract_tables", [&db]( auto& section ) {
          index_utils<table_id_multi_index>::walk(db, [&db, &section]( const table_id_object& table_row ){
             // add a row for the table
@@ -971,6 +975,7 @@ struct controller_impl {
    }
 
    void read_contract_tables_from_snapshot( database& db, const snapshot_reader_ptr& snapshot ) {
+      // TODO: support shared_table_id_multi_index
       snapshot->read_section("contract_tables", [&db]( auto& section ) {
          bool more = !section.empty();
          while (more) {

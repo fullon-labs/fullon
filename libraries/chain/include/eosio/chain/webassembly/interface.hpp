@@ -1801,6 +1801,858 @@ namespace webassembly {
          */
          int32_t k1_recover( span<const char> signature, span<const char> digest, span<char> pub) const;
 
+
+         /**
+          * Store a record in a primary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database primary-index
+          *
+          * @param scope - the scope where the table resides (implied to be within the code of the current receiver).
+          * @param table - the name of the table within the current scope context.
+          * @param payer - the account that pays for the storage.
+          * @param id - id of the entry.
+          * @param buffer - record to store.
+          *
+          * @return iterator to the newly created table row.
+          * @post a new entry is created in the table.
+         */
+         int32_t shared_db_store_i64(uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, legacy_span<const char> buffer);
+
+         /**
+          * Update a record in a primary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database primary-index
+          * @param itr - iterator to the table row containing the record to update.
+          * @param payer -  the account that pays for the storage costs.
+          * @param buffer - new updated record.
+          *
+          * @remark This function does not allow changing the primary key of a
+          * table row. The serialized data that is stored in the table row of a
+          * primary table may include a primary key and that primary key value
+          * could be changed by the contract calling the shared_db_update_i64 intrinsic;
+          * but that does not change the actual primary key of the table row.
+          *
+          * @pre `itr` points to an existing table row in the table.
+          * @post the record contained in the table row pointed to by `itr` is replaced with the new updated record.
+          */
+         void shared_db_update_i64(int32_t itr, uint64_t payer, legacy_span<const char> buffer);
+
+         /**
+          * Remove a record inside a primary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database primary-index
+          * @param itr - the iterator to the table row to remove.
+          *
+          *  @pre `itr` points to an existing table row in the tab.
+          */
+         void shared_db_remove_i64(int32_t itr);
+
+         /**
+          * Get a record in a primary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database primary-index
+          * @param itr - the iterator to the table row containing the record to retrieve.
+          * @param[out] buffer - the buffer which will be filled with the retrieved record.
+          *
+          * @return size of the data copied into the buffer if buffer is not empty, or size of the retrieved record if the buffer is empty.
+          * @pre `itr` points to an existing table row in the table.
+          * @post `buffer` will be filled with the retrieved record (truncated to the first `len` bytes if necessary).
+          */
+         int32_t shared_db_get_i64(int32_t itr, legacy_span<char> buffer);
+
+         /**
+          * Find the table row following the referenced table row in a primary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database primary-index
+          * @param itr - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the next table row.
+          *
+          * @return iterator to the table row following the referenced table row (or the end iterator of the table if the referenced table row is the last one in the table).
+          *
+          * @post '*primary' will be replaced with the primary key of the table row following the referenced table row if it exists, otherwise primary will be left untouched.
+          */
+         int32_t shared_db_next_i64(int32_t itr, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find the table row preceding the referenced table row in a primary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database primary-index
+          * @param itr - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the next table row.
+          *
+          * @return iterator to the table row preceding the referenced table row assuming one exists (it will return -1 if the referenced table row is the first one in the table).
+          * @post '*primary' will be replaced with the primary key of the table row preceding the referenced table row if it exists, otherwise primary will be left untouched.
+          */
+         int32_t shared_db_previous_i64(int32_t itr, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find a table row in a primary 64-bit integer index table by primary key.
+          *
+          * @ingroup shared database primary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param id - the primary key of the record to look up.
+          *
+          * @return iterator to the table row with a primary key equal to id or the end iterator of the table if the table row could not be found.
+          */
+         int32_t shared_db_find_i64(uint64_t code, uint64_t scope, uint64_t table, uint64_t id);
+
+         /**
+          * Find the table row in a primary 64-bit integer index table that matches the lowerbound condition for a given primary key.
+          * Lowerbound record is the first nearest record which primary key is >= the given key.
+          *
+          * @ingroup shared database primary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param id - the primary key used as a pivot to determine the lowerbound record.
+          *
+          * @return iterator to the lowerbound record or the end iterator of the table if the table row could not be found.
+          */
+         int32_t shared_db_lowerbound_i64(uint64_t code, uint64_t scope, uint64_t table, uint64_t id);
+
+         /**
+          * Find the table row in a primary 64-bit integer index table that matches the upperbound condition for a given primary key.
+          * The table row that matches the upperbound condition is the first table row in the table with the lowest primary key that is > the given key.
+          *
+          * @ingroup shared database primary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param id - the primary key used as a pivot to determine the upperbound record.
+          *
+          * @return iterator to the upperbound record or the end iterator of the table if the table row could not be found.
+          */
+         int32_t shared_db_upperbound_i64(uint64_t code, uint64_t scope, uint64_t table, uint64_t id);
+
+         /**
+          * Get an iterator representing just-past-the-end of the last table row of a primary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database primary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          *
+          * @return end iterator of the table.
+          */
+         int32_t shared_db_end_i64(uint64_t code, uint64_t scope, uint64_t table);
+
+         /**
+          * Store an association of a 64-bit integer secondary key to a primary key in a secondary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint64_t-secondary-index
+          * @param scope - the scope where the table resides (implied to be within the code of the current receiver).
+          * @param table - the table name.
+          * @param payer - the account that is paying for this storage.
+          * @param id - the primary key to which to associate the secondary key.
+          * @param secondary - the pointer to the key of the secondary index to store.
+          *
+          * @return iterator to the newly created secondary index.
+          * @post new secondary key association between primary key `id` and secondary key `*secondary` is created in the secondary 64-bit integer index table of shared db.
+          */
+         int32_t shared_db_idx64_store(uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, legacy_ptr<const uint64_t> secondary);
+
+         /**
+          * Update an association for a 64-bit integer secondary key to a primary key in a secondary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint64_t-secondary-index
+          * @param iterator - the iterator to the table row containing the secondary key association to update.
+          * @param payer - the account that pays for the storage costs.
+          * @param secondary - pointer to the **new** secondary key that will replace the existing one of the association.
+          *
+          * @pre `iterator` points to an existing table row in the table.
+          * @post the secondary key of the table row pointed to by `iterator` is replaced by `*secondary`.
+          */
+         void shared_db_idx64_update(int32_t iterator, uint64_t payer, legacy_ptr<const uint64_t> secondary);
+
+         /**
+          * Remove a table row from a secondary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint64_t-secondary-index
+          * @param iterator - iterator to the table row to remove.
+          *
+          * @pre `iterator` points to an existing table row in the table.
+          * @post the table row pointed to by `iterator` is removed and the associated storage costs are refunded to the payer.
+          */
+         void shared_db_idx64_remove(int32_t iterator);
+
+         /**
+          * Find a table row in a secondary 64-bit integer index table by secondary key.
+          *
+          * @ingroup shared database uint64_t-secondary-index
+          *
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param secondary - the pointer to the secondary index key.
+          * @param[out] primary - pointer to a 'uint64_t' variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the first table row with a secondary key equal to `*secondary` or the end iterator of the table if the table row could not be found.
+          * @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx64_find_secondary(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<const uint64_t> secondary, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find a table row in a secondary 64-bit integer index table by primary key.
+          *
+          * @ingroup shared database uint64_t-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - pointer to a 'uint64_t' variable which will have its value set to the secondary key of the found table row.
+          * @param primary - the primary key of the table row to look up.
+          *
+          * @return iterator to the table row with a primary key equal to `primary` or the end iterator of the table if the table row could not be found.
+          * @post If and only if the table row is found, `*secondary` will be replaced with the secondary key of the found table row.
+          */
+         int32_t shared_db_idx64_find_primary(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<uint64_t> secondary, uint64_t primary);
+
+         /**
+          * Find the table row in a secondary 64-bit integer index table that matches the lowerbound condition for a given secondary key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
+          *
+          * @ingroup shared database uint64_t-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - pointer to secondary key first used to determine the lowerbound and which is then replaced with the secondary key of the found table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the found table row or the end iterator of the table if the table row could not be found.
+          *
+          *  @post If and only if the table row is found, `*secondary` will be replaced with the secondary key of the found table row.
+          *  @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx64_lowerbound(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<uint64_t, 8> secondary, legacy_ptr<uint64_t, 8> primary);
+
+         /**
+          * Find the table row in a secondary 64-bit integer index table that matches the upperbound condition for a given secondary key.
+          * The table row that matches the upperbound condition is the first table row in the table with the lowest secondary key that is > the given key.
+          *
+          * @ingroup shared database uint64_t-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - pointer to secondary key first used to determine the upperbound and which is then replaced with the secondary key of the found table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the found table row or the end iterator of the table if the table row could not be found.
+          */
+         int32_t shared_db_idx64_upperbound(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<uint64_t, 8> secondary, legacy_ptr<uint64_t, 8> primary);
+
+         /**
+          * Get an end iterator representing just-past-the-end of the last table row of a secondary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint64_t-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          *
+          * @return end iterator of the table.
+          */
+         int32_t shared_db_idx64_end(uint64_t code, uint64_t scope, uint64_t table);
+
+         /**
+          * Find the table row following the referenced table row in a secondary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint64_t-secondary-index
+          * @param iterator - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the next table row.
+          *
+          * @return iterator to the table row following the referenced table row (or the end iterator of the table if the referenced table row is the last one in the table).
+          * @pre `iterator` points to an existing table row in the table.
+          * @post `*primary` will be replaced with the primary key of the table row following the referenced table row if it exists, otherwise `*primary` will be left untouched.
+          */
+         int32_t shared_db_idx64_next(int32_t iterator, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find the table row preceding the referenced table row in a secondary 64-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint64_t-secondary-index
+          * @param iterator - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the previous table row.
+          *
+          * @return iterator to the table row preceding the referenced table row assuming one exists (it will return -1 if the referenced table row is the first one in the table).
+          * @pre `iterator` points to an existing table row in the table or it is the end iterator of the table.
+          * @post `*primary` will be replaced with the primary key of the table row preceding the referenced table row if it exists, otherwise `*primary` will be left untouched.
+          */
+         int32_t shared_db_idx64_previous(int32_t iterator, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Store an association of a 128-bit integer secondary key to a primary key in a secondary 128-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint128_t-secondary-index
+          * @param scope - the scope where the table resides (implied to be within the code of the current receiver).
+          * @param table - the table name.
+          * @param payer - the account that is paying for this storage.
+          * @param id - the primary key to which to associate the secondary key.
+          * @param secondary - the pointer to the key of the secondary index to store.
+          *
+          * @return iterator to the newly created secondary index.
+          * @post new secondary key association between primary key `id` and secondary key `*secondary` is created in the secondary 128-bit integer index table of shared db.
+          */
+         int32_t shared_db_idx128_store(uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, legacy_ptr<const uint128_t> secondary);
+
+         /**
+          * Update an association for a 128-bit integer secondary key to a primary key in a secondary 128-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint128_t-secondary-index
+          * @param iterator - the iterator to the table row containing the secondary key association to update.
+          * @param payer - the account that pays for the storage costs.
+          * @param secondary - pointer to the **new** secondary key that will replace the existing one of the association.
+          *
+          * @pre `iterator` points to an existing table row in the table.
+          * @post the secondary key of the table row pointed to by `iterator` is replaced by `*secondary`.
+          */
+         void shared_db_idx128_update(int32_t iterator, uint64_t payer, legacy_ptr<const uint128_t> secondary);
+
+         /**
+          * Remove a table row from a secondary 128-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint128_t-secondary-index
+          * @param iterator - iterator to the table row to remove.
+          *
+          * @pre `iterator` points to an existing table row in the table.
+          * @post the table row pointed to by `iterator` is removed and the associated storage costs are refunded to the payer.
+          */
+         void shared_db_idx128_remove(int32_t iterator);
+
+         /**
+          * Find a table row in a secondary 128-bit integer index table by secondary key.
+          *
+          * @ingroup shared database uint128_t-secondary-index
+          *
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param secondary - the pointer to the secondary index key.
+          * @param[out] primary - pointer to a 'uint64_t' variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the first table row with a secondary key equal to `*secondary` or the end iterator of the table if the table row could not be found.
+          * @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx128_find_secondary(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<const uint128_t> secondary, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find a table row in a secondary 128-bit integer index table by primary key.
+          *
+          * @ingroup shared database uint128_t-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - pointer to a 'uint128_t' variable which will have its value set to the secondary key of the found table row.
+          * @param primary - the primary key of the table row to look up.
+          *
+          * @return iterator to the table row with a primary key equal to `primary` or the end iterator of the table if the table row could not be found.
+          * @post If and only if the table row is found, `*secondary` will be replaced with the secondary key of the found table row.
+          */
+         int32_t shared_db_idx128_find_primary(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<uint128_t> secondary, uint64_t primary);
+
+         /**
+          * Find the table row in a secondary 128-bit integer index table that matches the lowerbound condition for a given secondary key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
+          *
+          * @ingroup shared database uint128_t-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - pointer to secondary key first used to determine the lowerbound and which is then replaced with the secondary key of the found table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the found table row or the end iterator of the table if the table row could not be found.
+          *
+          *  @post If and only if the table row is found, `*secondary` will be replaced with the secondary key of the found table row.
+          *  @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx128_lowerbound(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<uint128_t, 16> secondary, legacy_ptr<uint64_t, 8> primary);
+
+         /**
+          * Find the table row in a secondary 128-bit integer index table that matches the upperbound condition for a given secondary key.
+          * The table row that matches the upperbound condition is the first table row in the table with the lowest secondary key that is > the given key.
+          *
+          * @ingroup shared database uint128_t-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - pointer to secondary key first used to determine the upperbound and which is then replaced with the secondary key of the found table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the found table row or the end iterator of the table if the table row could not be found.
+          */
+         int32_t shared_db_idx128_upperbound(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<uint128_t, 16> secondary, legacy_ptr<uint64_t, 8> primary);
+
+         /**
+          * Get an end iterator representing just-past-the-end of the last table row of a secondary 128-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint128_t-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          *
+          * @return end iterator of the table.
+          */
+         int32_t shared_db_idx128_end(uint64_t code, uint64_t scope, uint64_t table);
+
+         /**
+          * Find the table row following the referenced table row in a secondary 128-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint128_t-secondary-index
+          * @param iterator - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the next table row.
+          *
+          * @return iterator to the table row following the referenced table row (or the end iterator of the table if the referenced table row is the last one in the table).
+          * @pre `iterator` points to an existing table row in the table.
+          * @post `*primary` will be replaced with the primary key of the table row following the referenced table row if it exists, otherwise `*primary` will be left untouched.
+          */
+         int32_t shared_db_idx128_next(int32_t iterator, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find the table row preceding the referenced table row in a secondary 128-bit integer index table of shared db.
+          *
+          * @ingroup shared database uint128_t-secondary-index
+          * @param iterator - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the previous table row.
+          *
+          * @return iterator to the table row preceding the referenced table row assuming one exists (it will return -1 if the referenced table row is the first one in the table).
+          * @pre `iterator` points to an existing table row in the table or it is the end iterator of the table.
+          * @post `*primary` will be replaced with the primary key of the table row preceding the referenced table row if it exists, otherwise `*primary` will be left untouched.
+          */
+         int32_t shared_db_idx128_previous(int32_t iterator, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Store an association of a 256-bit integer secondary key to a primary key in a secondary 256-bit integer index table of shared db.
+          *
+          * @ingroup shared database 256-bit-secondary-index
+          * @param scope - the scope where the table resides (implied to be within the code of the current receiver).
+          * @param table - the table name.
+          * @param payer - the account that is paying for this storage.
+          * @param id - the primary key to which to associate the secondary key.
+          * @param data - pointer to the secondary key data stored as an array of 2 `uint128_t` integers.
+          *
+          * @return iterator to the newly created secondary index.
+          * @post new secondary key association between primary key `id` and secondary key `*data` is created in the secondary 256-bit integer index table of shared db.
+          */
+         int32_t shared_db_idx256_store(uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, legacy_span<const uint128_t> data);
+
+         /**
+          * Update an association for a 256-bit integer secondary key to a primary key in a secondary 256-bit integer index table of shared db.
+          *
+          * @ingroup shared database 256-bit-secondary-index
+          * @param iterator - the iterator to the table row containing the secondary key association to update.
+          * @param payer - the account that pays for the storage costs.
+          * @param data - pointer to the **new** secondary key data (which is stored as an array of 2 `uint128_t` integers) that will replace the existing one of the association.
+          *
+          * @pre `iterator` points to an existing table row in the table.
+          * @post the secondary key of the table row pointed to by `iterator` is replaced by the specified secondary key.
+          */
+         void shared_db_idx256_update(int32_t iterator, uint64_t payer, legacy_span<const uint128_t> data);
+
+         /**
+          * Remove a table row from a secondary 256-bit integer index table of shared db.
+          *
+          * @ingroup shared database 256-bit-secondary-index
+          * @param iterator - iterator to the table row to remove.
+          *
+          * @pre `iterator` points to an existing table row in the table.
+          * @post the table row pointed to by `iterator` is removed and the associated storage costs are refunded to the payer.
+          */
+         void shared_db_idx256_remove(int32_t iterator);
+
+         /**
+          * Find a table row in a secondary 256-bit integer index table by secondary key.
+          *
+          * @ingroup shared database 256-bit-secondary-index
+          *
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param data - pointer to the secondary key data (which is stored as an array of 2 `uint128_t` integers) used to lookup the table row.
+          * @param[out] primary - pointer to a 'uint64_t' variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the first table row with a secondary key equal to the specified secondary key or the end iterator of the table if the table row could not be found.
+          * @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx256_find_secondary(uint64_t code, uint64_t scope, uint64_t table, legacy_span<const uint128_t> data, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find a table row in a secondary 256-bit integer index table by primary key.
+          *
+          * @ingroup shared database 256-bit-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] data - pointer to the array of 2 `uint128_t` integers which will act as the buffer to hold the retrieved secondary key of the found table row.
+          * @param primary - the primary key of the table row to look up.
+          *
+          * @return iterator to the table row with a primary key equal to `data` or the end iterator of the table if the table row could not be found.
+          * @post If and only if the table row is found, `data` will be replaced with the secondary key of the found table row.
+          */
+         int32_t shared_db_idx256_find_primary(uint64_t code, uint64_t scope, uint64_t table, legacy_span<uint128_t> data, uint64_t primary);
+
+         /**
+          * Find the table row in a secondary 256-bit integer index table that matches the lowerbound condition for a given secondary key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
+          *
+          * @ingroup shared database 256-bit-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] data - pointer to the secondary key data (which is stored as an array of 2 `uint128_t` integers) first used to determine the lowerbound and which is then replaced with the secondary key of the found table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the found table row or the end iterator of the table if the table row could not be found.
+          *
+          *  @post If and only if the table row is found, `data` will be replaced with the secondary key of the found table row.
+          *  @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx256_lowerbound(uint64_t code, uint64_t scope, uint64_t table, legacy_span<uint128_t, 16> data, legacy_ptr<uint64_t, 8> primary);
+
+         /**
+          * Find the table row in a secondary 256-bit integer index table that matches the upperbound condition for a given secondary key.
+          * The table row that matches the upperbound condition is the first table row in the table with the lowest secondary key that is > the given key.
+          *
+          * @ingroup shared database 256-bit-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] data - pointer to the secondary key data (which is stored as an array of 2 `uint128_t` integers) first used to determine the upperbound and which is then replaced with the secondary key of the found table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the found table row or the end iterator of the table if the table row could not be found.
+          *
+          * @post If and only if the table row is found, the buffer pointed to by `data` will be filled with the secondary key of the found table row.
+          * @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx256_upperbound(uint64_t code, uint64_t scope, uint64_t table, legacy_span<uint128_t, 16> data, legacy_ptr<uint64_t, 8> primary);
+
+         /**
+          * Get an end iterator representing just-past-the-end of the last table row of a secondary 256-bit integer index table of shared db.
+          *
+          * @ingroup shared database 256-bit-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          *
+          * @return end iterator of the table.
+          */
+         int32_t shared_db_idx256_end(uint64_t code, uint64_t scope, uint64_t table);
+
+         /**
+          * Find the table row following the referenced table row in a secondary 256-bit integer index table of shared db.
+          *
+          * @ingroup shared database 256-bit-secondary-index
+          * @param iterator - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the next table row.
+          *
+          * @return iterator to the table row following the referenced table row (or the end iterator of the table if the referenced table row is the last one in the table).
+          * @pre `iterator` points to an existing table row in the table.
+          * @post `*primary` will be replaced with the primary key of the table row following the referenced table row if it exists, otherwise `*primary` will be left untouched.
+          */
+         int32_t shared_db_idx256_next(int32_t iterator, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find the table row preceding the referenced table row in a secondary 256-bit integer index table of shared db.
+          *
+          * @ingroup shared database 256-bit-secondary-index
+          * @param iterator - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the previous table row.
+          *
+          * @return iterator to the table row preceding the referenced table row assuming one exists (it will return -1 if the referenced table row is the first one in the table).
+          * @pre `iterator` points to an existing table row in the table or it is the end iterator of the table.
+          * @post `*primary` will be replaced with the primary key of the table row preceding the referenced table row if it exists, otherwise `*primary` will be left untouched.
+          */
+         int32_t shared_db_idx256_previous(int32_t iterator, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Store an association of a double-precision floating-point secondary key to a primary key in a secondary double-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database double-secondary-index
+          * @param scope - the scope where the table resides (implied to be within the code of the current receiver).
+          * @param table - the table name.
+          * @param payer - the account that is paying for this storage.
+          * @param id - the primary key to which to associate the secondary key.
+          * @param secondary - pointer to the secondary key.
+          *
+          * @return iterator to the newly created secondary index.
+          * @post new secondary key association between primary key `id` and secondary key `*secondary` is created in the secondary double-precision floating-point index table of shared db.
+          */
+         int32_t shared_db_idx_double_store(uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, legacy_ptr<const float64_t> secondary);
+
+         /**
+          * Update an association for a double-precision floating-point secondary key to a primary key in a secondary  double-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database double-secondary-index
+          * @param iterator - the iterator to the table row containing the secondary key association to update.
+          * @param payer - the account that pays for the storage costs.
+          * @param secondary - pointer to the **new** secondary key that will replace the existing one of the association.
+          *
+          * @pre `iterator` points to an existing table row in the table.
+          * @post the secondary key of the table row pointed to by `iterator` is replaced by the specified secondary key.
+          */
+         void shared_db_idx_double_update(int32_t iterator, uint64_t payer, legacy_ptr<const float64_t> secondary);
+
+         /**
+          * Remove a table row from a secondary double-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database double-secondary-index
+          * @param iterator - iterator to the table row to remove.
+          *
+          * @pre `iterator` points to an existing table row in the table.
+          * @post the table row pointed to by `iterator` is removed and the associated storage costs are refunded to the payer.
+          */
+         void shared_db_idx_double_remove(int32_t iterator);
+
+         /**
+          * Find a table row in a secondary double-precision floating-point index table by secondary key.
+          *
+          * @ingroup shared database double-secondary-index
+          *
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param secondary - Pointer to secondary key used to lookup the table row.
+          * @param[out] primary - pointer to a 'uint64_t' variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the first table row with a secondary key equal to the specified secondary key or the end iterator of the table if the table row could not be found.
+          * @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx_double_find_secondary(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<const float64_t> secondary, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find a table row in a secondary double-precision floating-point index table by primary key.
+          *
+          * @ingroup shared database double-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - pointer to a `double` variable which will have its value set to the secondary key of the found table row.
+          * @param primary - the primary key of the table row to look up.
+          *
+          * @return iterator to the table row with a primary key equal to `secondary` or the end iterator of the table if the table row could not be found.
+          * @post If and only if the table row is found, `secondary` will be replaced with the secondary key of the found table row.
+          */
+         int32_t shared_db_idx_double_find_primary(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<float64_t> secondary, uint64_t primary);
+
+         /**
+          * Find the table row in a secondary double-precision floating-point index table that matches the lowerbound condition for a given secondary key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
+          *
+          * @ingroup shared database double-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - Pointer to secondary key first used to determine the lowerbound and which is then replaced with the secondary key of the found table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the found table row or the end iterator of the table if the table row could not be found.
+          *
+          *  @post If and only if the table row is found, `*secondary` will be replaced with the secondary key of the found table row.
+          *  @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx_double_lowerbound(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<float64_t, 8> secondary, legacy_ptr<uint64_t, 8> primary);
+
+         /**
+          * Find the table row in a secondary double-precision floating-point index table that matches the upperbound condition for a given secondary key.
+          * The table row that matches the upperbound condition is the first table row in the table with the lowest secondary key that is > the given key.
+          *
+          * @ingroup shared database double-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - pointer to secondary key first used to determine the upperbound and which is then replaced with the secondary key of the found table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the found table row or the end iterator of the table if the table row could not be found.
+          *
+          * @post If and only if the table row is found, the buffer pointed to by `*secondary` will be filled with the secondary key of the found table row.
+          * @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx_double_upperbound(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<float64_t, 8> secondary, legacy_ptr<uint64_t, 8> primary);
+
+         /**
+          * Get an end iterator representing just-past-the-end of the last table row of a secondary double-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database double-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          *
+          * @return end iterator of the table.
+          */
+         int32_t shared_db_idx_double_end(uint64_t code, uint64_t scope, uint64_t table);
+
+         /**
+          * Find the table row following the referenced table row in a secondary double-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database double-secondary-index
+          * @param iterator - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the next table row.
+          *
+          * @return iterator to the table row following the referenced table row (or the end iterator of the table if the referenced table row is the last one in the table).
+          * @pre `iterator` points to an existing table row in the table.
+          * @post `*primary` will be replaced with the primary key of the table row following the referenced table row if it exists, otherwise `*primary` will be left untouched.
+          */
+         int32_t shared_db_idx_double_next(int32_t iterator, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find the table row preceding the referenced table row in a secondary double-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database double-secondary-index
+          * @param iterator - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the previous table row.
+          *
+          * @return iterator to the table row preceding the referenced table row assuming one exists (it will return -1 if the referenced table row is the first one in the table).
+          * @pre `iterator` points to an existing table row in the table or it is the end iterator of the table.
+          * @post `*primary` will be replaced with the primary key of the table row preceding the referenced table row if it exists, otherwise `*primary` will be left untouched.
+          */
+         int32_t shared_db_idx_double_previous(int32_t iterator, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Store an association of a quadruple-precision floating-point secondary key to a primary key in a secondary quadruple-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database long-double-secondary-index
+          * @param scope - the scope where the table resides (implied to be within the code of the current receiver).
+          * @param table - the table name.
+          * @param payer - the account that is paying for this storage.
+          * @param id - the primary key to which to associate the secondary key.
+          * @param secondary - pointer to the secondary key.
+          *
+          * @return iterator to the newly created secondary index.
+          * @post new secondary key association between primary key `id` and secondary key `*secondary` is created in the quadruple-precision floating-point index table of shared db.
+          */
+         int32_t shared_db_idx_long_double_store(uint64_t scope, uint64_t table, uint64_t payer, uint64_t id, legacy_ptr<const float128_t> secondary);
+
+         /**
+          * Update an association for a quadruple-precision floating-point secondary key to a primary key in a secondary quadruple-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database long-double-secondary-index
+          * @param iterator - the iterator to the table row containing the secondary key association to update.
+          * @param payer - the account that pays for the storage costs.
+          * @param secondary - pointer to the **new** secondary key that will replace the existing one of the association.
+          *
+          * @pre `iterator` points to an existing table row in the table.
+          * @post the secondary key of the table row pointed to by `iterator` is replaced by the specified secondary key.
+          */
+         void shared_db_idx_long_double_update(int32_t iterator, uint64_t payer, legacy_ptr<const float128_t> secondary);
+
+         /**
+          * Remove a table row from a secondary quadruple-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database long-double-secondary-index
+          * @param iterator - iterator to the table row to remove.
+          *
+          * @pre `iterator` points to an existing table row in the table.
+          * @post the table row pointed to by `iterator` is removed and the associated storage costs are refunded to the payer.
+          */
+         void shared_db_idx_long_double_remove(int32_t iterator);
+
+         /**
+          * Find a table row in a secondary quadruple-precision floating-point index table by secondary key.
+          *
+          * @ingroup shared database long-double-secondary-index
+          *
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param secondary - Pointer to secondary key used to lookup the table row.
+          * @param[out] primary - pointer to a 'uint64_t' variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the first table row with a secondary key equal to the specified secondary key or the end iterator of the table if the table row could not be found.
+          * @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx_long_double_find_secondary(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<const float128_t> secondary, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find a table row in a secondary double-precision floating-point index table by primary key.
+          *
+          * @ingroup shared database long-double-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - pointer to a `long double` variable which will have its value set to the secondary key of the found table row.
+          * @param primary - the primary key of the table row to look up.
+          *
+          * @return iterator to the table row with a primary key equal to `secondary` or the end iterator of the table if the table row could not be found.
+          * @post If and only if the table row is found, `secondary` will be replaced with the secondary key of the found table row.
+          */
+         int32_t shared_db_idx_long_double_find_primary(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<float128_t> secondary, uint64_t primary);
+
+         /**
+          * Find the table row in a secondary quadruple-precision floating-point index table that matches the lowerbound condition for a given secondary key.
+          * Lowerbound secondary index is the first secondary index which key is >= the given secondary index key.
+          *
+          * @ingroup shared database long-double-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - Pointer to secondary key first used to determine the lowerbound and which is then replaced with the secondary key of the found table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the found table row or the end iterator of the table if the table row could not be found.
+          *
+          *  @post If and only if the table row is found, `*secondary` will be replaced with the secondary key of the found table row.
+          *  @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx_long_double_lowerbound(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<float128_t, 8> secondary, legacy_ptr<uint64_t, 8> primary);
+
+         /**
+          * Find the table row in a secondary quadruple-precision floating-point index table that matches the upperbound condition for a given secondary key.
+          * The table row that matches the upperbound condition is the first table row in the table with the lowest secondary key that is > the given key.
+          *
+          * @ingroup shared database long-double-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          * @param[out] secondary - pointer to secondary key first used to determine the upperbound and which is then replaced with the secondary key of the found table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the found table row.
+          *
+          * @return iterator to the found table row or the end iterator of the table if the table row could not be found.
+          *
+          * @post If and only if the table row is found, the buffer pointed to by `*secondary` will be filled with the secondary key of the found table row.
+          * @post If and only if the table row is found, `*primary` will be replaced with the primary key of the found table row.
+          */
+         int32_t shared_db_idx_long_double_upperbound(uint64_t code, uint64_t scope, uint64_t table, legacy_ptr<float128_t, 8> secondary,  legacy_ptr<uint64_t, 8> primary);
+
+         /**
+          * Get an end iterator representing just-past-the-end of the last table row of a secondary quadruple-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database long-double-secondary-index
+          * @param code - the name of the owner of the table.
+          * @param scope - the scope where the table resides.
+          * @param table - the table name.
+          *
+          * @return end iterator of the table.
+          */
+         int32_t shared_db_idx_long_double_end(uint64_t code, uint64_t scope, uint64_t table);
+
+         /**
+          * Find the table row following the referenced table row in a secondary quadruple-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database long-double-secondary-index
+          * @param iterator - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the next table row.
+          *
+          * @return iterator to the table row following the referenced table row (or the end iterator of the table if the referenced table row is the last one in the table).
+          * @pre `iterator` points to an existing table row in the table.
+          * @post `*primary` will be replaced with the primary key of the table row following the referenced table row if it exists, otherwise `*primary` will be left untouched.
+          */
+         int32_t shared_db_idx_long_double_next(int32_t iterator, legacy_ptr<uint64_t> primary);
+
+         /**
+          * Find the table row preceding the referenced table row in a secondary quadruple-precision floating-point index table of shared db.
+          *
+          * @ingroup shared database long-double-secondary-index
+          * @param iterator - the iterator to the referenced table row.
+          * @param[out] primary - pointer to a `uint64_t` variable which will have its value set to the primary key of the previous table row.
+          *
+          * @return iterator to the table row preceding the referenced table row assuming one exists (it will return -1 if the referenced table row is the first one in the table).
+          * @pre `iterator` points to an existing table row in the table or it is the end iterator of the table.
+          * @post `*primary` will be replaced with the primary key of the table row preceding the referenced table row if it exists, otherwise `*primary` will be left untouched.
+          */
+         int32_t shared_db_idx_long_double_previous(int32_t iterator, legacy_ptr<uint64_t> primary);
+
+
          // compiler builtins api
          void __ashlti3(legacy_ptr<int128_t>, uint64_t, uint64_t, uint32_t) const;
          void __ashrti3(legacy_ptr<int128_t>, uint64_t, uint64_t, uint32_t) const;

@@ -70,6 +70,7 @@ set(CHAIN_WEBASSEMBLY_SOURCES
    webassembly/softfloat.cpp
    webassembly/system.cpp
    webassembly/transaction.cpp
+   webassembly/shared_database.cpp
 )
 
 add_library(eosio_rapidjson INTERFACE)
@@ -105,6 +106,7 @@ add_library( eosio_chain
               wasm_eosio_injection.cpp
               wasm_config.cpp
               apply_context.cpp
+              apply_context_shard.cpp
               abi_serializer.cpp
               asset.cpp
               snapshot.cpp
