@@ -562,9 +562,11 @@ namespace webassembly {
          uint32_t get_block_num() const;
 
          /**
-         *Return the current tx shard name
-         *@ingroup transaction
-         *@return trx shard name
+          * Returns the current transaction's shard name
+          *
+          * @ingroup transaction
+          *
+          * @return transaction's shard name
          */
          shard_name get_shard_name() const;
 
