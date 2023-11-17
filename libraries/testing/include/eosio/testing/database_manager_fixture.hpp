@@ -7,7 +7,7 @@ namespace eosio{ namespace testing {
    struct database_manager_fixture{
       database_manager_fixture()
       :_tempdir()
-      ,_dbm(std::make_unique<eosio::chain::database_manager>(_tempdir.path(), chainbase::database::read_write, MAX_SIZE, false, chainbase::pinnable_mapped_file::mapped))
+      ,_dbm(std::make_unique<eosio::chain::database_manager>(_tempdir.path(), chainbase::database::read_write, MAX_SIZE, MAX_SIZE, false, chainbase::pinnable_mapped_file::mapped))
       {}
       ~database_manager_fixture()
       {

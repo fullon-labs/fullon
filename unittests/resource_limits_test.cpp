@@ -147,12 +147,14 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
 
 
 // TODO: restore weighted capacity cpu tests
-#if 0
+#if 1
    BOOST_FIXTURE_TEST_CASE(weighted_capacity_cpu, resource_limits_fixture) try {
       const vector<int64_t> weights = { 234, 511, 672, 800, 1213 };
-      const int64_t total = std::accumulate(std::begin(weights), std::end(weights), 0LL);
-      vector<int64_t> expected_limits;
-      std::transform(std::begin(weights), std::end(weights), std::back_inserter(expected_limits), [total](const auto& v){ return v * config::default_max_block_cpu_usage / total; });
+      const int64_t total = std::accumulate(std::begin(weights), std::end(weights), 0LL);//3430
+      vector<int64_t> expected_limits;//{}
+      uint128_t account_cpu_usage_average_window = 172800;
+      uint128_t virtual_cpu_capacity_in_window = account_cpu_usage_average_window * (config::default_max_block_cpu_usage);
+      std::transform(std::begin(weights), std::end(weights), std::back_inserter(expected_limits), [total, &virtual_cpu_capacity_in_window](const auto& v){ return (int64_t)(v * virtual_cpu_capacity_in_window / total); });
       chainbase::database& shard_db = get_shard();
       chainbase::database& shared_db = get_shared();
       for (int64_t idx = 0; idx < weights.size(); idx++) {
@@ -161,19 +163,19 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
          set_account_limits(account, -1, -1, weights.at(idx), shared_db, false);
       }
 
-      process_account_limit_updates();
-
+      process_account_limit_updates();//resource_limit_state_obj, total_cpu_weight = 3430
+      int64_t average_window = 172800;
       for (int64_t idx = 0; idx < weights.size(); idx++) {
          const account_name account(idx + 100);
          BOOST_CHECK_EQUAL(get_account_cpu_limit(account, shard_db, shared_db).first, expected_limits.at(idx));
 
          {  // use the expected limit, should succeed ... roll it back
             auto s = start_session();
-            add_transaction_usage({account}, expected_limits.at(idx), 0, 0, shard_db, shared_db );
+            add_transaction_usage({account}, expected_limits.at(idx)/average_window, 0, 0, shard_db, shared_db );
             s.undo();
          }
 
-         // use too much, and expect failure;
+         // use too much, and expect failure; 2357737609
          BOOST_REQUIRE_THROW(add_transaction_usage({account}, expected_limits.at(idx) + 1, 0, 0, shard_db, shared_db), tx_cpu_usage_exceeded);
       }
    } FC_LOG_AND_RETHROW();
@@ -185,7 +187,9 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       const vector<int64_t> weights = { 234, 511, 672, 800, 1213 };
       const int64_t total = std::accumulate(std::begin(weights), std::end(weights), 0LL);
       vector<int64_t> expected_limits;
-      std::transform(std::begin(weights), std::end(weights), std::back_inserter(expected_limits), [total](const auto& v){ return v * config::default_max_block_net_usage / total; });
+      uint128_t account_net_usage_average_window = 172800;
+      uint128_t virtual_net_capacity_in_window = account_net_usage_average_window * (config::default_max_block_net_usage);
+      std::transform(std::begin(weights), std::end(weights), std::back_inserter(expected_limits), [total, &virtual_net_capacity_in_window](const auto& v){ return v * virtual_net_capacity_in_window / total; });
       chainbase::database&        db = get_shard();
       chainbase::database& shared_db = get_shared();
       for (int64_t idx = 0; idx < weights.size(); idx++) {
@@ -195,14 +199,14 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       }
 
       process_account_limit_updates();
-
+      int64_t average_window = 172800;
       for (int64_t idx = 0; idx < weights.size(); idx++) {
          const account_name account(idx + 100);
          BOOST_CHECK_EQUAL(get_account_net_limit(account, db, shared_db).first, expected_limits.at(idx));
 
          {  // use the expected limit, should succeed ... roll it back
             auto s = start_session();
-            add_transaction_usage({account}, 0, expected_limits.at(idx), 0, db, shared_db);
+            add_transaction_usage({account}, 0, expected_limits.at(idx)/average_window, 0, db, shared_db);
             s.undo();
          }
 

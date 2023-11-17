@@ -922,7 +922,7 @@ struct controller_impl {
       // must run in main thread
       auto& bb = std::get<building_block>(pending->_block_stage);
       auto itr = bb._shards.find(name);
-      if ( itr != bb._shards.end() ) {
+      if ( itr == bb._shards.end() ) {
          // TODO: check shard exist in shard table of shared_db
          auto db_ptr = dbm.find_shard_db(name);
          EOS_ASSERT( db_ptr, unavailable_shard_exception, "shard db not found" );
@@ -3062,6 +3062,10 @@ controller::~controller() {
 
 void controller::add_indices() {
    my->add_indices();
+}
+//HACK: used to tester
+void controller::add_shard_db(shard_name shard){
+   mutable_dbm().add_shard_db( shard, my->conf.state_size );
 }
 
 void controller::startup( std::function<void()> shutdown, std::function<bool()> check_shutdown, const snapshot_reader_ptr& snapshot ) {
