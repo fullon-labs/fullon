@@ -80,6 +80,27 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
       fc::raw::pack(ds, make_history_context_wrapper(db, get_table_id(row.t_id._id), row));
    };
 
+
+   // TODO: shared contract table is only in main db and shared db
+   const auto&                                       shared_table_id_index = db.get_index<chain::shared_table_id_multi_index>();
+   std::map<uint64_t, const chain::shared_table_id_object*> removed_shared_table_id;
+   for (auto& rem : shared_table_id_index.last_undo_session().removed_values)
+      removed_shared_table_id[rem.id._id] = &rem;
+
+   auto get_shared_table_id = [&](uint64_t tid) -> const chain::shared_table_id_object& {
+      auto obj = shared_table_id_index.find(tid);
+      if (obj)
+         return *obj;
+      auto it = removed_shared_table_id.find(tid);
+      EOS_ASSERT(it != removed_shared_table_id.end(), chain::plugin_exception, "can not found table id ${tid}", ("tid", tid));
+      return *it->second;
+   };
+
+   auto pack_shared_row          = [&](auto& ds, auto& row) { fc::raw::pack(ds, make_history_serial_wrapper(db, row)); };
+   auto pack_shared_contract_row = [&](auto& ds, auto& row) {
+      fc::raw::pack(ds, make_history_context_wrapper(db, get_shared_table_id(row.t_id._id), row));
+   };
+
    auto process_table = [&](auto& ds, auto* name, auto& index, auto& pack_row) {
 
       auto pack_row_v0 = [&](auto& ds, bool present, auto& row) {
@@ -149,6 +170,8 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
        std::tuple<chain::account_index*, chain::account_metadata_index*, chain::code_index*,
                   chain::table_id_multi_index*, chain::key_value_index*, chain::index64_index*, chain::index128_index*,
                   chain::index256_index*, chain::index_double_index*, chain::index_long_double_index*,
+                  chain::shared_table_id_multi_index*, chain::shared_key_value_index*, chain::shared_index64_index*, chain::shared_index128_index*,
+                  chain::shared_index256_index*, chain::shared_index_double_index*, chain::shared_index_long_double_index*,
                   chain::global_property_multi_index*, chain::generated_transaction_multi_index*,
                   chain::protocol_state_multi_index*, chain::permission_index*, chain::permission_link_index*,
                   chain::resource_limits::resource_limits_index*, chain::resource_limits::resource_usage_index*,
@@ -168,6 +191,15 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
    process_table(ds, "contract_index256", db.get_index<chain::index256_index>(), pack_contract_row);
    process_table(ds, "contract_index_double", db.get_index<chain::index_double_index>(), pack_contract_row);
    process_table(ds, "contract_index_long_double", db.get_index<chain::index_long_double_index>(), pack_contract_row);
+
+   // TODO: shared contract table is only in main db and shared db
+   process_table(ds, "shared_contract_table", db.get_index<chain::shared_table_id_multi_index>(), pack_shared_row);
+   process_table(ds, "shared_contract_row", db.get_index<chain::shared_key_value_index>(), pack_shared_contract_row);
+   process_table(ds, "shared_contract_index64", db.get_index<chain::shared_index64_index>(), pack_shared_contract_row);
+   process_table(ds, "shared_contract_index128", db.get_index<chain::shared_index128_index>(), pack_shared_contract_row);
+   process_table(ds, "shared_contract_index256", db.get_index<chain::shared_index256_index>(), pack_shared_contract_row);
+   process_table(ds, "shared_contract_index_double", db.get_index<chain::shared_index_double_index>(), pack_shared_contract_row);
+   process_table(ds, "shared_contract_index_long_double", db.get_index<chain::shared_index_long_double_index>(), pack_shared_contract_row);
 
    process_table(ds, "global_property", db.get_index<chain::global_property_multi_index>(), pack_row);
    process_table(ds, "generated_transaction", db.get_index<chain::generated_transaction_multi_index>(), pack_row);

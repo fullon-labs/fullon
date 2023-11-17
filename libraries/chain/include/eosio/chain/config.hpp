@@ -113,6 +113,7 @@ const static uint32_t   fixed_overhead_shared_vector_ram_bytes = 16; ///< overhe
 const static uint32_t   overhead_per_row_per_index_ram_bytes = 32;    ///< overhead accounts for basic tracking structures in a row per index
 const static uint32_t   overhead_per_account_ram_bytes     = 2*1024; ///< overhead accounts for basic account storage and pre-pays features like account recovery
 const static uint32_t   setcode_ram_bytes_multiplier       = 10;     ///< multiplier on contract size to account for multiple copies and cached compilation
+const static uint32_t   shared_contract_bytes_multiplier   = 2;     ///< multiplier on shared contract data size for multiple copies and cached compilation
 
 const static uint32_t   hashing_checktime_block_size       = 10*1024;  /// call checktime from hashing intrinsic once per this number of bytes
 

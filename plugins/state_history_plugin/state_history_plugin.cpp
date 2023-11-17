@@ -92,10 +92,10 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       socket_type                 socket_;
       boost::asio::deadline_timer error_timer_;
    };
-   
+
    using tcp_acceptor  = generic_acceptor<boost::asio::ip::tcp::acceptor>;
    using unix_acceptor = generic_acceptor<boost::asio::local::stream_protocol::acceptor>;
-   
+
    using acceptor_type = std::variant<std::unique_ptr<tcp_acceptor>, std::unique_ptr<unix_acceptor>>;
    std::set<acceptor_type>          acceptors;
 
@@ -313,7 +313,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       // avoid accumulating all these posts during replay before ship threads started
       // that can lead to a large memory consumption and failures
       // this is safe as there are no clients connected until after replay is complete
-      // this method is called from the main thread and "plugin_started" is set on the main thread as well when plugin is started 
+      // this method is called from the main thread and "plugin_started" is set on the main thread as well when plugin is started
       if (plugin_started) {
          boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
             self->session_mgr.send_update(block_state);
@@ -354,6 +354,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       if (fresh)
          fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_state->block_num));
 
+      // TODO: store all shard dbs
       state_history_log_header header{
           .magic = ship_magic(ship_current_version, 0), .block_id = block_state->id, .payload_size = 0};
       chain_state_log->pack_and_write_entry(header, block_state->header.previous, [this, fresh](auto&& buf) {
@@ -534,7 +535,7 @@ void state_history_plugin::plugin_startup() {
          fc_elog( _log, "Exception in SHiP thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          app().quit();
       });
-      my->plugin_started = true; 
+      my->plugin_started = true;
    } catch (std::exception& ex) {
       appbase::app().quit();
    }

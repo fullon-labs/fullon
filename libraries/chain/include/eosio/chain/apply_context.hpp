@@ -567,6 +567,18 @@ class apply_context {
       int  db_upperbound_i64( name code, name scope, name table, uint64_t id );
       int  db_end_i64( name code, name scope, name table );
 
+   // Shared database methods
+   public:
+      int  shared_db_store_i64( name scope, name table, const account_name& payer, uint64_t id, const char* buffer, size_t buffer_size );
+      void shared_db_update_i64( int iterator, account_name payer, const char* buffer, size_t buffer_size );
+      void shared_db_remove_i64( int iterator );
+      int  shared_db_get_i64( int iterator, char* buffer, size_t buffer_size );
+      int  shared_db_next_i64( int iterator, uint64_t& primary );
+      int  shared_db_previous_i64( int iterator, uint64_t& primary );
+      int  shared_db_find_i64( name code, name scope, name table, uint64_t id );
+      int  shared_db_lowerbound_i64( name code, name scope, name table, uint64_t id );
+      int  shared_db_upperbound_i64( name code, name scope, name table, uint64_t id );
+      int  shared_db_end_i64( name code, name scope, name table );
    private:
 
       const table_id_object* find_table( name code, name scope, name table );
@@ -575,7 +587,12 @@ class apply_context {
 
       int  db_store_i64( name code, name scope, name table, const account_name& payer, uint64_t id, const char* buffer, size_t buffer_size );
 
+   private:
+      const table_id_object* shared_find_table( name code, name scope, name table );
+      const table_id_object& shared_find_or_create_table( name code, name scope, name table, const account_name &payer );
+      void                   shared_remove_table( const table_id_object& tid );
 
+      int  shared_db_store_i64( name code, name scope, name table, const account_name& payer, uint64_t id, const char* buffer, size_t buffer_size );
    /// Misc methods:
    public:
 
