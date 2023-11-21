@@ -909,7 +909,7 @@ BOOST_AUTO_TEST_CASE( only_bill_to_first_authorizer ) { try {
 
       trx.sign(get_private_key(tester_account, "active"), chain.control->get_chain_id());
       trx.sign(get_private_key(tester_account2, "active"), chain.control->get_chain_id());
-      const auto& shard_db  = chain.control->dbm().main_db();
+      auto& shard_db  = const_cast<chainbase::database&>(chain.control->dbm().main_db());
       const auto& shared_db = chain.control->dbm().main_db();
       auto tester_cpu_limit0  = mgr.get_account_cpu_limit_ex(tester_account, shard_db, shared_db).first;
       auto tester2_cpu_limit0 = mgr.get_account_cpu_limit_ex(tester_account2, shard_db, shared_db).first;
@@ -954,7 +954,7 @@ BOOST_AUTO_TEST_CASE( only_bill_to_first_authorizer ) { try {
 
       trx.sign(get_private_key(tester_account, "active"), chain.control->get_chain_id());
       trx.sign(get_private_key(tester_account2, "active"), chain.control->get_chain_id());
-      const auto& shard_db  = chain.control->dbm().main_db();
+      auto& shard_db  = const_cast<chainbase::database&>(chain.control->dbm().main_db());
       const auto& shared_db = chain.control->dbm().main_db();
       auto tester_cpu_limit0  = mgr.get_account_cpu_limit_ex(tester_account, shard_db, shared_db).first;
       auto tester2_cpu_limit0 = mgr.get_account_cpu_limit_ex(tester_account2, shard_db, shared_db).first;

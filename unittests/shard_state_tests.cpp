@@ -95,21 +95,23 @@ BOOST_AUTO_TEST_CASE(query_account_object_from_share_db_test){
 
 }
 
-BOOST_FIXTURE_TEST_CASE(shard_shared_state_test, resource_limits_fixture) try {
+BOOST_AUTO_TEST_CASE(shard_shared_state_test ) try {
    tester t;
    BOOST_CHECK_NO_THROW(t.create_account("alice"_n));
    BOOST_CHECK_NO_THROW(t.create_account("bob"_n));
    t.produce_block();
-   chainbase::database& main_db = get_main();
-   chainbase::database& shared_db = get_shared();
-   initialize_account("alice"_n, false);
-   set_account_limits("alice"_n, 1024*1024, 100, 99, main_db, false);
-   initialize_account("bob"_n, false);
-   set_account_limits("bob"_n, 1024*1024, 100, 99, main_db, false);
+   auto& dbm = const_cast< eosio::chain::database_manager&>(t.control->dbm());
+   resource_limits_manager rlm(dbm, [](bool) { return nullptr; });
+   chainbase::database& main_db = dbm.main_db();
+   chainbase::database& shared_db = dbm.shared_db();
+   // rlm.initialize_account("alice"_n, false);
+   rlm.set_account_limits("alice"_n, 1024*1024, 100, 99, main_db, false);
+   // rlm.initialize_account("bob"_n, false);
+   rlm.set_account_limits("bob"_n, 1024*1024, 100, 99, main_db, false);
    t.produce_block();
-   process_account_limit_updates();
+   rlm.process_account_limit_updates();
    int64_t ram_bytes; int64_t net_weight; int64_t cpu_weight;
-   get_account_limits( "alice"_n, ram_bytes, net_weight, cpu_weight, shared_db);
+   rlm.get_account_limits( "alice"_n, ram_bytes, net_weight, cpu_weight, shared_db);
    BOOST_REQUIRE_EQUAL( ram_bytes, 1024*1024 );
    BOOST_REQUIRE_EQUAL( net_weight, 100 );
    BOOST_REQUIRE_EQUAL( cpu_weight, 99 );

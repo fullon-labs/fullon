@@ -84,7 +84,7 @@ namespace eosio{ namespace chain {
          int64_t shard_revision( db_name shard_name ) const {
             return _shard_db_map.at(shard_name).revision();
          }
-         std::map<db_name, database>& all_shard_dbs() { return _shard_db_map;}
+         std::map<db_name, database>& sub_shard_dbs() { return _shard_db_map;}
          void undo();
          void squash();
          void commit( int64_t revision );

@@ -2378,13 +2378,13 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    get_account_results result;
    result.account_name = params.account_name;
 
-   const auto& d = db.db();
+   auto& main_db = const_cast<chainbase::database&>(db.db());
    const auto& rm = db.get_resource_limits_manager();
 
    result.head_block_num  = db.head_block_num();
    result.head_block_time = db.head_block_time();
 
-   rm.get_account_limits( result.account_name, result.ram_quota, result.net_weight, result.cpu_weight, d );
+   rm.get_account_limits( result.account_name, result.ram_quota, result.net_weight, result.cpu_weight, main_db );
 
    const auto& accnt_obj = db.get_account( result.account_name );
    //const auto& accnt_metadata_obj = db.dbm().shared_db().get<account_metadata_object,by_name>( result.account_name );
@@ -2395,15 +2395,15 @@ read_only::get_account_results read_only::get_account( const get_account_params&
 
    uint32_t greylist_limit = db.is_resource_greylisted(result.account_name) ? 1 : config::maximum_elastic_resource_multiplier;
    const block_timestamp_type current_usage_time (db.head_block_time());
-   result.net_limit.set( rm.get_account_net_limit_ex( result.account_name, d, d, greylist_limit, current_usage_time).first );
+   result.net_limit.set( rm.get_account_net_limit_ex( result.account_name, main_db, main_db, greylist_limit, current_usage_time).first );
    if ( result.net_limit.last_usage_update_time && (result.net_limit.last_usage_update_time->slot == 0) ) {   // account has no action yet
       result.net_limit.last_usage_update_time = accnt_obj.creation_date;
    }
-   result.cpu_limit.set( rm.get_account_cpu_limit_ex( result.account_name, d, d, greylist_limit, current_usage_time).first );
+   result.cpu_limit.set( rm.get_account_cpu_limit_ex( result.account_name, main_db, main_db, greylist_limit, current_usage_time).first );
    if ( result.cpu_limit.last_usage_update_time && (result.cpu_limit.last_usage_update_time->slot == 0) ) {   // account has no action yet
       result.cpu_limit.last_usage_update_time = accnt_obj.creation_date;
    }
-   result.ram_usage = rm.get_account_ram_usage( result.account_name, d );
+   result.ram_usage = rm.get_account_ram_usage( result.account_name, main_db );
 
    if ( producer_plug ) {  // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
       eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
@@ -2412,7 +2412,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    }
 
    const auto linked_action_map = ([&](){
-      const auto& links = d.get_index<permission_link_index,by_permission_name>();
+      const auto& links = main_db.get_index<permission_link_index,by_permission_name>();
       auto iter = links.lower_bound( boost::make_tuple( params.account_name ) );
 
       std::multimap<name, linked_action> result;
@@ -2435,7 +2435,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
       return linked_actions;
    };
 
-   const auto& permissions = d.get_index<permission_index,by_owner>();
+   const auto& permissions = main_db.get_index<permission_index,by_owner>();
    auto perm = permissions.lower_bound( boost::make_tuple( params.account_name ) );
    while( perm != permissions.end() && perm->owner == params.account_name ) {
       /// TODO: lookup perm->parent name
@@ -2443,7 +2443,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
 
       // Don't lookup parent if null
       if( perm->parent._id ) {
-         const auto* p = d.find<permission_object,by_id>( perm->parent );
+         const auto* p = main_db.find<permission_object,by_id>( perm->parent );
          if( p ) {
             EOS_ASSERT(perm->owner == p->owner, invalid_parent_permission, "Invalid parent permission");
             parent = p->name;
@@ -2471,9 +2471,9 @@ read_only::get_account_results read_only::get_account( const get_account_params&
       if (params.expected_core_symbol)
          core_symbol = *(params.expected_core_symbol);
 
-      const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( token_code, params.account_name, "accounts"_n ));
+      const auto* t_id = main_db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( token_code, params.account_name, "accounts"_n ));
       if( t_id != nullptr ) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
+         const auto &idx = main_db.get_index<key_value_index, by_scope_primary>();
          auto it = idx.find(boost::make_tuple( t_id->id, core_symbol.to_symbol_code() ));
          if( it != idx.end() && it->value.size() >= sizeof(asset) ) {
             asset bal;
@@ -2486,9 +2486,9 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "userres"_n ));
+      t_id = main_db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "userres"_n ));
       if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
+         const auto &idx = main_db.get_index<key_value_index, by_scope_primary>();
          auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
          if ( it != idx.end() ) {
             vector<char> data;
@@ -2497,9 +2497,9 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "delband"_n ));
+      t_id = main_db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "delband"_n ));
       if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
+         const auto &idx = main_db.get_index<key_value_index, by_scope_primary>();
          auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
          if ( it != idx.end() ) {
             vector<char> data;
@@ -2508,9 +2508,9 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "refunds"_n ));
+      t_id = main_db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "refunds"_n ));
       if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
+         const auto &idx = main_db.get_index<key_value_index, by_scope_primary>();
          auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
          if ( it != idx.end() ) {
             vector<char> data;
@@ -2519,9 +2519,9 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "voters"_n ));
+      t_id = main_db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "voters"_n ));
       if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
+         const auto &idx = main_db.get_index<key_value_index, by_scope_primary>();
          auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
          if ( it != idx.end() ) {
             vector<char> data;
@@ -2530,9 +2530,9 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "rexbal"_n ));
+      t_id = main_db.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "rexbal"_n ));
       if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
+         const auto &idx = main_db.get_index<key_value_index, by_scope_primary>();
          auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
          if( it != idx.end() ) {
             vector<char> data;

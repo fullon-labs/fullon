@@ -796,7 +796,7 @@ BOOST_AUTO_TEST_CASE( greylist_limit_tests ) { try {
    uint64_t user_cpu_per_day = (cfg.max_block_cpu_usage * blocks_per_day / 250'000'000); // 103 us
    uint64_t user_net_per_day = (cfg.max_block_net_usage * blocks_per_day / 250'000'000); // 90 bytes
    wdump((user_cpu_per_day)(user_net_per_day));
-   auto& shard_db  = c.control->dbm().main_db();
+   auto& shard_db  = const_cast<chainbase::database&>(c.control->dbm().main_db());
    auto& shared_db = c.control->dbm().main_db();
    BOOST_REQUIRE_EQUAL( rm.get_account_cpu_limit_ex(user_account, shard_db, shared_db).first.max, user_cpu_per_day );
    BOOST_REQUIRE_EQUAL( rm.get_account_net_limit_ex(user_account, shard_db, shared_db).first.max, user_net_per_day );

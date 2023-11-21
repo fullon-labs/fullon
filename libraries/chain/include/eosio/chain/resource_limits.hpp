@@ -107,15 +107,15 @@ namespace eosio { namespace chain {
          uint64_t get_block_cpu_limit( const chainbase::database& shared_db ) const;
          uint64_t get_block_net_limit( const chainbase::database& shared_db ) const;
 
-         std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, const chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
-         std::pair<int64_t, bool> get_account_net_limit( const account_name& name, const chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
+         std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
+         std::pair<int64_t, bool> get_account_net_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
 
          std::pair<account_resource_limit, bool>
-         get_account_cpu_limit_ex( const account_name& name, const chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         get_account_cpu_limit_ex( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
          std::pair<account_resource_limit, bool>
-         get_account_net_limit_ex( const account_name& name, const chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         get_account_net_limit_ex( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
 
-         int64_t get_account_ram_usage( const account_name& name , const chainbase::database& db) const;
+         int64_t get_account_ram_usage( const account_name& name , chainbase::database& db) const;
 
       private:
          eosio::chain::database_manager&     _dbm;

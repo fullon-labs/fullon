@@ -1886,7 +1886,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    fc::temp_directory tempdir;
    tester chain( tempdir, true );
    chain.execute_setup_policy( setup_policy::full );
-   auto& db        = chain.control->dbm().main_db();
+   auto& db        = const_cast<chainbase::database&>(chain.control->dbm().main_db());
    auto& shared_db = chain.control->dbm().main_db();
    const resource_limits_manager& mgr = chain.control->get_resource_limits_manager();
 
