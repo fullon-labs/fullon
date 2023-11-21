@@ -998,7 +998,7 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
    t.produce_blocks(1);
 
    int64_t x; int64_t net; int64_t cpu;
-   t.control->get_resource_limits_manager().get_account_limits( "testapi"_n, x, net, cpu );
+   t.control->get_resource_limits_manager().get_account_limits( "testapi"_n, x, net, cpu, t.control->dbm().main_db() );
    wdump((net)(cpu));
 
    BOOST_CHECK_EXCEPTION( call_test( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1026,7 +1026,7 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
-
+//TODO: subshard resource test
 BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
    fc::temp_directory tempdir;
    auto conf_genesis = tester::default_config( tempdir );
@@ -1051,9 +1051,9 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
 
    int64_t ram_bytes; int64_t net; int64_t cpu;
    auto& rl = t.control->get_resource_limits_manager();
-   rl.get_account_limits( "pause"_n, ram_bytes, net, cpu );
+   rl.get_account_limits( "pause"_n, ram_bytes, net, cpu, t.control->dbm().main_db() );
    BOOST_CHECK_EQUAL( cpu, -1 );
-   auto cpu_limit = rl.get_block_cpu_limit();
+   auto cpu_limit = rl.get_block_cpu_limit( t.control->dbm().main_db() );
    idump(("cpu_limit")(cpu_limit));
    BOOST_CHECK( cpu_limit <= 150'000 );
 

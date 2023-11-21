@@ -15,7 +15,7 @@ namespace eosio { namespace chain {
    /**
     * @brief The shared_table_id_object class tracks the mapping of (scope, code, table) to an opaque identifier
     */
-   class shared_table_id_object : public chainbase::object<table_id_object_type, shared_table_id_object> {
+   class shared_table_id_object : public chainbase::object<shared_table_id_object_type, shared_table_id_object> {
       OBJECT_CTOR(shared_table_id_object)
 
       id_type        id;

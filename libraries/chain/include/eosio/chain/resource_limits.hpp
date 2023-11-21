@@ -6,6 +6,7 @@
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/block_timestamp.hpp>
 #include <chainbase/chainbase.hpp>
+#include <eosio/chain/database_manager.hpp>
 #include <set>
 
 namespace eosio { namespace chain {
@@ -64,12 +65,16 @@ namespace eosio { namespace chain {
    class resource_limits_manager {
       public:
 
-         explicit resource_limits_manager(chainbase::database& db, std::function<deep_mind_handler*(bool is_trx_transient)> get_deep_mind_logger)
-         :_db(db),_get_deep_mind_logger(get_deep_mind_logger)
+         explicit resource_limits_manager( eosio::chain::database_manager& dbm, std::function<deep_mind_handler*(bool is_trx_transient)> get_deep_mind_logger )
+         :_dbm(dbm)
+         ,_get_deep_mind_logger(get_deep_mind_logger)
          {
          }
 
          static void add_indices(chainbase::database& db);
+         static void add_shared_indices(chainbase::database& shared_db);
+         static void copy_data(chainbase::database& main_db, chainbase::database& shared_db);
+         static void copy_changes(chainbase::database& main_db, chainbase::database& shared_db);
          void initialize_database();
          void add_to_snapshot( const snapshot_writer_ptr& snapshot ) const;
          void read_from_snapshot( const snapshot_reader_ptr& snapshot );
@@ -77,17 +82,17 @@ namespace eosio { namespace chain {
          void initialize_account( const account_name& account, bool is_trx_transient );
          void set_block_parameters( const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters );
 
-         void update_account_usage( const flat_set<account_name>& accounts, uint32_t ordinal );
-         void add_transaction_usage( const flat_set<account_name>& accounts, uint64_t cpu_usage, uint64_t net_usage, uint32_t ordinal, bool is_trx_transient = false );
+         void update_account_usage( const flat_set<account_name>& accounts, uint32_t ordinal, chainbase::database& db, chainbase::database& shared_db);
+         void add_transaction_usage( const flat_set<account_name>& accounts, uint64_t cpu_usage, uint64_t net_usage, uint32_t ordinal, chainbase::database& db, chainbase::database& shared_db, bool is_trx_transient = false );
 
-         void add_pending_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false );
-         void verify_account_ram_usage( const account_name accunt )const;
+         void add_pending_ram_usage( const account_name account, int64_t ram_delta, chainbase::database& db, bool is_trx_transient = false );
+         void verify_account_ram_usage( const account_name accunt, chainbase::database& db, chainbase::database& shared_db )const;
 
          /// set_account_limits returns true if new ram_bytes limit is more restrictive than the previously set one
-         bool set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, bool is_trx_transient);
-         void get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight) const;
+         bool set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, chainbase::database& shared_db, bool is_trx_transient);
+         void get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight, const chainbase::database& shared_db) const;
 
-         bool is_unlimited_cpu( const account_name& account ) const;
+         bool is_unlimited_cpu( const account_name& account, const chainbase::database& shared_db) const;
 
          void process_account_limit_updates();
          void process_block_usage( uint32_t block_num );
@@ -99,21 +104,21 @@ namespace eosio { namespace chain {
          uint64_t get_virtual_block_cpu_limit() const;
          uint64_t get_virtual_block_net_limit() const;
 
-         uint64_t get_block_cpu_limit() const;
-         uint64_t get_block_net_limit() const;
+         uint64_t get_block_cpu_limit( const chainbase::database& shared_db ) const;
+         uint64_t get_block_net_limit( const chainbase::database& shared_db ) const;
 
-         std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
-         std::pair<int64_t, bool> get_account_net_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
+         std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
+         std::pair<int64_t, bool> get_account_net_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
 
          std::pair<account_resource_limit, bool>
-         get_account_cpu_limit_ex( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         get_account_cpu_limit_ex( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
          std::pair<account_resource_limit, bool>
-         get_account_net_limit_ex( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         get_account_net_limit_ex( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
 
-         int64_t get_account_ram_usage( const account_name& name ) const;
+         int64_t get_account_ram_usage( const account_name& name , chainbase::database& db) const;
 
       private:
-         chainbase::database&         _db;
+         eosio::chain::database_manager&     _dbm;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
    };
 } } } /// eosio::chain

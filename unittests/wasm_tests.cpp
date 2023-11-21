@@ -1880,13 +1880,14 @@ BOOST_AUTO_TEST_CASE( code_size )  try {
    BOOST_CHECK_THROW(WASM::serialize(stream, module), FatalSerializationException);
 
 } FC_LOG_AND_RETHROW()
-
+//TODO: subshard resource test.
 BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
 
    fc::temp_directory tempdir;
    tester chain( tempdir, true );
    chain.execute_setup_policy( setup_policy::full );
-
+   auto& db        = const_cast<chainbase::database&>(chain.control->dbm().main_db());
+   auto& shared_db = chain.control->dbm().main_db();
    const resource_limits_manager& mgr = chain.control->get_resource_limits_manager();
 
    account_name acc = "asserter"_n;
@@ -1938,7 +1939,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    auto max_cpu_time_us = chain.control->get_global_properties().configuration.max_transaction_cpu_usage;
    auto min_cpu_time_us = chain.control->get_global_properties().configuration.min_transaction_cpu_usage;
 
-   auto cpu_limit = mgr.get_account_cpu_limit(acc).first; // huge limit ~17s
+   auto cpu_limit = mgr.get_account_cpu_limit(acc, db, shared_db).first; // huge limit ~17s
 
    ptrx = create_trx(0);
    BOOST_CHECK_LT( max_cpu_time_us, cpu_limit ); // max_cpu_time_us has to be less than cpu_limit to actually test max and not account
@@ -1946,7 +1947,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    push_trx( ptrx, fc::time_point::maximum(), max_cpu_time_us, true, 0 );
    chain.produce_block();
 
-   cpu_limit = mgr.get_account_cpu_limit(acc).first;
+   cpu_limit = mgr.get_account_cpu_limit(acc, db, shared_db).first;
 
    // do not allow to bill greater than chain configured max, objective failure even with explicit billing for over max
    ptrx = create_trx(0);
@@ -1964,7 +1965,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    push_trx( ptrx, fc::time_point::maximum(), 5 * 1000, true, 0 );
    chain.produce_block();
 
-   cpu_limit = mgr.get_account_cpu_limit(acc).first; // update after last trx
+   cpu_limit = mgr.get_account_cpu_limit(acc, db, shared_db).first; // update after last trx
 
    // do not allow to bill greater than trx configured max, objective failure even with explicit billing for over max
    ptrx = create_trx(5); // set trx max at 5ms
@@ -1997,7 +1998,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    chain.produce_block();
    chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
 
-   cpu_limit = mgr.get_account_cpu_limit_ex(acc).first.max;
+   cpu_limit = mgr.get_account_cpu_limit_ex(acc, db, shared_db).first.max;
    cpu_limit -= EOS_PERCENT( cpu_limit, 10 * config::percent_1 ); // transaction_context verifies within 10%, so subtract 10% out
 
    ptrx = create_trx(0);
@@ -2012,7 +2013,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    ptrx = create_trx(0);
    BOOST_CHECK_LT( cpu_limit+1, max_cpu_time_us ); // needs to be less or this just tests the same thing as max_cpu_time_us test above
    // indicate explicit billing at over our account cpu limit, not allowed
-   cpu_limit = mgr.get_account_cpu_limit_ex(acc).first.max;
+   cpu_limit = mgr.get_account_cpu_limit_ex(acc, db, shared_db).first.max;
    BOOST_CHECK_EXCEPTION( push_trx( ptrx, fc::time_point::maximum(), cpu_limit+1, true, 0 ), tx_cpu_usage_exceeded,
                           [](const tx_cpu_usage_exceeded& e){ fc_exception_message_starts_with starts("billed");
                                                               fc_exception_message_contains contains("reached account cpu limit");
@@ -2026,7 +2027,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    chain.produce_block();
    chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
    ptrx = create_trx(0);
-   uint32_t combined_cpu_limit = mgr.get_account_cpu_limit_ex(acc).first.max + leeway.count();
+   uint32_t combined_cpu_limit = mgr.get_account_cpu_limit_ex(acc, db, shared_db).first.max + leeway.count();
    uint32_t subjective_cpu_bill_us = leeway.count();
    uint32_t billed_cpu_time_us = EOS_PERCENT( (combined_cpu_limit - subjective_cpu_bill_us), 89 *config::percent_1 );
    push_trx( ptrx, fc::time_point::maximum(), billed_cpu_time_us, false, subjective_cpu_bill_us );
@@ -2036,7 +2037,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    chain.produce_block();
    chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
    ptrx = create_trx(0);
-   combined_cpu_limit = mgr.get_account_cpu_limit_ex(acc).first.max + leeway.count();
+   combined_cpu_limit = mgr.get_account_cpu_limit_ex(acc, db, shared_db).first.max + leeway.count();
    subjective_cpu_bill_us = 0;
    billed_cpu_time_us = EOS_PERCENT( combined_cpu_limit - subjective_cpu_bill_us, 89 *config::percent_1 );
    push_trx( ptrx, fc::time_point::maximum(), billed_cpu_time_us, false, subjective_cpu_bill_us );
@@ -2045,7 +2046,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
    chain.produce_block();
    chain.produce_block( fc::days(1) ); // produce for one day to reset account cpu
    ptrx = create_trx(0);
-   cpu_limit = mgr.get_account_cpu_limit_ex(acc).first.max;
+   cpu_limit = mgr.get_account_cpu_limit_ex(acc, db, shared_db).first.max;
    combined_cpu_limit = cpu_limit + leeway.count();
    subjective_cpu_bill_us = cpu_limit;
    billed_cpu_time_us = EOS_PERCENT( combined_cpu_limit - subjective_cpu_bill_us, 90 * config::percent_1 );

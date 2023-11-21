@@ -1,3 +1,8 @@
+#include <eosio/chain/config.hpp>
+#include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/config.hpp>
+#include <eosio/testing/database_manager_fixture.hpp>
+
 #include <boost/test/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
 #include <test_contracts.hpp>
@@ -5,6 +10,27 @@
 using namespace eosio;
 using namespace testing;
 using namespace chain;
+
+class resource_limits_fixture: private database_manager_fixture<1024*1024>, public resource_limits_manager
+{
+   public:
+      resource_limits_fixture()
+      :database_manager_fixture()
+      ,resource_limits_manager(*database_manager_fixture::_dbm, [](bool) { return nullptr; })
+      {
+         add_indices((*database_manager_fixture::_dbm).main_db());
+         initialize_database();
+      }
+
+      ~resource_limits_fixture() {}
+
+      chainbase::database::session start_session() {
+         return database_manager_fixture::_dbm->main_db().start_undo_session(true);
+      }
+      
+      chainbase::database& get_main() { return (*database_manager_fixture::_dbm).main_db();}
+      chainbase::database& get_shared() { return (*database_manager_fixture::_dbm).shared_db();}
+};
 
 transaction_trace_ptr create_account_on_subshard( tester& t, account_name a, account_name creator=config::system_account_name, bool multisig = false, bool include_code = true ){
       signed_transaction trx;
@@ -68,5 +94,27 @@ BOOST_AUTO_TEST_CASE(query_account_object_from_share_db_test){
 
 
 }
+
+BOOST_AUTO_TEST_CASE(shard_shared_state_test ) try {
+   tester t;
+   BOOST_CHECK_NO_THROW(t.create_account("alice"_n));
+   BOOST_CHECK_NO_THROW(t.create_account("bob"_n));
+   t.produce_block();
+   auto& dbm = const_cast< eosio::chain::database_manager&>(t.control->dbm());
+   resource_limits_manager rlm(dbm, [](bool) { return nullptr; });
+   chainbase::database& main_db = dbm.main_db();
+   chainbase::database& shared_db = dbm.shared_db();
+   // rlm.initialize_account("alice"_n, false);
+   rlm.set_account_limits("alice"_n, 1024*1024, 100, 99, main_db, false);
+   // rlm.initialize_account("bob"_n, false);
+   rlm.set_account_limits("bob"_n, 1024*1024, 100, 99, main_db, false);
+   t.produce_block();
+   rlm.process_account_limit_updates();
+   int64_t ram_bytes; int64_t net_weight; int64_t cpu_weight;
+   rlm.get_account_limits( "alice"_n, ram_bytes, net_weight, cpu_weight, shared_db);
+   BOOST_REQUIRE_EQUAL( ram_bytes, 1024*1024 );
+   BOOST_REQUIRE_EQUAL( net_weight, 100 );
+   BOOST_REQUIRE_EQUAL( cpu_weight, 99 );
+} FC_LOG_AND_RETHROW ();
 
 BOOST_AUTO_TEST_SUITE_END()

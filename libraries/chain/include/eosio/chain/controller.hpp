@@ -118,6 +118,8 @@ namespace eosio { namespace chain {
          ~controller();
 
          void add_indices();
+         //HACK: used to base_tester
+         void add_shard_db(shard_name shard);
          void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown, const snapshot_reader_ptr& snapshot);
          void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis);
          void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown);

@@ -867,7 +867,7 @@ BOOST_AUTO_TEST_CASE( restrict_action_to_self_test ) { try {
                             fc_exception_message_starts_with( "transaction declares authority" ) );
 
 } FC_LOG_AND_RETHROW() }
-
+//TODO: subshard resource test
 BOOST_AUTO_TEST_CASE( only_bill_to_first_authorizer ) { try {
    tester chain( setup_policy::preactivate_feature_and_new_bios );
 
@@ -909,19 +909,19 @@ BOOST_AUTO_TEST_CASE( only_bill_to_first_authorizer ) { try {
 
       trx.sign(get_private_key(tester_account, "active"), chain.control->get_chain_id());
       trx.sign(get_private_key(tester_account2, "active"), chain.control->get_chain_id());
-
-
-      auto tester_cpu_limit0  = mgr.get_account_cpu_limit_ex(tester_account).first;
-      auto tester2_cpu_limit0 = mgr.get_account_cpu_limit_ex(tester_account2).first;
-      auto tester_net_limit0  = mgr.get_account_net_limit_ex(tester_account).first;
-      auto tester2_net_limit0 = mgr.get_account_net_limit_ex(tester_account2).first;
+      auto& shard_db  = const_cast<chainbase::database&>(chain.control->dbm().main_db());
+      const auto& shared_db = chain.control->dbm().main_db();
+      auto tester_cpu_limit0  = mgr.get_account_cpu_limit_ex(tester_account, shard_db, shared_db).first;
+      auto tester2_cpu_limit0 = mgr.get_account_cpu_limit_ex(tester_account2, shard_db, shared_db).first;
+      auto tester_net_limit0  = mgr.get_account_net_limit_ex(tester_account, shard_db, shared_db).first;
+      auto tester2_net_limit0 = mgr.get_account_net_limit_ex(tester_account2, shard_db, shared_db).first;
 
       chain.push_transaction(trx);
 
-      auto tester_cpu_limit1  = mgr.get_account_cpu_limit_ex(tester_account).first;
-      auto tester2_cpu_limit1 = mgr.get_account_cpu_limit_ex(tester_account2).first;
-      auto tester_net_limit1  = mgr.get_account_net_limit_ex(tester_account).first;
-      auto tester2_net_limit1 = mgr.get_account_net_limit_ex(tester_account2).first;
+      auto tester_cpu_limit1  = mgr.get_account_cpu_limit_ex(tester_account, shard_db, shared_db).first;
+      auto tester2_cpu_limit1 = mgr.get_account_cpu_limit_ex(tester_account2, shard_db, shared_db).first;
+      auto tester_net_limit1  = mgr.get_account_net_limit_ex(tester_account, shard_db, shared_db).first;
+      auto tester2_net_limit1 = mgr.get_account_net_limit_ex(tester_account2, shard_db, shared_db).first;
 
       BOOST_CHECK(tester_cpu_limit1.used > tester_cpu_limit0.used);
       BOOST_CHECK(tester2_cpu_limit1.used > tester2_cpu_limit0.used);
@@ -954,18 +954,19 @@ BOOST_AUTO_TEST_CASE( only_bill_to_first_authorizer ) { try {
 
       trx.sign(get_private_key(tester_account, "active"), chain.control->get_chain_id());
       trx.sign(get_private_key(tester_account2, "active"), chain.control->get_chain_id());
-
-      auto tester_cpu_limit0  = mgr.get_account_cpu_limit_ex(tester_account).first;
-      auto tester2_cpu_limit0 = mgr.get_account_cpu_limit_ex(tester_account2).first;
-      auto tester_net_limit0  = mgr.get_account_net_limit_ex(tester_account).first;
-      auto tester2_net_limit0 = mgr.get_account_net_limit_ex(tester_account2).first;
+      auto& shard_db  = const_cast<chainbase::database&>(chain.control->dbm().main_db());
+      const auto& shared_db = chain.control->dbm().main_db();
+      auto tester_cpu_limit0  = mgr.get_account_cpu_limit_ex(tester_account, shard_db, shared_db).first;
+      auto tester2_cpu_limit0 = mgr.get_account_cpu_limit_ex(tester_account2, shard_db, shared_db).first;
+      auto tester_net_limit0  = mgr.get_account_net_limit_ex(tester_account, shard_db, shared_db).first;
+      auto tester2_net_limit0 = mgr.get_account_net_limit_ex(tester_account2, shard_db, shared_db).first;
 
       chain.push_transaction(trx);
 
-      auto tester_cpu_limit1  = mgr.get_account_cpu_limit_ex(tester_account).first;
-      auto tester2_cpu_limit1 = mgr.get_account_cpu_limit_ex(tester_account2).first;
-      auto tester_net_limit1  = mgr.get_account_net_limit_ex(tester_account).first;
-      auto tester2_net_limit1 = mgr.get_account_net_limit_ex(tester_account2).first;
+      auto tester_cpu_limit1  = mgr.get_account_cpu_limit_ex(tester_account, shard_db, shared_db).first;
+      auto tester2_cpu_limit1 = mgr.get_account_cpu_limit_ex(tester_account2, shard_db, shared_db).first;
+      auto tester_net_limit1  = mgr.get_account_net_limit_ex(tester_account, shard_db, shared_db).first;
+      auto tester2_net_limit1 = mgr.get_account_net_limit_ex(tester_account2, shard_db, shared_db).first;
 
       BOOST_CHECK(tester_cpu_limit1.used > tester_cpu_limit0.used);
       BOOST_CHECK(tester2_cpu_limit1.used == tester2_cpu_limit0.used);

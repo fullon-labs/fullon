@@ -108,10 +108,8 @@ namespace eosio { namespace chain {
 
       const auto& cfg = control.get_global_properties().configuration;
       auto& rl = control.get_mutable_resource_limits_manager();
-
-      net_limit = rl.get_block_net_limit();
-
-      objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit() );
+      net_limit = rl.get_block_net_limit( shared_db );
+      objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit( shared_db ) );
       _deadline = start + objective_duration_limit;
 
       // Possibly lower net_limit to the maximum net usage a transaction is allowed to be billed
@@ -168,7 +166,7 @@ namespace eosio { namespace chain {
          validate_ram_usage.reserve( bill_to_accounts.size() );
 
          // Update usage values of accounts to reflect new time
-         rl.update_account_usage( bill_to_accounts, block_timestamp_type(control.pending_block_time()).slot );
+         rl.update_account_usage( bill_to_accounts, block_timestamp_type(control.pending_block_time()).slot, this->db, this->shared_db );
 
          // Calculate the highest network usage and CPU time that all of the billed accounts can afford to be billed
          bool greylisted_net = false, greylisted_cpu = false;
@@ -375,7 +373,7 @@ namespace eosio { namespace chain {
 
       auto& rl = control.get_mutable_resource_limits_manager();
       for( auto a : validate_ram_usage ) {
-         rl.verify_account_ram_usage( a );
+         rl.verify_account_ram_usage( a , db, shared_db);
       }
 
       // Calculate the new highest network usage and CPU time that all of the billed accounts can afford to be billed
@@ -414,7 +412,7 @@ namespace eosio { namespace chain {
       validate_cpu_usage_to_bill( billed_cpu_time_us, account_cpu_limit, true, subjective_cpu_bill_us );
 
       rl.add_transaction_usage( bill_to_accounts, static_cast<uint64_t>(billed_cpu_time_us), net_usage,
-                                block_timestamp_type(control.pending_block_time()).slot, is_transient() ); // Should never fail
+                                block_timestamp_type(control.pending_block_time()).slot, this->db, this->shared_db, is_transient() ); // Should never fail
    }
 
    void transaction_context::squash() {
@@ -621,7 +619,7 @@ namespace eosio { namespace chain {
 
    void transaction_context::add_ram_usage( account_name account, int64_t ram_delta ) {
       auto& rl = control.get_mutable_resource_limits_manager();
-      rl.add_pending_ram_usage( account, ram_delta, is_transient() );
+      rl.add_pending_ram_usage( account, ram_delta, db, is_transient());
       if( ram_delta > 0 ) {
          validate_ram_usage.insert( account );
       }
@@ -657,12 +655,12 @@ namespace eosio { namespace chain {
                greylist_limit = specified_greylist_limit;
             }
          }
-         auto [net_limit, net_was_greylisted] = rl.get_account_net_limit(a, greylist_limit);
+         auto [net_limit, net_was_greylisted] = rl.get_account_net_limit(a, this->db, this->shared_db, greylist_limit);
          if( net_limit >= 0 ) {
             account_net_limit = std::min( account_net_limit, net_limit );
             greylisted_net |= net_was_greylisted;
          }
-         auto [cpu_limit, cpu_was_greylisted] = rl.get_account_cpu_limit(a, greylist_limit);
+         auto [cpu_limit, cpu_was_greylisted] = rl.get_account_cpu_limit(a, this->db, this->shared_db, greylist_limit);
          if( cpu_limit >= 0 ) {
             account_cpu_limit = std::min( account_cpu_limit, cpu_limit );
             greylisted_cpu |= cpu_was_greylisted;

@@ -305,6 +305,7 @@ namespace eosio { namespace testing {
 #endif//EOSIO_EOS_VM_RUNTIME_ENABLED
 
       control.reset( new controller(cfg, std::move(pfs), *expected_chain_id) );
+      control->add_shard_db( "shard1"_n );
       control->add_indices();
       if (lambda) lambda();
       chain_transactions.clear();

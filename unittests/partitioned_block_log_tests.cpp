@@ -67,6 +67,7 @@ struct restart_from_block_log_test_fixture {
 
       // remove the state files to make sure we are starting from block log
       remove_existing_states(copied_config);
+      //TODO: start_with_corrupted_log_and_index
       eosio::testing::tester from_block_log_chain(copied_config, *genesis);
       using namespace eosio::chain;
       BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account("replay1"_n));
