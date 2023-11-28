@@ -26,6 +26,7 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/shard_object.hpp>
+#include <eosio/chain/shard_message_object.hpp>
 #include <eosio/chain/shared_contract_table_objects.hpp>
 
 #include <chainbase/chainbase.hpp>
@@ -58,7 +59,8 @@ using controller_index_set = index_set<
    database_header_multi_index,
    shard_index,
    shard_change_index,
-   shared_table_id_multi_index
+   shared_table_id_multi_index,
+   shard_message_index
 >;
 
 using contract_database_index_set = index_set<
@@ -81,7 +83,8 @@ using shared_index_set = index_set<
    // block_summary_multi_index,
    code_index,
    shard_index,
-   shared_table_id_multi_index
+   shared_table_id_multi_index,
+   shard_message_index
 >;
 
 template<typename DatabaseType>

@@ -192,6 +192,7 @@ namespace eosio { namespace chain {
       shard_object_type             = 51,
       shard_change_object_type      = 52,
       shared_table_id_object_type   = 53,
+      shard_message_object_type     = 54,
       OBJECT_TYPE_COUNT ///< Sentry value which contains the number of different object types
    };
 
@@ -258,6 +259,7 @@ namespace eosio { namespace chain {
    using uint128_t           = unsigned __int128;
    using bytes               = vector<char>;
    using digests_t           = deque<digest_type>;
+   using message_id_type     = checksum_type;
 
    struct sha256_less {
       bool operator()( const fc::sha256& lhs, const fc::sha256& rhs ) const {

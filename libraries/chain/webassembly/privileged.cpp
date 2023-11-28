@@ -216,7 +216,7 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    void interface::set_privileged( account_name n, bool is_priv ) {
-      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "set_privileged not allowed in sub shards");
+      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "set_privileged only allowed in main shard");
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_privileged not allowed in a readonly transaction");
       const auto& a = context.shared_db.get<account_object, by_name>( n );
       context.shared_db.modify( a, [&]( auto& ma ){
@@ -226,7 +226,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
    void interface::register_shard( shard_name name, bool enabled ) {
       // TODO: main_shard_only_error
-      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "register_shard not allowed in sub shard" );
+      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "register_shard only allowed in main shard" );
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "register_shard not allowed in a readonly transaction");
       EOS_ASSERT(name != config::main_shard_name, wasm_execution_error, "can not register main shard");
       const auto* s = context.shared_db.find<shard_object, by_name>( name );
