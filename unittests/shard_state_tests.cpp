@@ -35,7 +35,7 @@ class resource_limits_fixture: private database_manager_fixture<1024*1024>, publ
 class currency_test : public validating_tester {
    public:
 
-      auto push_action(const account_name& signer, const action_name &name, const variant_object &data ) {
+      auto push_action(const account_name& signer, const action_name &name, const variant_object &data, shard_name sname = config::main_shard_name ) {
          string action_type_name = abi_ser.get_action_type(name);
 
          action act;
@@ -45,24 +45,7 @@ class currency_test : public validating_tester {
          act.data = abi_ser.variant_to_binary(action_type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ));
 
          signed_transaction trx;
-         trx.actions.emplace_back(std::move(act));
-
-         set_transaction_headers(trx);
-         trx.sign(get_private_key(signer, "active"), control->get_chain_id());
-         return push_transaction(trx);
-      }
-      
-      auto push_action_on_shard(const account_name& signer, const action_name &name, const variant_object &data ) {
-         string action_type_name = abi_ser.get_action_type(name);
-
-         action act;
-         act.account = "gax.token"_n;
-         act.name = name;
-         act.authorization = vector<permission_level>{{signer, config::active_name}};
-         act.data = abi_ser.variant_to_binary(action_type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ));
-
-         signed_transaction trx;
-         trx.set_shard_name("shard1"_n);
+         trx.set_shard_name(sname);
          trx.actions.emplace_back(std::move(act));
 
          set_transaction_headers(trx);
@@ -73,7 +56,7 @@ class currency_test : public validating_tester {
       asset get_balance(const account_name& account) const {
          return get_currency_balance("gax.token"_n, symbol(SY(4,CUR)), account); 
       }
-      
+      //TODO: simplify
       asset get_balance_on_shard(const account_name& account) const {
          const auto& gdb  = const_cast<database_manager&>(control->dbm()).find_shard_db("shard1"_n);
          const auto& db  = *gdb;
@@ -122,19 +105,21 @@ class currency_test : public validating_tester {
          produce_block();
          set_code( "gax.token"_n, test_contracts::eosio_token_wasm() );
          produce_block();
-         auto result = push_action_on_shard("gax.token"_n, "create"_n, mutable_variant_object()
+         auto result = push_action("gax.token"_n, "create"_n, mutable_variant_object()
                  ("issuer",       gax_token)
                  ("maximum_supply", "1000000000.0000 CUR")
                  ("can_freeze", 0)
                  ("can_recall", 0)
-                 ("can_whitelist", 0)
+                 ("can_whitelist", 0),
+                 "shard1"_n
          );
          wdump((result));
          produce_block();
-         result = push_action_on_shard("gax.token"_n, "issue"_n, mutable_variant_object()
+         result = push_action("gax.token"_n, "issue"_n, mutable_variant_object()
                  ("to",       gax_token)
                  ("quantity", "1000000.0000 CUR")
-                 ("memo", "gggggggggggg")
+                 ("memo", "gggggggggggg"),
+                 "shard1"_n
          );
          wdump((result));
          produce_block();
@@ -235,11 +220,12 @@ BOOST_FIXTURE_TEST_CASE( shard_tx_test, currency_test ) try {
    BOOST_CHECK_NO_THROW(create_account("bob"_n));
    produce_block();
    
-   auto trace = push_action_on_shard("gax.token"_n, "transfer"_n, mutable_variant_object()
+   auto trace = push_action("gax.token"_n, "transfer"_n, mutable_variant_object()
       ("from", currency_test::gax_token)
       ("to",   "alice")
       ("quantity", "100.0000 CUR")
-      ("memo", "fund Alice")
+      ("memo", "fund Alice"),
+      "shard1"_n
    );
 
    produce_block();

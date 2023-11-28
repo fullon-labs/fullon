@@ -6,7 +6,7 @@ namespace eosio {
 
 void token::create( const name&   issuer,
                     const asset&  maximum_supply )
-{
+{   //TODO: remove
     print("create token shard name: ", get_shard_name(), "\n");
     require_auth( get_self() );
 
@@ -27,7 +27,7 @@ void token::create( const name&   issuer,
 
 
 void token::issue( const name& to, const asset& quantity, const string& memo )
-{   
+{   //TODO: remove
     print("issue token shard name: ", get_shard_name(), "\n");
     auto sym = quantity.symbol;
     check( sym.is_valid(), "invalid symbol name" );
@@ -82,6 +82,7 @@ void token::transfer( const name&    from,
                       const asset&   quantity,
                       const string&  memo )
 {
+    //TODO: remove
     print("transfer token shard name: ", get_shard_name(), "\n");
     check( from != to, "cannot transfer to self" );
     require_auth( from );
@@ -105,6 +106,7 @@ void token::transfer( const name&    from,
 }
 
 void token::sub_balance( const name& owner, const asset& value ) {
+   //TODO: remove
    print("sub balance shard name: ", get_shard_name(),"\n");
    accounts from_acnts( get_self(), owner.value );
 
@@ -117,7 +119,7 @@ void token::sub_balance( const name& owner, const asset& value ) {
 }
 
 void token::add_balance( const name& owner, const asset& value, const name& ram_payer )
-{
+{  //TODO: remove
    print("add balance shard name: ", get_shard_name(), "\n");
    accounts to_acnts( get_self(), owner.value );
    auto to = to_acnts.find( value.symbol.code().raw() );
