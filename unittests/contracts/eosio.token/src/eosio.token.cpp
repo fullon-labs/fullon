@@ -1,10 +1,13 @@
 #include <eosio.token/eosio.token.hpp>
+#include <eosio/transaction.hpp>
+
 
 namespace eosio {
 
 void token::create( const name&   issuer,
                     const asset&  maximum_supply )
 {
+    print("create token shard name: ", get_shard_name(), "\n");
     require_auth( get_self() );
 
     auto sym = maximum_supply.symbol;
@@ -24,7 +27,8 @@ void token::create( const name&   issuer,
 
 
 void token::issue( const name& to, const asset& quantity, const string& memo )
-{
+{   
+    print("issue token shard name: ", get_shard_name(), "\n");
     auto sym = quantity.symbol;
     check( sym.is_valid(), "invalid symbol name" );
     check( memo.size() <= 256, "memo has more than 256 bytes" );
@@ -78,6 +82,7 @@ void token::transfer( const name&    from,
                       const asset&   quantity,
                       const string&  memo )
 {
+    print("transfer token shard name: ", get_shard_name(), "\n");
     check( from != to, "cannot transfer to self" );
     require_auth( from );
     check( is_account( to ), "to account does not exist");
@@ -100,6 +105,7 @@ void token::transfer( const name&    from,
 }
 
 void token::sub_balance( const name& owner, const asset& value ) {
+   print("sub balance shard name: ", get_shard_name(),"\n");
    accounts from_acnts( get_self(), owner.value );
 
    const auto& from = from_acnts.get( value.symbol.code().raw(), "no balance object found" );
@@ -112,6 +118,7 @@ void token::sub_balance( const name& owner, const asset& value ) {
 
 void token::add_balance( const name& owner, const asset& value, const name& ram_payer )
 {
+   print("add balance shard name: ", get_shard_name(), "\n");
    accounts to_acnts( get_self(), owner.value );
    auto to = to_acnts.find( value.symbol.code().raw() );
    if( to == to_acnts.end() ) {
