@@ -1,12 +1,7 @@
 #include <eosio/eosio.hpp>
+#include <eosio/transaction.hpp>
 
-extern "C" {
-__attribute__((eosio_wasm_import))
-    void  eosio_assert( uint32_t test, const char* msg );
 
-__attribute__((eosio_wasm_import))
-    eosio::name get_shard_name();
-}
 using namespace eosio;
 
 CONTRACT shard_contract_interface_tests : public contract {
