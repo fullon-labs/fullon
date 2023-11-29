@@ -32,6 +32,13 @@ namespace eosio { namespace chain {
          name           = a.name;
          creation_date  = a.creation_date;
          abi.assign(a.abi.data(), a.abi.size());
+         code_sequence  = a.code_sequence;
+         abi_sequence   = a.abi_sequence;
+         code_hash      = a.code_hash;
+         last_code_update = a.last_code_update;
+         flags          = a.flags;
+         vm_type        = a.vm_type;
+         vm_version     = a.vm_version;
          return *this;
       }
 

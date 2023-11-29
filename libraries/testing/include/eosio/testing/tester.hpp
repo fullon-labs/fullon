@@ -581,6 +581,7 @@ namespace eosio { namespace testing {
 
       static unique_ptr<controller> create_validating_node(controller::config vcfg, const genesis_state& genesis, bool use_genesis, deep_mind_handler* dmlog = nullptr) {
          unique_ptr<controller> validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), genesis.compute_chain_id());
+         validating_node->add_shard_db("shard1"_n);//TODO: remove
          validating_node->add_indices();
          if(dmlog)
          {
