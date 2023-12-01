@@ -14,25 +14,25 @@ namespace eosio { namespace chain {
     */
    class shard_message_object : public chainbase::object<shard_message_object_type, shard_message_object>
    {
-         OBJECT_CTOR(shard_message_object)
+      OBJECT_CTOR(shard_message_object)
 
-         id_type                       id;
-         account_name                  owner;
-         shard_name                    from_shard;
-         shard_name                    to_shard;
-         account_name                  contract;
-         eosio::chain::action_name     action_name;
-         bytes                         action_data;
-         transaction_id_type           trx_id;
-         uint32_t                      trx_action_sequence;
+      id_type                       id;
+      account_name                  owner;
+      shard_name                    from_shard;
+      shard_name                    to_shard;
+      account_name                  contract;
+      eosio::chain::action_name     action_name;
+      bytes                         action_data;
+      transaction_id_type           trx_id;
+      uint32_t                      trx_action_sequence;
 
 
-         message_id_type msg_id() const {
-            digest_type::encoder enc;
-            fc::raw::pack( enc, trx_id );
-            fc::raw::pack( enc, trx_action_sequence  );
-            return enc.result();
-      ; }
+      message_id_type msg_id() const {
+         digest_type::encoder enc;
+         fc::raw::pack( enc, trx_id );
+         fc::raw::pack( enc, trx_action_sequence  );
+         return enc.result();
+      }
    };
 
    struct by_msg_id;

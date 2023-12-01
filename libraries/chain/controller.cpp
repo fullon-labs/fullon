@@ -138,6 +138,13 @@ class maybe_session {
 using dbm_maybe_session = maybe_session<database_manager>;
 using db_maybe_session = maybe_session<database>;
 
+struct posted_message
+{
+   postmsg                       msg;
+   transaction_id_type           trx_id;
+   uint32_t                      trx_action_sequence;
+};
+
 struct building_shard {
    shard_name                                   _name;
    database&                                    _db;
@@ -146,6 +153,9 @@ struct building_shard {
    deque<transaction_receipt>                   _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
    digests_t                                    _trx_mroot_or_receipt_digests;
    digests_t                                    _action_receipt_digests;
+   deque<message_id_type>                       _recv_msgs;
+   flat_set<message_id_type>                    _recv_msg_set;
+   deque<posted_message>                        _posted_msgs;
 
    building_shard(const shard_name& name, database& db, database& shared_db):
       _name(name), _db(db), _shared_db(shared_db) {}
@@ -1314,11 +1324,15 @@ struct controller_impl {
       auto orig_trx_metas_size              = shard._pending_trx_metas.size();
       auto orig_trx_receipt_digests_size    = !bb._trx_mroot ? shard._trx_mroot_or_receipt_digests.size() : 0;
       auto orig_action_receipt_digests_size = shard._action_receipt_digests.size();
+      auto orig_recv_msgs_size = shard._recv_msgs.size();
+      auto orig_posted_msgs_size = shard._posted_msgs.size();
       std::function<void()> callback = [this, &shard,
             orig_trx_receipts_size,
             orig_trx_metas_size,
             orig_trx_receipt_digests_size,
-            orig_action_receipt_digests_size]()
+            orig_action_receipt_digests_size,
+            orig_recv_msgs_size,
+            orig_posted_msgs_size]()
       {
          auto& bb = std::get<building_block>(pending->_block_stage);
          shard._pending_trx_receipts.resize(orig_trx_receipts_size);
@@ -1326,6 +1340,11 @@ struct controller_impl {
          if( !bb._trx_mroot )
             shard._trx_mroot_or_receipt_digests.resize(orig_trx_receipt_digests_size);
          shard._action_receipt_digests.resize(orig_action_receipt_digests_size);
+         for(size_t i = shard._recv_msgs.size() - 1; i > orig_recv_msgs_size - 1; i-- ) {
+            shard._recv_msg_set.erase(shard._recv_msgs[i]);
+         }
+         shard._recv_msgs.resize(orig_recv_msgs_size);
+         shard._posted_msgs.resize(orig_posted_msgs_size);
       };
 
       return fc::make_scoped_exit( std::move(callback) );
@@ -1742,6 +1761,35 @@ struct controller_impl {
          }
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
+
+         deque<message_id_type> recv_msgs;
+         deque<posted_message> posted_msgs;
+
+         for(uint32_t i = 0; i < trn.actions.size(); i++) {
+            const action& act = trn.actions[i];
+            if (act.account == postmsg::get_name() && act.name == postmsg::get_name() ) {
+               // TODO: check delay == 0
+               postmsg msg = act.data_as<postmsg>();
+               shard._posted_msgs.emplace_back( posted_message {
+                  .msg                 = std::move(msg),
+                  .trx_id              = trx->id(),
+                  .trx_action_sequence = i
+               });
+            }
+
+            if (act.account == recvmsg::get_name() && act.name == recvmsg::get_name() ) {
+               // TODO: check delay == 0
+               recvmsg msg = act.data_as<recvmsg>();
+               const auto *msg_obj = shard._shared_db.find<shard_message_object, by_msg_id>(msg.msg_id);
+               // TODO: shard_msg_exception
+               EOS_ASSERT( msg_obj, action_validate_exception, "Received message not found" );
+               EOS_ASSERT( msg_obj->owner == msg.owner, action_validate_exception, "owner of message unmatched" );
+               EOS_ASSERT( msg_obj->to_shard == shard._name, action_validate_exception, "to shard of message unmatched" );
+               EOS_ASSERT( shard._recv_msg_set.count(msg.msg_id) == 0, action_validate_exception, "Received message duplicated" );
+               recv_msgs.emplace_back(msg.msg_id);
+            }
+         }
+
          transaction_checktime_timer trx_timer(timer);
          transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), shard._db, shard._shared_db, start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
@@ -1808,6 +1856,13 @@ struct controller_impl {
             if ( !trx->is_read_only() ) {
                fc::move_append( shard._action_receipt_digests,
                                 std::move(trx_context.executed_action_receipt_digests) );
+
+               for (const auto& msg : recv_msgs) {
+                  shard._recv_msg_set.insert(msg);
+               }
+               fc::move_append( shard._recv_msgs, std::move(recv_msgs) );
+               fc::move_append( shard._posted_msgs, std::move(posted_msgs) );
+
                 if ( !trx->is_dry_run() ) {
                    // call the accept signal but only once for this transaction
                    if (!trx->accepted) {
@@ -2090,6 +2145,33 @@ struct controller_impl {
                                               return merkle( std::move( ids ) );
                                            } );
       }
+
+      // process shard msgs
+      for (auto& shard : bb._shards) {
+         // post message
+         for (const auto& posted_msg : shard.second._posted_msgs) {
+            dbm.main_db().create<shard_message_object>( [&]( auto& smo ) {
+               const auto& msg = posted_msg.msg;
+               smo.owner               = msg.owner;
+               smo.from_shard          = shard.second._name;
+               smo.to_shard            = msg.to_shard;
+               smo.contract            = msg.contract;
+               smo.action_name         = msg.action_name;
+               smo.action_data         = msg.action_data;
+               smo.trx_id              = posted_msg.trx_id;
+               smo.trx_action_sequence = posted_msg.trx_action_sequence;
+            } );
+         }
+
+         // receive message
+         for (const auto& msg_id : shard.second._recv_msgs) {
+            const auto *msg_obj = dbm.main_db().find<shard_message_object, by_msg_id>(msg_id);
+            // TODO: msg exception
+            EOS_ASSERT( msg_obj, action_validate_exception, "Received message not found" );
+            dbm.main_db().remove(*msg_obj);
+         }
+      }
+
 
       // Update resource limits:
       resource_limits.process_account_limit_updates();

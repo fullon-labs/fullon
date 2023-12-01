@@ -468,17 +468,16 @@ void apply_gax_canceldelay(apply_context& context) {
 }
 
 void apply_gax_postmsg(apply_context& context) {
-   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "postmsg only allowed in main shard"); // TODO:
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "postmsg ot allowed in read-only transaction" );
    // auto& shared_db  = context.shared_db;
    auto  msg = context.get_action().data_as<postmsg>();
 
+   EOS_ASSERT( msg.to_shard != context.shard_name, action_validate_exception, "can not post message to current shard");
    context.require_authorization(msg.owner);
    // TODO: context.add_ram_usage
 }
 
 void apply_gax_recvmsg(apply_context& context) {
-   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "recvmsg only allowed in main shard"); // TODO:
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "recvmsg ot allowed in read-only transaction" );
    auto  msg = context.get_action().data_as<recvmsg>();
 
@@ -487,7 +486,6 @@ void apply_gax_recvmsg(apply_context& context) {
    // TODO: shard_msg_exception
    EOS_ASSERT( msg_obj, action_validate_exception, "message not found by msg_id" );
    EOS_ASSERT( msg_obj->owner == msg.owner, action_validate_exception, "message owner unmatched" );
-   auto& idx = context.shared_db.get_index<shard_message_index, by_msg_id>();
    EOS_ASSERT( msg_obj->to_shard == context.shard_name, action_validate_exception, "to shard unmatched" );
 }
 
