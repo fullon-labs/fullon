@@ -1,7 +1,6 @@
 #include <eosio/chain/webassembly/interface.hpp>
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/contract_table_context.hpp>
-#include <eosio/chain/shared_contract_table_objects.hpp>
 
 namespace eosio { namespace chain { namespace webassembly {
    /**

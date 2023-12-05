@@ -82,7 +82,7 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
 
 
    // TODO: shared contract table is only in main db and shared db
-   const auto&                                       shared_table_id_index = db.get_index<chain::shared_table_id_multi_index>();
+   const auto& shared_table_id_index = db.get_index<chain::shared_table_id_multi_index>();
    std::map<uint64_t, const chain::shared_table_id_object*> removed_shared_table_id;
    for (auto& rem : shared_table_id_index.last_undo_session().removed_values)
       removed_shared_table_id[rem.id._id] = &rem;

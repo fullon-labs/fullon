@@ -15,7 +15,6 @@
 #include <eosio/chain/database_manager.hpp>
 #include <eosio/chain/contract_table_context.hpp>
 #include <eosio/chain/contract_table_objects.hpp>
-#include <eosio/chain/shared_contract_table_objects.hpp>
 
 using boost::container::flat_set;
 

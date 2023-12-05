@@ -189,10 +189,16 @@ namespace eosio { namespace chain {
       code_object_type,
       database_header_object_type,
       // reserve 10 tables
-      shard_object_type             = 51,
-      shard_change_object_type      = 52,
-      shared_table_id_object_type   = 53,
-      shard_message_object_type     = 54,
+      shard_object_type                      = 51,
+      shard_change_object_type               = 52,
+      shard_message_object_type              = 53,
+      shared_table_id_object_type            = 54,
+      shared_key_value_object_type           = 55,
+      shared_index64_object_type             = 56,
+      shared_index128_object_type            = 57,
+      shared_index256_object_type            = 58,
+      shared_index_double_object_type        = 59,
+      shared_index_long_double_object_type   = 60,
       OBJECT_TYPE_COUNT ///< Sentry value which contains the number of different object types
    };
 

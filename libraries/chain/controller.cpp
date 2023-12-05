@@ -27,7 +27,6 @@
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/shard_object.hpp>
 #include <eosio/chain/shard_message_object.hpp>
-#include <eosio/chain/shared_contract_table_objects.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>

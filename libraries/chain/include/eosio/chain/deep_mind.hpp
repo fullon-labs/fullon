@@ -3,15 +3,12 @@
 #include <fc/log/logger.hpp>
 
 #include <eosio/chain/types.hpp>
+#include <eosio/chain/contract_table_objects.hpp>
 
 namespace eosio::chain {
 
 class account_ram_correction_object;
 class generated_transaction_object;
-class table_id_object;
-class shared_table_id_object;
-struct key_value_object;
-struct shared_key_value_object;
 class permission_object;
 struct block_state;
 struct protocol_feature;
