@@ -545,6 +545,79 @@ REGISTER_HOST_FUNCTION(db_idx_long_double_end);
 REGISTER_LEGACY_HOST_FUNCTION(db_idx_long_double_next);
 REGISTER_LEGACY_HOST_FUNCTION(db_idx_long_double_previous);
 
+// shared database api
+// primary shared index api
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_store_i64);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_update_i64);
+REGISTER_HOST_FUNCTION(shared_db_remove_i64);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_get_i64);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_next_i64);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_previous_i64);
+REGISTER_HOST_FUNCTION(shared_db_find_i64);
+REGISTER_HOST_FUNCTION(shared_db_lowerbound_i64);
+REGISTER_HOST_FUNCTION(shared_db_upperbound_i64);
+REGISTER_HOST_FUNCTION(shared_db_end_i64);
+
+// uint64_t secondary shared index api
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx64_store);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx64_update);
+REGISTER_HOST_FUNCTION(shared_db_idx64_remove);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx64_find_secondary);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx64_find_primary);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx64_lowerbound);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx64_upperbound);
+REGISTER_HOST_FUNCTION(shared_db_idx64_end);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx64_next);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx64_previous);
+
+// uint128_t secondary shared index api
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx128_store);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx128_update);
+REGISTER_HOST_FUNCTION(shared_db_idx128_remove);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx128_find_secondary);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx128_find_primary);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx128_lowerbound);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx128_upperbound);
+REGISTER_HOST_FUNCTION(shared_db_idx128_end);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx128_next);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx128_previous);
+
+// 256-bit secondary shared index api
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx256_store);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx256_update);
+REGISTER_HOST_FUNCTION(shared_db_idx256_remove);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx256_find_secondary);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx256_find_primary);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx256_lowerbound);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx256_upperbound);
+REGISTER_HOST_FUNCTION(shared_db_idx256_end);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx256_next);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx256_previous);
+
+// double secondary shared index api
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_double_store, is_nan_check);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_double_update, is_nan_check);
+REGISTER_HOST_FUNCTION(shared_db_idx_double_remove);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_double_find_secondary, is_nan_check);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_double_find_primary);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_double_lowerbound, is_nan_check);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_double_upperbound, is_nan_check);
+REGISTER_HOST_FUNCTION(shared_db_idx_double_end);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_double_next);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_double_previous);
+
+// long double secondary shared index api
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_long_double_store, is_nan_check);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_long_double_update, is_nan_check);
+REGISTER_HOST_FUNCTION(shared_db_idx_long_double_remove);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_long_double_find_secondary, is_nan_check);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_long_double_find_primary);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_long_double_lowerbound, is_nan_check);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_long_double_upperbound, is_nan_check);
+REGISTER_HOST_FUNCTION(shared_db_idx_long_double_end);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_long_double_next);
+REGISTER_LEGACY_HOST_FUNCTION(shared_db_idx_long_double_previous);
+
 // memory api
 REGISTER_LEGACY_CF_HOST_FUNCTION(memcpy);
 REGISTER_LEGACY_CF_HOST_FUNCTION(memmove);
