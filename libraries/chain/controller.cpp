@@ -44,6 +44,9 @@ namespace eosio { namespace chain {
 
 using resource_limits::resource_limits_manager;
 
+// TODO: main_shard_db_index_set
+// TODO: sub_shard_db_index_set
+
 using controller_index_set = index_set<
    account_index,
    account_metadata_index,
@@ -70,6 +73,15 @@ using contract_database_index_set = index_set<
    index256_index,
    index_double_index,
    index_long_double_index
+>;
+
+using contract_shared_database_index_set = index_set<
+   shared_key_value_index,
+   shared_index64_index,
+   shared_index128_index,
+   shared_index256_index,
+   shared_index_double_index,
+   shared_index_long_double_index
 >;
 
 using shared_index_set = index_set<
@@ -896,6 +908,8 @@ struct controller_impl {
    void init_db() {
       // TODO: move to database_manager
       shared_index_set::add_indices(dbm.shared_db());
+      contract_shared_database_index_set::add_indices(dbm.shared_db()); // TODO: main shard only
+
       add_indices_to_shard_db(dbm.main_db());
 
       auto catalog = shard_db_catalog::load(conf.state_dir);
@@ -921,6 +935,7 @@ struct controller_impl {
       // TODO: move to database_manager
       controller_index_set::add_indices(db);
       contract_database_index_set::add_indices(db);
+      contract_shared_database_index_set::add_indices(db); // TODO: main shard only
       authorization_manager::add_indices(db);
       resource_limits_manager::add_indices(db);
    }
@@ -949,6 +964,22 @@ struct controller_impl {
          itr = new_ret.first;
       }
       return itr->second;
+   }
+
+   // sync changes from main db to shared db
+   void sync_shared_db() {
+      // apply shared changes of main_db to shared_db
+      // TODO: del me
+      // wdump(("copy block state changes from main to shared db")(pbhs.block_num));
+      // auto& acct_idx = dbm.main_db().get_index<account_index>();
+      // auto acct_undo = acct_idx.last_undo_session();
+      // size_t num_old = std::distance(acct_undo.old_values.begin(), acct_undo.old_values.end());
+      // size_t num_rm = std::distance(acct_undo.removed_values.begin(), acct_undo.removed_values.end());
+      // size_t num_new = std::distance(acct_undo.new_values.begin(), acct_undo.new_values.end());
+      // wdump((pbhs.block_num)(acct_idx.undo_stack_revision_range())(num_old)(num_rm)(num_new));
+      shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
+      contract_shared_database_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
+      resource_limits_manager::copy_changes(dbm.main_db(), dbm.shared_db());
    }
 
    void clear_all_undo() {
@@ -2183,18 +2214,7 @@ struct controller_impl {
       );
       resource_limits.process_block_usage(pbhs.block_num);
 
-      // apply shared changes of main_db to shared_db
-      // TODO: del me
-      // wdump(("copy block state changes from main to shared db")(pbhs.block_num));
-      // auto& acct_idx = dbm.main_db().get_index<account_index>();
-      // auto acct_undo = acct_idx.last_undo_session();
-      // size_t num_old = std::distance(acct_undo.old_values.begin(), acct_undo.old_values.end());
-      // size_t num_rm = std::distance(acct_undo.removed_values.begin(), acct_undo.removed_values.end());
-      // size_t num_new = std::distance(acct_undo.new_values.begin(), acct_undo.new_values.end());
-      // wdump((pbhs.block_num)(acct_idx.undo_stack_revision_range())(num_old)(num_rm)(num_new));
-      shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
-      resource_limits_manager::copy_changes(dbm.main_db(), dbm.shared_db());
-      // TODO: clear empty trx receipts
+      sync_shared_db();
 
       // Create (unsigned) block:
       auto block_ptr = std::make_shared<signed_block>( pbhs.make_block_header(
