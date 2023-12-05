@@ -2,6 +2,7 @@
 #include <eosio/chain/block_state.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/contract_table_objects.hpp>
+#include <eosio/chain/shared_contract_table_objects.hpp>
 #include <eosio/chain/resource_limits_private.hpp>
 #include <eosio/chain/permission_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
@@ -25,6 +26,27 @@ namespace {
 }
 
 namespace eosio::chain {
+
+
+   struct contract_tables_handler {
+      deep_mind_handler&       _handler;
+      contract_tables_handler(deep_mind_handler&       handler) :_handler(handler) {}
+      template<typename TableIdObject>
+      void on_create_table(const TableIdObject& tid, const string& op_category);
+      template<typename TableIdObject>
+      void on_remove_table(const TableIdObject& tid, const string& op_category);
+      template<typename TableIdObject, typename KeyValueObject>
+      void on_db_store_i64(const TableIdObject& tid, const KeyValueObject& kvo, const string& op_category);
+      template<typename TableIdObject, typename KeyValueObject>
+      void on_db_update_i64(const TableIdObject& tid, const KeyValueObject& kvo, account_name payer, const char* buffer, std::size_t buffer_size, const string& op_category);
+      template<typename TableIdObject, typename KeyValueObject>
+      void on_db_remove_i64(const TableIdObject& tid, const KeyValueObject& kvo, const string& op_category);
+   };
+
+   deep_mind_handler::deep_mind_handler()
+   :_contract_tables_handler(new contract_tables_handler(*this)){}
+
+   deep_mind_handler::~deep_mind_handler() {}
 
    void deep_mind_handler::update_config(deep_mind_config config)
    {
@@ -123,7 +145,7 @@ namespace eosio::chain {
    void deep_mind_handler::on_applied_transaction(uint32_t block_num, const transaction_trace_ptr& trace)
    {
       std::vector<char> packed_trace;
-      
+
       if (_config.zero_elapsed) {
          transaction_trace trace_copy = *trace;
          set_trace_elapsed_to_zero(trace_copy);
@@ -249,30 +271,69 @@ namespace eosio::chain {
          ("action_id", _action_id)
       );
    }
-   void deep_mind_handler::on_create_table(const table_id_object& tid)
+
+
+   void deep_mind_handler::on_create_table(const table_id_object& tid) {
+      _contract_tables_handler->on_create_table(tid, "TBL_OP");
+   }
+
+   void deep_mind_handler::on_create_table(const shared_table_id_object& tid) {
+      _contract_tables_handler->on_create_table(tid, "SHARED_TBL_OP");
+   }
+
+   template<typename TableIdObject>
+   void contract_tables_handler::on_create_table(const TableIdObject& tid, const string& op_category)
    {
-      fc_dlog(_logger, "TBL_OP INS ${action_id} ${code} ${scope} ${table} ${payer}",
-         ("action_id", _action_id)
+      fc_dlog(_handler._logger, "${category} INS ${action_id} ${code} ${scope} ${table} ${payer}",
+         ("category", op_category)
+         ("action_id", _handler._action_id)
          ("code", tid.code)
          ("scope", tid.scope)
          ("table", tid.table)
          ("payer", tid.payer)
       );
    }
+
+
    void deep_mind_handler::on_remove_table(const table_id_object& tid)
    {
-      fc_dlog(_logger, "TBL_OP REM ${action_id} ${code} ${scope} ${table} ${payer}",
-         ("action_id", _action_id)
+      _contract_tables_handler->on_create_table(tid, "TBL_OP");
+   }
+
+   void deep_mind_handler::on_remove_table(const shared_table_id_object& tid)
+   {
+      _contract_tables_handler->on_create_table(tid, "SHARED_TBL_OP");
+
+   }
+
+
+   template<typename TableIdObject>
+   void contract_tables_handler::on_remove_table(const TableIdObject& tid, const string& op_category)
+   {
+      fc_dlog(_handler._logger, "${category} REM ${action_id} ${code} ${scope} ${table} ${payer}",
+         ("category", op_category)
+         ("action_id", _handler._action_id)
          ("code", tid.code)
          ("scope", tid.scope)
          ("table", tid.table)
          ("payer", tid.payer)
       );
    }
-   void deep_mind_handler::on_db_store_i64(const table_id_object& tid, const key_value_object& kvo)
+
+   void deep_mind_handler::on_db_store_i64(const table_id_object& tid, const key_value_object& kvo) {
+      _contract_tables_handler->on_db_store_i64(tid, kvo, "DB_OP");
+   }
+
+   void deep_mind_handler::on_db_store_i64(const shared_table_id_object& tid, const shared_key_value_object& kvo) {
+      _contract_tables_handler->on_db_store_i64(tid, kvo, "SHARED_DB_OP");
+   }
+
+   template<typename TableIdObject, typename KeyValueObject>
+   void contract_tables_handler::on_db_store_i64(const TableIdObject& tid, const KeyValueObject& kvo, const string& op_category)
    {
-      fc_dlog(_logger, "DB_OP INS ${action_id} ${payer} ${table_code} ${scope} ${table_name} ${primkey} ${ndata}",
-         ("action_id", _action_id)
+      fc_dlog(_handler._logger, "${category} INS ${action_id} ${payer} ${table_code} ${scope} ${table_name} ${primkey} ${ndata}",
+         ("category", op_category)
+         ("action_id", _handler._action_id)
          ("payer", kvo.payer)
          ("table_code", tid.code)
          ("scope", tid.scope)
@@ -281,10 +342,23 @@ namespace eosio::chain {
          ("ndata", fc::to_hex(kvo.value.data(), kvo.value.size()))
       );
    }
+
    void deep_mind_handler::on_db_update_i64(const table_id_object& tid, const key_value_object& kvo, account_name payer, const char* buffer, std::size_t buffer_size)
    {
-      fc_dlog(_logger, "DB_OP UPD ${action_id} ${opayer}:${npayer} ${table_code} ${scope} ${table_name} ${primkey} ${odata}:${ndata}",
-         ("action_id", _action_id)
+      _contract_tables_handler->on_db_update_i64(tid, kvo, payer, buffer, buffer_size, "DB_OP");
+   }
+
+   void deep_mind_handler::on_db_update_i64(const shared_table_id_object& tid, const shared_key_value_object& kvo, account_name payer, const char* buffer, std::size_t buffer_size)
+   {
+      _contract_tables_handler->on_db_update_i64(tid, kvo, payer, buffer, buffer_size, "SHARED_DB_OP");
+   }
+
+   template<typename TableIdObject, typename KeyValueObject>
+   void contract_tables_handler::on_db_update_i64(const TableIdObject& tid, const KeyValueObject& kvo, account_name payer, const char* buffer, std::size_t buffer_size, const string& op_category)
+   {
+      fc_dlog(_handler._logger, "${category} UPD ${action_id} ${opayer}:${npayer} ${table_code} ${scope} ${table_name} ${primkey} ${odata}:${ndata}",
+         ("category", op_category)
+         ("action_id", _handler._action_id)
          ("opayer", kvo.payer)
          ("npayer", payer)
          ("table_code", tid.code)
@@ -295,10 +369,23 @@ namespace eosio::chain {
          ("ndata", fc::to_hex(buffer, buffer_size))
       );
    }
+
    void deep_mind_handler::on_db_remove_i64(const table_id_object& tid, const key_value_object& kvo)
    {
-      fc_dlog(_logger, "DB_OP REM ${action_id} ${payer} ${table_code} ${scope} ${table_name} ${primkey} ${odata}",
-         ("action_id", _action_id)
+      _contract_tables_handler->on_db_remove_i64(tid, kvo, "DB_OP");
+   }
+
+   void deep_mind_handler::on_db_remove_i64(const shared_table_id_object& tid, const shared_key_value_object& kvo)
+   {
+      _contract_tables_handler->on_db_remove_i64(tid, kvo, "DB_OP");
+   }
+
+   template<typename TableIdObject, typename KeyValueObject>
+   void contract_tables_handler::on_db_remove_i64(const TableIdObject& tid, const KeyValueObject& kvo, const string& op_category)
+   {
+      fc_dlog(_handler._logger, "${category} REM ${action_id} ${payer} ${table_code} ${scope} ${table_name} ${primkey} ${odata}",
+         ("category", op_category)
+         ("action_id", _handler._action_id)
          ("payer", kvo.payer)
          ("table_code", tid.code)
          ("scope", tid.scope)
@@ -307,6 +394,7 @@ namespace eosio::chain {
          ("odata", fc::to_hex(kvo.value.data(), kvo.value.size()))
       );
    }
+
    void deep_mind_handler::on_init_resource_limits(const resource_limits::resource_limits_config_object& config, const resource_limits::resource_limits_state_object& state)
    {
       fc_dlog(_logger, "RLIMIT_OP CONFIG INS ${data}",

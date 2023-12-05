@@ -237,6 +237,16 @@ namespace eosio { namespace chain {
    template<typename T>
    using object_to_table_id_tag_t = typename object_to_table_id_tag<T>::tag_type;
 
+   struct contract_tables {
+      using table_id_object = table_id_object;
+      using key_value_object = key_value_object;
+      using index64_object = index64_object;
+      using index128_object = index128_object;
+      using index256_object = index256_object;
+      using index_double_object = index_double_object;
+      using index_long_double_object = index_long_double_object;
+   };
+
 namespace config {
    template<>
    struct billable_size<table_id_object> {

@@ -9,7 +9,9 @@ namespace eosio::chain {
 class account_ram_correction_object;
 class generated_transaction_object;
 class table_id_object;
+class shared_table_id_object;
 struct key_value_object;
+struct shared_key_value_object;
 class permission_object;
 struct block_state;
 struct protocol_feature;
@@ -17,6 +19,7 @@ struct signed_transaction;
 struct packed_transaction;
 struct transaction_trace;
 struct ram_trace;
+struct contract_tables_handler;
 namespace resource_limits {
    class resource_limits_config_object;
    class resource_limits_state_object;
@@ -49,6 +52,10 @@ public:
       bool zero_elapsed = false; // if true, the elapsed field of transaction and action traces is always set to 0 (for reproducibility)
    };
 
+
+   deep_mind_handler();
+   ~deep_mind_handler();
+
    void update_config(deep_mind_config config);
 
    void update_logger(const std::string& logger_name);
@@ -75,11 +82,22 @@ public:
    void on_send_deferred(operation_qualifier qual, const generated_transaction_object& gto);
    void on_create_deferred(operation_qualifier qual, const generated_transaction_object& gto, const packed_transaction& packed_trx);
    void on_fail_deferred();
+
    void on_create_table(const table_id_object& tid);
+   void on_create_table(const shared_table_id_object& tid);
    void on_remove_table(const table_id_object& tid);
+   void on_remove_table(const shared_table_id_object& tid);
    void on_db_store_i64(const table_id_object& tid, const key_value_object& kvo);
+   void on_db_store_i64(const shared_table_id_object& tid, const shared_key_value_object& kvo);
    void on_db_update_i64(const table_id_object& tid, const key_value_object& kvo, account_name payer, const char* buffer, std::size_t buffer_size);
+   void on_db_update_i64(const shared_table_id_object& tid, const shared_key_value_object& kvo, account_name payer, const char* buffer, std::size_t buffer_size);
    void on_db_remove_i64(const table_id_object& tid, const key_value_object& kvo);
+   void on_db_remove_i64(const shared_table_id_object& tid, const shared_key_value_object& kvo);
+
+   // void on_remove_table(const shared_table_id_object& tid);
+   // void on_db_update_i64(const shared_table_id_object& tid, const key_value_object& kvo, account_name payer, const char* buffer, std::size_t buffer_size);
+   // void on_db_remove_i64(const shared_table_id_object& tid, const key_value_object& kvo);
+
    void on_init_resource_limits(const resource_limits::resource_limits_config_object& config, const resource_limits::resource_limits_state_object& state);
    void on_update_resource_limits_config(const resource_limits::resource_limits_config_object& config);
    void on_update_resource_limits_state(const resource_limits::resource_limits_state_object& state);
@@ -97,6 +115,9 @@ private:
    ram_trace        _ram_trace;
    deep_mind_config _config;
    fc::logger       _logger;
+
+   friend struct contract_tables_handler;
+   std::unique_ptr<contract_tables_handler> _contract_tables_handler;
 };
 
 }

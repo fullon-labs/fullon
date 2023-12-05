@@ -4,6 +4,7 @@
 #include <eosio/chain/contract_types.hpp>
 #include <eosio/chain/multi_index_includes.hpp>
 #include <eosio/chain/contract_table_objects.hpp>
+#include <eosio/chain/config.hpp>
 
 #include <array>
 #include <type_traits>
@@ -246,47 +247,57 @@ namespace eosio { namespace chain {
    template<typename T>
    using object_to_table_id_tag_t = typename object_to_table_id_tag<T>::tag_type;
 
+   struct contract_shared_tables {
+      using table_id_object = shared_table_id_object;
+      using key_value_object = shared_key_value_object;
+      using index64_object = shared_index64_object;
+      using index128_object = shared_index128_object;
+      using index256_object = shared_index256_object;
+      using index_double_object = shared_index_double_object;
+      using index_long_double_object = shared_index_long_double_object;
+   };
+
 namespace config {
    template<>
    struct billable_size<shared_table_id_object> {
-      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 2;  ///< overhead for 2x indices internal-key and code,scope,table
-      static const uint64_t value = 44 + overhead; ///< 44 bytes for constant size fields + overhead
+      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 2 * shared_contract_bytes_multiplier;  ///< overhead for 2x indices internal-key and code,scope,table
+      static const uint64_t value = (44 + overhead) * shared_contract_bytes_multiplier; ///< 44 bytes for constant size fields + overhead
    };
 
    template<>
    struct billable_size<shared_key_value_object> {
-      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 2;  ///< overhead for potentially single-row table, 2x indices internal-key and primary key
-      static const uint64_t value = 32 + 8 + 4 + overhead; ///< 32 bytes for our constant size fields, 8 for pointer to vector data, 4 bytes for a size of vector + overhead
+      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 2 * shared_contract_bytes_multiplier;  ///< overhead for potentially single-row table, 2x indices internal-key and primary key
+      static const uint64_t value = (32 + 8 + 4 + overhead) * shared_contract_bytes_multiplier; ///< 32 bytes for our constant size fields, 8 for pointer to vector data, 4 bytes for a size of vector + overhead
    };
 
    template<>
    struct billable_size<shared_index64_object> {
-      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 3;  ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
-      static const uint64_t value = 24 + 8 + overhead; ///< 24 bytes for fixed fields + 8 bytes key + overhead
+      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 3 * shared_contract_bytes_multiplier;  ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
+      static const uint64_t value = (24 + 8 + overhead) * shared_contract_bytes_multiplier; ///< 24 bytes for fixed fields + 8 bytes key + overhead
    };
 
    template<>
    struct billable_size<shared_index128_object> {
-      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 3;  ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
-      static const uint64_t value = 24 + 16 + overhead; ///< 24 bytes for fixed fields + 16 bytes key + overhead
+      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 3 * shared_contract_bytes_multiplier;  ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
+      static const uint64_t value = (24 + 16 + overhead) * shared_contract_bytes_multiplier; ///< 24 bytes for fixed fields + 16 bytes key + overhead
    };
 
    template<>
    struct billable_size<shared_index256_object> {
-      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 3;  ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
+      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 3 * shared_contract_bytes_multiplier;  ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
       static const uint64_t value = 24 + 32 + overhead; ///< 24 bytes for fixed fields + 32 bytes key + overhead
    };
 
    template<>
    struct billable_size<shared_index_double_object> {
-      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 3;  ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
-      static const uint64_t value = 24 + 8 + overhead; ///< 24 bytes for fixed fields + 8 bytes key + overhead
+      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 3 * shared_contract_bytes_multiplier;  ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
+      static const uint64_t value = (24 + 8 + overhead) * shared_contract_bytes_multiplier; ///< 24 bytes for fixed fields + 8 bytes key + overhead
    };
 
    template<>
    struct billable_size<shared_index_long_double_object> {
-      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 3;  ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
-      static const uint64_t value = 24 + 16 + overhead; ///< 24 bytes for fixed fields + 16 bytes key + overhead
+      static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 3 * shared_contract_bytes_multiplier;  ///< overhead for potentially single-row table, 3x indices internal-key, primary key and primary+secondary key
+      static const uint64_t value = (24 + 16 + overhead) * shared_contract_bytes_multiplier; ///< 24 bytes for fixed fields + 16 bytes key + overhead
    };
 
 } // namespace config
