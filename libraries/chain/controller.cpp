@@ -907,6 +907,7 @@ struct controller_impl {
    void init_db() {
       // TODO: move to database_manager
       shared_index_set::add_indices(dbm.shared_db());
+	   resource_limits_manager::add_shared_indices(dbm.shared_db());
       contract_shared_database_index_set::add_indices(dbm.shared_db()); // TODO: main shard only
 
       add_indices_to_shard_db(dbm.main_db());
@@ -916,18 +917,13 @@ struct controller_impl {
          add_shard_db(shard);
          // TODO: validate shard dbs?
       }
+
       dbm.enable_saving_catalog(); // TODO: Is it appropriate to call here
    }
 
+   // TODO: rename to init_db?
    void add_indices() {
-      // TODO: move to database_manager
-      shared_index_set::add_indices(dbm.shared_db());
-      add_indices_to_shard_db(dbm.main_db());
-
-      for (auto& item : dbm.shard_dbs()) {
-         add_indices_to_shard_db(item.second);
-      }
-	  resource_limits_manager::add_shared_indices(dbm.shared_db());
+      init_db();
    }
 
    void add_indices_to_shard_db(database& db) {
