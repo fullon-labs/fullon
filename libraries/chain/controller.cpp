@@ -208,7 +208,9 @@ struct building_block {
    inline transaction_metadata_map extract_trx_metas() {
       transaction_metadata_map result;
       for (auto& shard : _shards) {
-         result[shard.first] = std::move(shard.second._pending_trx_metas);
+         if (!shard.second._pending_trx_metas.empty()) {
+            result[shard.first] = std::move(shard.second._pending_trx_metas);
+         }
       }
       return result;
    }
@@ -216,7 +218,9 @@ struct building_block {
    inline transaction_receipt_map extract_trx_receipt_map() {
       transaction_receipt_map result;
       for (auto& shard : _shards) {
-         result[shard.first] = std::move(shard.second._pending_trx_receipts);
+         if (!shard.second._pending_trx_metas.empty()) {
+            result[shard.first] = std::move(shard.second._pending_trx_receipts);
+         }
       }
       return result;
    }
@@ -224,7 +228,9 @@ struct building_block {
    inline digests_t extract_receipt_digests() {
       digests_t result;
       for (auto& shard : _shards) {
-         fc::move_append( result, std::move(shard.second._trx_mroot_or_receipt_digests) );
+         if (!shard.second._trx_mroot_or_receipt_digests.empty()) {
+            fc::move_append( result, std::move(shard.second._trx_mroot_or_receipt_digests) );
+         }
       }
       return result;
    }
@@ -232,7 +238,9 @@ struct building_block {
    inline digests_t extract_action_receipt_digests() {
       digests_t result;
       for (auto& shard : _shards) {
-         fc::move_append( result, std::move(shard.second._action_receipt_digests) );
+         if (!shard.second._action_receipt_digests.empty()) {
+            fc::move_append( result, std::move(shard.second._action_receipt_digests) );
+         }
       }
       return result;
    }
