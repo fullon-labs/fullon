@@ -153,7 +153,8 @@ namespace eosio { namespace chain {
          shards.push_back(itr->name);
       }
 
-      fc::raw::pack( shards );
+      fc::raw::pack( out, shards );
+      fc::raw::pack( out, error_msg );
       // TODO: calc and pack check sum
    }
 
