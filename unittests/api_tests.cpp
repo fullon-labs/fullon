@@ -3875,7 +3875,7 @@ BOOST_AUTO_TEST_CASE(get_code_hash_tests) { try {
 
    auto check = [&](account_name acc, uint64_t expected_seq) {
       fc::sha256 expected_code_hash;
-      auto obj = t.control->dbm().shared_db().find<account_object,by_name>(acc);
+      auto obj = t.control->dbm().main_db().find<account_object,by_name>(acc);
       if(obj)
          expected_code_hash = obj->code_hash;
       auto expected = "43:0:" + std::to_string(expected_seq) +
