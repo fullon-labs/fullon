@@ -67,7 +67,7 @@ void validate_authority_precondition( const apply_context& context, const author
  *  This method is called assuming precondition_system_newaccount succeeds a
  */
 void apply_gax_newaccount(apply_context& context) {
-   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "newaccount only allowed in main shard");
+   EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "newaccount only allowed in main shard");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "newaccount not allowed in read-only transaction" );
    auto create = context.get_action().data_as<newaccount>();
    try {
@@ -131,7 +131,7 @@ void apply_gax_newaccount(apply_context& context) {
 } FC_CAPTURE_AND_RETHROW( (create) ) }
 
 void apply_gax_setcode(apply_context& context) {
-   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "setcode only allowed in main shard" );
+   EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "setcode only allowed in main shard" );
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "setcode not allowed in read-only transaction" );
    auto& shared_db = context.shared_db;
    auto  act = context.get_action().data_as<setcode>();
@@ -216,7 +216,7 @@ void apply_gax_setcode(apply_context& context) {
 }
 
 void apply_gax_setabi(apply_context& context) {
-   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "setabi only allowed in main shard");
+   EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "setabi only allowed in main shard");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "setabi ot allowed in read-only transaction" );
    auto& shared_db  = context.shared_db;
    auto  act = context.get_action().data_as<setabi>();
@@ -256,7 +256,7 @@ void apply_gax_setabi(apply_context& context) {
 }
 
 void apply_gax_updateauth(apply_context& context) {
-   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "updateauth only allowed in main shard");
+   EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "updateauth only allowed in main shard");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "updateauth not allowed in read-only transaction" );
 
    auto update = context.get_action().data_as<updateauth>();
@@ -331,7 +331,7 @@ void apply_gax_updateauth(apply_context& context) {
 
 void apply_gax_deleteauth(apply_context& context) {
 //   context.require_write_lock( config::eosio_auth_scope );
-   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "deleteauth only allowed in main shard");
+   EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "deleteauth only allowed in main shard");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "deleteauth not allowed in read-only transaction" );
 
    auto remove = context.get_action().data_as<deleteauth>();
@@ -369,7 +369,7 @@ void apply_gax_deleteauth(apply_context& context) {
 void apply_gax_linkauth(apply_context& context) {
 //   context.require_write_lock( config::eosio_auth_scope );
 
-   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "linkauth only allowed in main shard");
+   EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "linkauth only allowed in main shard");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "linkauth not allowed in read-only transaction" );
 
    auto requirement = context.get_action().data_as<linkauth>();
@@ -432,7 +432,7 @@ void apply_gax_linkauth(apply_context& context) {
 void apply_gax_unlinkauth(apply_context& context) {
 //   context.require_write_lock( config::eosio_auth_scope );
 
-   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "unlinkauth only allowed in main shard");
+   EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "unlinkauth only allowed in main shard");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "unlinkauth not allowed in read-only transaction" );
 
    auto& db = context.db;
@@ -457,7 +457,7 @@ void apply_gax_unlinkauth(apply_context& context) {
 }
 
 void apply_gax_canceldelay(apply_context& context) {
-   EOS_ASSERT( context.shard_name == config::main_shard_name, action_validate_exception, "canceldelay only allowed in main shard");
+   EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "canceldelay only allowed in main shard");
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "canceldelay not allowed in read-only transaction" );
    auto cancel = context.get_action().data_as<canceldelay>();
    context.require_authorization(cancel.canceling_auth.actor); // only here to mark the single authority on this action as used
