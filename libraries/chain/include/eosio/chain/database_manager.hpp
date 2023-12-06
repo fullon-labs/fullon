@@ -166,8 +166,8 @@ namespace eosio{ namespace chain {
           * chainbase. This ensures state is not modified by mistake when
           * application does not intend to change state.
           */
-         bool                             _read_only_mode = false;
-         bool                             _is_saving_catalog;
+         bool                             _read_only_mode      = false;
+         bool                             _is_saving_catalog   = false;
    };
 
    // struct shard_db_info {

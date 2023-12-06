@@ -68,7 +68,7 @@ void resource_limits_manager::copy_data(chainbase::database& main_db, chainbase:
 void resource_limits_manager::copy_changes(chainbase::database& main_db, chainbase::database& shared_db) {
    resource_shared_index_set::copy_changes(main_db, shared_db);
 }
-         
+
 void resource_limits_manager::initialize_database() {
    const auto& config = _dbm.main_db().create<resource_limits_config_object>([](resource_limits_config_object& config){
       // see default settings in the declaration
@@ -92,7 +92,7 @@ void resource_limits_manager::add_to_snapshot( const snapshot_writer_ptr& snapsh
    resource_index_set::walk_indices([this, &snapshot]( auto utils ){
       snapshot->write_section<typename decltype(utils)::index_t::value_type>([this]( auto& section ){
          auto& db = _dbm.main_db();
-         decltype(utils)::walk(db, [this, &section, &db]( const auto &row ) {
+         decltype(utils)::walk(db, [&section, &db]( const auto &row ) {
             section.add_row(row, db);
          });
       });
@@ -105,7 +105,7 @@ void resource_limits_manager::read_from_snapshot( const snapshot_reader_ptr& sna
          bool more = !section.empty();
          auto& db = _dbm.main_db();
          while(more) {
-            decltype(utils)::create(db, [this, &section, &more, &db]( auto &row ) {
+            decltype(utils)::create(db, [&section, &more, &db]( auto &row ) {
                more = section.read_row(row, db);
             });
          }
@@ -119,11 +119,11 @@ void resource_limits_manager::initialize_account(const account_name& account, bo
    });
    //resource_limits_state_index,
    //resource_limits_config_index
-   
+
    const auto& usage = _dbm.main_db().create<resource_usage_object>([&]( resource_usage_object& bu ) {
          bu.owner = account;
    });
-   
+
    if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
       dm_logger->on_newaccount_resource_limits(limits, usage);
    }
@@ -156,12 +156,12 @@ void resource_limits_manager::update_account_usage(const flat_set<account_name>&
             bu.owner = a;
          });
       }
-      
+
       db.modify( *usage, [&]( auto& bu ){
          bu.net_usage.add( 0, time_slot, config.account_net_usage_average_window );
          bu.cpu_usage.add( 0, time_slot, config.account_cpu_usage_average_window );
-      });  
-      
+      });
+
    }
 }
 
@@ -181,7 +181,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
             bu.owner = a;
          });
       }
-      
+
       db.modify( *usage, [&]( auto& bu ){
          bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
          bu.cpu_usage.add( cpu_usage, time_slot, config.account_cpu_usage_average_window );
@@ -189,7 +189,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
          if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_update_account_usage(bu);
          }
-      }); 
+      });
 
       if( cpu_weight >= 0 && state.total_cpu_weight > 0 ) {
          uint128_t window_size = config.account_cpu_usage_average_window;
