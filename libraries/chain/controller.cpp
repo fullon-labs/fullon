@@ -218,7 +218,7 @@ struct building_block {
    inline transaction_receipt_map extract_trx_receipt_map() {
       transaction_receipt_map result;
       for (auto& shard : _shards) {
-         if (!shard.second._pending_trx_metas.empty()) {
+         if (!shard.second._pending_trx_receipts.empty()) {
             result[shard.first] = std::move(shard.second._pending_trx_receipts);
          }
       }
