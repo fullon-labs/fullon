@@ -174,7 +174,7 @@ const std::vector<const char*> genesis_intrinsics = {
 
    // shard relacted interfaces
    "get_shard_name",
-   "register_shard"
+   "register_shard",
    "shared_db_store_i64",
    "shared_db_update_i64",
    "shared_db_remove_i64",

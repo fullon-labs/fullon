@@ -44,6 +44,7 @@ apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint
 ,first_receiver_action_ordinal(action_ordinal)
 ,action_ordinal(action_ordinal)
 ,_contract_table(new contract_table_context(*this))
+,_contract_shared_table(new contract_shared_table_context(*this))
 {
    action_trace& trace = trx_ctx.get_action_trace(action_ordinal);
    act = &trace.act;

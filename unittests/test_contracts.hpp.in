@@ -3,18 +3,21 @@
 #include <fc/io/fstream.hpp>
 #include <vector>
 
-// CN -> contract C++ name, C -> contract name, D -> top level directory
-#define MAKE_READ_WASM_ABI(CN,C, D)                                                         \
+// CN -> contract C++ name, C -> contract name, D -> top(first) level directory, D2 -> second level directory
+#define MAKE_READ_WASM_ABI_FILE(CN, C, D, D2)                                                         \
    static std::vector<uint8_t> CN ## _wasm() {                                              \
       std::string s;                                                                        \
-      fc::read_file_contents("${CMAKE_BINARY_DIR}/unittests/" #D "/" #C "/" #C ".wasm", s); \
+      fc::read_file_contents("${CMAKE_BINARY_DIR}/unittests/" #D "/" #D2 "/" #C ".wasm", s); \
       return std::vector<uint8_t>(s.begin(), s.end());                                      \
    }                                                                                        \
    static std::vector<char> CN ## _abi() {                                                  \
       std::string s;                                                                        \
-      fc::read_file_contents("${CMAKE_BINARY_DIR}/unittests/" #D "/" #C "/" #C ".abi", s);  \
+      fc::read_file_contents("${CMAKE_BINARY_DIR}/unittests/" #D "/" #D2 "/" #C ".abi", s);  \
       return std::vector<char>(s.begin(), s.end());                                         \
    }
+
+// CN -> contract C++ name, C -> contract name, D -> top(first) level directory, (D2 -> second level directory) D2 == C
+#define MAKE_READ_WASM_ABI(CN, C, D) MAKE_READ_WASM_ABI_FILE(CN,C, D, C)
 
 namespace eosio {
    namespace testing {
@@ -51,6 +54,7 @@ namespace eosio {
          MAKE_READ_WASM_ABI(nested_container_multi_index,   nested_container_multi_index,   test-contracts)
          MAKE_READ_WASM_ABI(shard_contract_interface_tests, shard_contract_interface_tests, test-contracts)
 
+         MAKE_READ_WASM_ABI_FILE(test_api_shared_db, test_api_shared_db,   test-contracts, test_api_db)
       };
    } /// eosio::testing
 }  /// eosio
