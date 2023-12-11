@@ -795,5 +795,12 @@ contract_shared_table_context& apply_context::shared_table_context() {
    return *_contract_shared_table;
 }
 
+bool apply_context::is_builtin_activated( builtin_protocol_feature_t f ) const {
+   return control.is_builtin_activated( f );
+}
+
+bool apply_context::is_speculative_block() const {
+   return control.is_speculative_block();
+}
 
 } } /// eosio::chain

@@ -119,6 +119,9 @@ class apply_context {
       contract_table_context& table_context();
       contract_shared_table_context& shared_table_context();
 
+      bool is_builtin_activated( builtin_protocol_feature_t f ) const;
+      bool is_speculative_block() const;
+
    /// Fields:
    public:
       controller&                   control;

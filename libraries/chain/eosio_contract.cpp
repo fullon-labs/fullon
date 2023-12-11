@@ -146,7 +146,7 @@ void apply_gax_setcode(apply_context& context) {
 
    if( code_size > 0 ) {
      code_hash = fc::sha256::hash( act.code.data(), (uint32_t)act.code.size() );
-     wasm_interface::validate(context.control, act.code);
+     wasm_interface::validate(context, act.code);
    }
 
    const auto& account = shared_db.get<account_object,by_name>(act.account);
