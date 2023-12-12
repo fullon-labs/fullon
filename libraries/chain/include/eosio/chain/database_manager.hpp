@@ -37,6 +37,7 @@ namespace eosio{ namespace chain {
          database& shard_db( db_name shard_name) { return _shard_db_map.at(shard_name);}
 
          database* find_shard_db(const shard_name& name);
+         const database* find_shard_db(const shard_name& name) const;
          std::map<db_name, database>& shard_dbs() { return _shard_db_map; }
 
          struct session {
