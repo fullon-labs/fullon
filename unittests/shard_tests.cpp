@@ -99,6 +99,8 @@ BOOST_FIXTURE_TEST_CASE( register_shard_test, shard_base_tester ) try {
    BOOST_REQUIRE_EQUAL( shard_obj1->enabled, true );
    BOOST_REQUIRE( shard_obj1->creation_at == control->pending_block_time() );
 
+   BOOST_REQUIRE( control->dbm().find_shard_db("sub.shard1"_n) != nullptr);
+
    produce_blocks(1);
 
 } FC_LOG_AND_RETHROW()
