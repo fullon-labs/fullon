@@ -51,6 +51,15 @@ namespace eosio { namespace chain {
     *  deemed irreversible, then a user can safely trust the transaction
     *  will never be included.
     */
+
+
+   enum class shard_type: uint8_t {
+      normal      = 0,
+      privacy     = 1
+   };
+
+   using shard_type_enum = fc::enum_type<uint8_t, shard_type>;
+
    struct transaction_header {
       time_point_sec             expiration;   ///< the time at which a transaction expires
       uint16_t                   ref_block_num       = 0U; ///< specifies a block num in the last 2^16 blocks.
@@ -60,12 +69,14 @@ namespace eosio { namespace chain {
       fc::unsigned_int           delay_sec           = 0UL; /// number of seconds to delay this transaction for during which it may be canceled.
 
       eosio::chain::shard_name   shard_name          = default_shard_name; // shard name
-      uint8_t                    shard_type          = 0;
+      shard_type_enum            shard_type          = shard_type_enum(eosio::chain::shard_type::normal);
 
 
       static chain::shard_name default_shard_name;
-      const chain::shard_name& get_shard_name() const { return shard_name; }
-      void set_shard_name(const eosio::chain::shard_name& shard_name) { this->shard_name = shard_name; }
+      const chain::shard_name& get_shard_name() const;
+      void set_shard_name(const eosio::chain::shard_name& name);
+
+      const eosio::chain::shard_type& get_shard_type() const  { return shard_type.value; }
 
       /**
        * @return the absolute block number given the relative ref_block_num
@@ -223,6 +234,7 @@ namespace eosio { namespace chain {
 
 } } /// namespace eosio::chain
 
+FC_REFLECT_ENUM( eosio::chain::shard_type, (normal)(privacy))
 FC_REFLECT(eosio::chain::deferred_transaction_generation_context, (sender_trx_id)(sender_id)(sender) )
 FC_REFLECT( eosio::chain::transaction_header, (expiration)(ref_block_num)(ref_block_prefix)
                                               (max_net_usage_words)(max_cpu_usage_ms)(delay_sec)(shard_name)(shard_type) )

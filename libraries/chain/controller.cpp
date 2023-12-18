@@ -2103,15 +2103,19 @@ struct controller_impl {
             if (sp == nullptr) {
                // create new shard
                main_db.create<shard_object>( [&]( auto& s ) {
-                  s.name        = itr->name;
-                  s.enabled     = itr->enabled;
-                  s.creation_at = pbhs.timestamp;
+                  s.name            = itr->name;
+                  s.owner           = itr->owner;
+                  s.shard_type      = itr->shard_type;
+                  s.enabled         = itr->enabled;
+                  s.creation_date   = pbhs.timestamp;
                });
                add_shard_db(itr->name);
             } else {
                // modify shard
+               EOS_ASSERT( itr->shard_type == sp->shard_type, shard_exception, "can not change the existed shard_type" );
                main_db.modify( *sp, [&]( auto& s ) {
-                  s.enabled     = itr->enabled;
+                  s.owner           = itr->owner;
+                  s.enabled         = itr->enabled;
                });
                // TODO: check shard db exists?
             }

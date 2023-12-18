@@ -13,12 +13,14 @@ using mvo = fc::mutable_variant_object;
 
 class shard_base_tester : public TEST {
 public:
-   const name contract_name = "shard.test"_n;
+   const name contract_name   = "shard.test"_n;
+   const name shard1_name     = "sub.shard1"_n;
+   const name shard1_owner    = "owner.shard1"_n;
 
    shard_base_tester() {
       produce_blocks();
 
-      create_accounts( { contract_name, "alice"_n, "bob"_n, "carol"_n } );
+      create_accounts( { contract_name, shard1_owner, "alice"_n, "bob"_n, "carol"_n } );
       produce_blocks();
 
       set_code( contract_name, test_contracts::shard_test_wasm() );
@@ -58,48 +60,79 @@ public:
       return push_action( std::move(act), signer );
    }
 
-   auto regshard(const name& signer, const name& shard_name, bool enabled) {
+   auto regshard( const account_name&           signer,
+                  uint8_t                       reg_type,
+                  const account_name&           name,
+                  uint8_t                       shard_type,
+                  const account_name&           owner,
+                  bool                          enabled,
+                  uint8_t                       opts,
+                  const std::optional<int64_t>& expected_result) {
 
       return push_action( signer, "regshard"_n, mvo()
-           ( "shard_name", shard_name)
-           ( "enabled", enabled)
+           ( "reg_type",         reg_type)
+           ( "shard",            mvo()
+               ( "name",             name)
+               ( "shard_type",       shard_type)
+               ( "owner",            owner)
+               ( "enabled",          enabled)
+               ( "opts",             opts)
+           )
+           ( "expected_result",  expected_result)
       );
+   }
+
+   auto regshard(const account_name& signer, const registered_shard &shard, const std::optional<int64_t>& expected_result) {
+      return regshard(signer, 0, shard.name, uint8_t(shard.shard_type), shard.owner, shard.enabled, shard.opts, expected_result);
    }
 
    abi_serializer abi_ser;
 };
 
+#define REQUIRE_MATCHING_REGISTER_SHARD(reg_shard, shard_obj) { \
+      REQUIRE_EQUAL_VARIANT( (reg_shard).name,        (shard_obj).name ); \
+      REQUIRE_EQUAL_VARIANT( (reg_shard).shard_type,  (shard_obj).shard_type ); \
+      REQUIRE_EQUAL_VARIANT( (reg_shard).owner,       (shard_obj).owner ); \
+      BOOST_REQUIRE_EQUAL(   (reg_shard).enabled,     (shard_obj).enabled ); \
+      REQUIRE_EQUAL_VARIANT( (reg_shard).opts,        (shard_obj).opts ); \
+   }
 BOOST_AUTO_TEST_SUITE(shard_tests)
 
 
 
 BOOST_FIXTURE_TEST_CASE( register_shard_test, shard_base_tester ) try {
 
-   // regshard( "alice"_n, "sub.shard1"_n, true);
-   BOOST_CHECK_EXCEPTION(regshard( "alice"_n, "sub.shard1"_n, true), unaccessible_api,
+   // regshard( "alice"_n, shard1_name, true);
+   registered_shard shard1 = registered_shard {
+      .name             = shard1_name,
+      .shard_type       = shard_type_enum(eosio::chain::shard_type::normal),
+      .owner            = shard1_owner,
+      .enabled          = true,
+      .opts             = 0
+   };
+
+   BOOST_CHECK_EXCEPTION(regshard( shard1_owner, shard1, 1), unaccessible_api,
                            fc_exception_message_contains("shard.test does not have permission to call this API") );
 
    base_tester::push_action(config::system_account_name, "setpriv"_n, config::system_account_name,  fc::mutable_variant_object()("account", contract_name)("is_priv", 1));
    produce_blocks();
-   regshard( "alice"_n, "sub.shard1"_n, true);
-   const auto* shard_change1 = control->dbm().main_db().find<shard_change_object, by_name>( "sub.shard1"_n );
+   regshard( shard1_owner, shard1, 1 );
+   const auto* shard_change1 = control->dbm().main_db().find<shard_change_object, by_name>( shard1_name );
    BOOST_REQUIRE( shard_change1 != nullptr);
-   BOOST_REQUIRE_EQUAL( shard_change1->name, "sub.shard1"_n );
-   BOOST_REQUIRE_EQUAL( shard_change1->enabled, true );
-   BOOST_REQUIRE_EQUAL( shard_change1->block_num, control->pending_block_num() );
-   BOOST_REQUIRE( control->dbm().find_shard_db("sub.shard1"_n) == nullptr);
+
+   REQUIRE_MATCHING_REGISTER_SHARD(shard1, *shard_change1);
 
    produce_blocks(1);
-   const auto* shard_change2 = control->dbm().main_db().find<shard_change_object, by_name>( "sub.shard1"_n );
+   const auto* shard_change2 = control->dbm().main_db().find<shard_change_object, by_name>( shard1_name );
    BOOST_REQUIRE( shard_change2 == nullptr);
 
-   const auto* shard_obj1 = control->dbm().main_db().find<shard_object, by_name>( "sub.shard1"_n );
+   const auto* shard_obj1 = control->dbm().main_db().find<shard_object, by_name>( shard1_name );
    BOOST_REQUIRE( shard_obj1 != nullptr);
-   BOOST_REQUIRE_EQUAL( shard_obj1->name, "sub.shard1"_n );
-   BOOST_REQUIRE_EQUAL( shard_obj1->enabled, true );
-   BOOST_REQUIRE( shard_obj1->creation_at == control->pending_block_time() );
 
-   BOOST_REQUIRE( control->dbm().find_shard_db("sub.shard1"_n) != nullptr);
+   REQUIRE_MATCHING_REGISTER_SHARD( shard1, *shard_obj1 );
+   BOOST_REQUIRE( shard_obj1->creation_date == control->pending_block_time() );
+
+   BOOST_REQUIRE( control->dbm().find_shard_db(shard1_name) != nullptr);
 
    produce_blocks(1);
 

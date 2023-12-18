@@ -253,10 +253,11 @@ namespace webassembly {
           * Register shard, include `enabled` status.
           *
           * @ingroup privileged
-          * @param name - name of the shard that we want to register.
-          * @param enabled - enabled status (true or false).
+          * @param packed_shard - a span containing the packed shard to register.
+          *
+          * @return negative if registered shard schedule was unsuccessful, otherwise returns the version of the new registered shard.
          */
-         void register_shard( shard_name name, bool enabled );
+         int64_t register_shard_packed( span<const char> packed_shard );
 
          // softfloat api
          float _eosio_f32_add(float, float) const;

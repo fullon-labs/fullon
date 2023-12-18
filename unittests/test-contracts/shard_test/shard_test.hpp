@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosio/eosio.hpp>
+#include <eosio/privileged.hpp>
 
 using bytes = std::vector<char>;
 
@@ -9,5 +10,7 @@ public:
    using eosio::contract::contract;
 
    [[eosio::action]]
-   void regshard(const eosio::name& shard_name, bool enabled);
+   void regshard( uint8_t                          reg_type,
+                  const eosio::registered_shard&   shard,
+                  const std::optional<int64_t>&    expected_result);
 };

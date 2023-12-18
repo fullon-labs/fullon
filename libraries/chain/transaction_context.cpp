@@ -328,16 +328,29 @@ namespace eosio { namespace chain {
       EOS_ASSERT( is_initialized, transaction_exception, "must first initialize" );
 
       const transaction& trx = packed_trx.get_transaction();
-      if( apply_context_free ) {
-         for( const auto& act : trx.context_free_actions ) {
-            schedule_action( act, act.account, true, 0, 0 );
-         }
-      }
 
-      if( delay == fc::microseconds() ) {
-         for( const auto& act : trx.actions ) {
-            schedule_action( act, act.account, false, 0, 0 );
+      if (trx.get_shard_type() == shard_type::normal) {
+         if( apply_context_free ) {
+            for( const auto& act : trx.context_free_actions ) {
+               schedule_action( act, act.account, true, 0, 0 );
+            }
          }
+
+         if( delay == fc::microseconds() ) {
+            for( const auto& act : trx.actions ) {
+               schedule_action( act, act.account, false, 0, 0 );
+            }
+         }
+      } else {
+         EOS_ASSERT( false, transaction_exception, "unsupported shard type:${st}", ("st", (uint8_t)trx.get_shard_type()) );
+
+         // TODO: impl private shard
+         // assert(trx.actions.size() == 1);
+         // auto private_actions = unpack_and_decrypt_private_actions(trx.actions[0].data);
+         // // schedule_action( act, act.account, true, 0, 0 );
+         // for( const auto& act : private_actions ) {
+         //    schedule_action( act, act.account, true, 0, 0 );
+         // }
       }
 
       auto& action_traces = trace->action_traces;
@@ -360,7 +373,7 @@ namespace eosio { namespace chain {
          trace->elapsed = fc::time_point::now() - start;
          return;
       }
-                                         
+
       if( is_input ) {
          const transaction& trx = packed_trx.get_transaction();
          auto& am = control.get_mutable_authorization_manager();
@@ -804,10 +817,10 @@ namespace eosio { namespace chain {
       const auto& auth_manager = control.get_authorization_manager();
 
       if( !trx.context_free_actions.empty() && !control.skip_trx_checks() ) {
-         
+
          for( const auto& a : trx.context_free_actions ) {
                auto* code = shared_db.find<account_object, by_name>( a.account );
-            
+
             EOS_ASSERT( code != nullptr, transaction_exception,
                         "action's code account '${account}' does not exist", ("account", a.account) );
             EOS_ASSERT( a.authorization.size() == 0, transaction_exception,
@@ -819,7 +832,7 @@ namespace eosio { namespace chain {
 
       bool one_auth = false;
       for( const auto& a : trx.actions ) {
-         
+
          auto* code = shared_db.find<account_object, by_name>(a.account);
          EOS_ASSERT( code != nullptr, transaction_exception,
                      "action's code account '${account}' does not exist", ("account", a.account) );
