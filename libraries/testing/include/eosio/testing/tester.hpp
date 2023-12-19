@@ -13,6 +13,8 @@
 #include <iosfwd>
 #include <optional>
 
+#define REQUIRE_EQUAL_VARIANT( a, b) BOOST_REQUIRE_EQUAL( fc::variant(a), fc::variant(b) )
+
 #define REQUIRE_EQUAL_OBJECTS(left, right) { auto a = fc::variant( left ); auto b = fc::variant( right ); BOOST_REQUIRE_EQUAL( true, a.is_object() ); \
    BOOST_REQUIRE_EQUAL( true, b.is_object() ); \
    BOOST_REQUIRE_EQUAL_COLLECTIONS( a.get_object().begin(), a.get_object().end(), b.get_object().begin(), b.get_object().end() ); }

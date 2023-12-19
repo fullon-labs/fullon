@@ -46,11 +46,11 @@ namespace eosio { namespace chain {
    }
 #endif
 
-   void wasm_interface::validate(const controller& control, const bytes& code) {
-      const auto& pso = control.db().get<protocol_state_object>();
+   void wasm_interface::validate(apply_context& context, const bytes& code) {
+      const auto& pso = context.shared_db.get<protocol_state_object>();
 
-      if (control.is_builtin_activated(builtin_protocol_feature_t::configurable_wasm_limits)) {
-         const auto& gpo = control.get_global_properties();
+      if (context.is_builtin_activated(builtin_protocol_feature_t::configurable_wasm_limits)) {
+         const auto& gpo = context.shared_db.get<global_property_object>();
          webassembly::eos_vm_runtime::validate( code, gpo.wasm_configuration, pso.whitelisted_intrinsics );
          return;
       }
@@ -64,7 +64,7 @@ namespace eosio { namespace chain {
          EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
       }
 
-      wasm_validations::wasm_binary_validation validator(control, module);
+      wasm_validations::wasm_binary_validation validator(context, module);
       validator.validate();
 
       webassembly::eos_vm_runtime::validate( code, pso.whitelisted_intrinsics );

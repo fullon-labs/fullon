@@ -216,7 +216,7 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    void interface::set_privileged( account_name n, bool is_priv ) {
-      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "set_privileged not allowed in sub shards");
+      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "set_privileged only allowed in main shard");
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_privileged not allowed in a readonly transaction");
       const auto& a = context.shared_db.get<account_object, by_name>( n );
       context.shared_db.modify( a, [&]( auto& ma ){
@@ -224,33 +224,48 @@ namespace eosio { namespace chain { namespace webassembly {
       });
    }
 
-   void interface::register_shard( shard_name name, bool enabled ) {
+   int64_t interface::register_shard_packed( span<const char> packed_shard ) {
       // TODO: main_shard_only_error
-      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "register_shard not allowed in sub shard" );
-      EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "register_shard not allowed in a readonly transaction");
-      EOS_ASSERT(name != config::main_shard_name, wasm_execution_error, "can not register main shard");
-      const auto* s = context.shared_db.find<shard_object, by_name>( name );
-      const auto* sc = context.db.find<shard_change_object, by_name>( name );
-      // TODO: how to increase ram of user?
-      if (sc == nullptr) {
-         if (s != nullptr && enabled != s->enabled) {
-            // TODO: shard_no_change_error
-            EOS_ASSERT(false, wasm_execution_error, "shard no change");
-         }
-      } else {
-         // TODO: shard_no_change_error
-         EOS_ASSERT(enabled != sc->enabled, wasm_execution_error, "shard no change");
-         context.shared_db.remove( *s ); // remove the old one and create new one to ensure changes are orderd by block_num( by id )
-         if (s != nullptr && s->enabled == enabled) { // no change
-            return; // the existed change has been removed, and ignore new change
-         }
-      }
+      EOS_ASSERT( context.shard_name == config::main_shard_name, wasm_execution_error, "register_shard_packed only allowed in main shard" );
+      EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "register_shard_packed not allowed in a readonly transaction");
 
-      context.db.create<shard_change_object>( [&]( auto& change ) {
-         change.name        = name;
-         change.enabled     = enabled;
-         change.block_num   = context.control.pending_block_num();
-      });
+      datastream<const char*> ds( packed_shard.data(), packed_shard.size() );
+      chain::registered_shard_var rsv;
+      fc::raw::unpack(ds, rsv);
+
+      return std::visit(overloaded {
+         [&](const registered_shard& reg_shard) {
+            const auto& name = reg_shard.name;
+            EOS_ASSERT(name != config::main_shard_name, wasm_execution_error, "can not register main shard");
+            const auto* shard_change = context.db.find<shard_change_object, by_name>( name );
+            if( shard_change != nullptr ) {
+                  return (int64_t)register_shard_result::error_type::pending_reg_existed;
+            }
+
+            const auto* shard_obj = context.shared_db.find<shard_object, by_name>( name );
+
+            uint32_t new_version = 1;
+            if (shard_obj != nullptr) {
+               EOS_ASSERT( reg_shard.shard_type == shard_obj->shard_type, shard_exception, "can not change shard_type of the existed shard" );
+               if (!reg_shard.has_changed(*shard_obj)) {
+                  return (int64_t)register_shard_result::error_type::no_change;
+               }
+               new_version = shard_obj->version + 1;
+            }
+
+            // TODO: need to increase ram of user?
+            context.db.create<shard_change_object>( [&]( auto& change ) {
+               change.name          = reg_shard.name;
+               change.version       = new_version;
+               change.shard_type    = reg_shard.shard_type;
+               change.owner         = reg_shard.owner;
+               change.enabled       = reg_shard.enabled;
+               change.opts          = reg_shard.opts;
+               change.block_num     = context.control.pending_block_num();
+            });
+            return (int64_t)new_version;
+         }
+      }, rsv);
    }
 
 }}} // ns eosio::chain::webassembly

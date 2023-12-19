@@ -13,6 +13,15 @@
 
 namespace eosio { namespace chain {
 
+
+const chain::shard_name& transaction_header::get_shard_name() const {
+    return shard_name;
+}
+
+void transaction_header::set_shard_name(const eosio::chain::shard_name& name) {
+   shard_name = name;
+}
+
 void deferred_transaction_generation_context::reflector_init() {
       static_assert( fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
                      "deferred_transaction_generation_context expects FC to support reflector_init" );

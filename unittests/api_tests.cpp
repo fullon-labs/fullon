@@ -3875,7 +3875,7 @@ BOOST_AUTO_TEST_CASE(get_code_hash_tests) { try {
 
    auto check = [&](account_name acc, uint64_t expected_seq) {
       fc::sha256 expected_code_hash;
-      auto obj = t.control->dbm().shared_db().find<account_object,by_name>(acc);
+      auto obj = t.control->dbm().main_db().find<account_object,by_name>(acc);
       if(obj)
          expected_code_hash = obj->code_hash;
       auto expected = "43:0:" + std::to_string(expected_seq) +
@@ -3901,5 +3901,167 @@ BOOST_AUTO_TEST_CASE(get_code_hash_tests) { try {
    t.set_code("test"_n, std::vector<uint8_t>{});
    check("test"_n, 3);
 } FC_LOG_AND_RETHROW() }
+
+
+/*************************************************************************************
+ * shared_db_tests test case
+ *************************************************************************************/
+BOOST_FIXTURE_TEST_CASE(shared_db_tests, TESTER) { try {
+   produce_blocks(2);
+   create_account( "testapi"_n );
+   create_account( "testapi2"_n );
+   produce_blocks(10);
+   set_code( "testapi"_n, test_contracts::test_api_shared_db_wasm() );
+   set_abi(  "testapi"_n, test_contracts::test_api_db_abi().data() );
+   set_code( "testapi2"_n, test_contracts::test_api_shared_db_wasm() );
+   set_abi(  "testapi2"_n, test_contracts::test_api_shared_db_abi().data() );
+   produce_blocks(1);
+
+   push_action( "testapi"_n, "pg"_n,  "testapi"_n, mutable_variant_object() ); // primary_i64_general
+   push_action( "testapi"_n, "pl"_n,  "testapi"_n, mutable_variant_object() ); // primary_i64_lowerbound
+   push_action( "testapi"_n, "pu"_n,  "testapi"_n, mutable_variant_object() ); // primary_i64_upperbound
+   push_action( "testapi"_n, "s1g"_n, "testapi"_n, mutable_variant_object() ); // idx64_general
+   push_action( "testapi"_n, "s1l"_n, "testapi"_n, mutable_variant_object() ); // idx64_lowerbound
+   push_action( "testapi"_n, "s1u"_n, "testapi"_n, mutable_variant_object() ); // idx64_upperbound
+
+   // Store value in primary table
+   push_action( "testapi"_n, "tia"_n, "testapi"_n, mutable_variant_object() // test_invalid_access
+      ("code", "testapi")
+      ("val", 10)
+      ("index", 0)
+      ("store", true)
+   );
+
+   // Attempt to change the value stored in the primary table under the code of "testapi"_n
+   BOOST_CHECK_EXCEPTION( push_action( "testapi2"_n, "tia"_n, "testapi2"_n, mutable_variant_object()
+                              ("code", "testapi")
+                              ("val", "20")
+                              ("index", 0)
+                              ("store", true)
+                           ), table_access_violation,
+                           fc_exception_message_is("db access violation")
+   );
+
+   // Verify that the value has not changed.
+   push_action( "testapi"_n, "tia"_n, "testapi"_n, mutable_variant_object()
+      ("code", "testapi")
+      ("val", 10)
+      ("index", 0)
+      ("store", false)
+   );
+
+   // Store value in secondary table
+   push_action( "testapi"_n, "tia"_n, "testapi"_n, mutable_variant_object() // test_invalid_access
+      ("code", "testapi")
+      ("val", 10)
+      ("index", 1)
+      ("store", true)
+   );
+
+   // Attempt to change the value stored in the secondary table under the code of "testapi"_n
+   BOOST_CHECK_EXCEPTION( push_action( "testapi2"_n, "tia"_n, "testapi2"_n, mutable_variant_object()
+                              ("code", "testapi")
+                              ("val", "20")
+                              ("index", 1)
+                              ("store", true)
+                           ), table_access_violation,
+                           fc_exception_message_is("db access violation")
+   );
+
+   // Verify that the value has not changed.
+   push_action( "testapi"_n, "tia"_n, "testapi"_n, mutable_variant_object()
+      ("code", "testapi")
+      ("val", 10)
+      ("index", 1)
+      ("store", false)
+   );
+
+   // idx_double_nan_create_fail
+   BOOST_CHECK_EXCEPTION(  push_action( "testapi"_n, "sdnancreate"_n, "testapi"_n, mutable_variant_object() ),
+                           transaction_exception,
+                           fc_exception_message_is("NaN is not an allowed value for a secondary key")
+   );
+
+   // idx_double_nan_modify_fail
+   BOOST_CHECK_EXCEPTION(  push_action( "testapi"_n, "sdnanmodify"_n, "testapi"_n, mutable_variant_object() ),
+                           transaction_exception,
+                           fc_exception_message_is("NaN is not an allowed value for a secondary key")
+   );
+
+   // idx_double_nan_lookup_fail
+   BOOST_CHECK_EXCEPTION(  push_action( "testapi"_n, "sdnanlookup"_n, "testapi"_n, mutable_variant_object()
+                              ("lookup_type", 0) // 0 for find
+                           ), transaction_exception,
+                           fc_exception_message_is("NaN is not an allowed value for a secondary key")
+   );
+
+   BOOST_CHECK_EXCEPTION(  push_action( "testapi"_n, "sdnanlookup"_n, "testapi"_n, mutable_variant_object()
+                              ("lookup_type", 1) // 1 for lower bound
+                           ), transaction_exception,
+                           fc_exception_message_is("NaN is not an allowed value for a secondary key")
+   );
+
+   BOOST_CHECK_EXCEPTION(  push_action( "testapi"_n, "sdnanlookup"_n, "testapi"_n, mutable_variant_object()
+                              ("lookup_type", 2) // 2 for upper bound
+                           ), transaction_exception,
+                           fc_exception_message_is("NaN is not an allowed value for a secondary key")
+   );
+
+   push_action( "testapi"_n, "sk32align"_n, "testapi"_n, mutable_variant_object() ); // misaligned_secondary_key256_tests
+
+   BOOST_REQUIRE_EQUAL( validate(), true );
+} FC_LOG_AND_RETHROW() }
+
+// The shared multi_index iterator cache is preserved across notifications for the same action.
+BOOST_FIXTURE_TEST_CASE(shared_db_notify_tests, TESTER) {
+   create_accounts( {"notifier"_n,"notified"_n } );
+   const char notifier[] = R"=====(
+(module
+ (func $shared_db_store_i64 (import "env" "shared_db_store_i64") (param i64 i64 i64 i64 i32 i32) (result i32))
+ (func $shared_db_find_i64 (import "env" "shared_db_find_i64") (param i64 i64 i64 i64) (result i32))
+ (func $shared_db_idx64_store (import "env" "shared_db_idx64_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $shared_db_idx64_find_primary (import "env" "shared_db_idx64_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $shared_db_idx128_store (import "env" "shared_db_idx128_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $shared_db_idx128_find_primary (import "env" "shared_db_idx128_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $shared_db_idx256_store (import "env" "shared_db_idx256_store") (param i64 i64 i64 i64 i32 i32) (result i32))
+ (func $shared_db_idx256_find_primary (import "env" "shared_db_idx256_find_primary") (param i64 i64 i64 i32 i32 i64) (result i32))
+ (func $shared_db_idx_double_store (import "env" "shared_db_idx_double_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $shared_db_idx_double_find_primary (import "env" "shared_db_idx_double_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $shared_db_idx_long_double_store (import "env" "shared_db_idx_long_double_store") (param i64 i64 i64 i64 i32) (result i32))
+ (func $shared_db_idx_long_double_find_primary (import "env" "shared_db_idx_long_double_find_primary") (param i64 i64 i64 i32 i64) (result i32))
+ (func $eosio_assert (import "env" "eosio_assert") (param i32 i32))
+ (func $require_recipient (import "env" "require_recipient") (param i64))
+ (memory 1)
+ (func (export "apply") (param i64 i64 i64)
+  (local i32)
+  (set_local 3 (i64.ne (get_local 0) (get_local 1)))
+  (if (get_local 3) (then (i32.store8 (i32.const 7) (i32.const 100))))
+  (drop (call $shared_db_store_i64 (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 0) (i32.const 0)))
+  (drop (call $shared_db_idx64_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (drop (call $shared_db_idx128_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (drop (call $shared_db_idx256_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256) (i32.const 2)))
+  (drop (call $shared_db_idx_double_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (drop (call $shared_db_idx_long_double_store (i64.const 0) (i64.const 0) (get_local 0) (i64.const 0) (i32.const 256)))
+  (call $eosio_assert (i32.eq (call $shared_db_find_i64 (get_local 0) (i64.const 0) (i64.const 0) (i64.const 0) ) (get_local 3)) (i32.const 0))
+  (call $eosio_assert (i32.eq (call $shared_db_idx64_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 32))
+  (call $eosio_assert (i32.eq (call $shared_db_idx128_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 64))
+  (call $eosio_assert (i32.eq (call $shared_db_idx256_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i32.const 2) (i64.const 0)) (get_local 3)) (i32.const 96))
+  (call $eosio_assert (i32.eq (call $shared_db_idx_double_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 128))
+  (call $eosio_assert (i32.eq (call $shared_db_idx_long_double_find_primary (get_local 0) (i64.const 0) (i64.const 0) (i32.const 256) (i64.const 0)) (get_local 3)) (i32.const 160))
+  (call $require_recipient (i64.const 11327368596746665984))
+ )
+ (data (i32.const 0) "notifier: primary")
+ (data (i32.const 32) "notifier: idx64")
+ (data (i32.const 64) "notifier: idx128")
+ (data (i32.const 96) "notifier: idx256")
+ (data (i32.const 128) "notifier: idx_double")
+ (data (i32.const 160) "notifier: idx_long_double")
+)
+)=====";
+   set_code("notifier"_n, notifier );
+   set_code("notified"_n, notifier );
+
+   BOOST_TEST_REQUIRE(push_action( action({},"notifier"_n, name(), {}),"notifier"_n.to_uint64_t() ) == "");
+}
 
 BOOST_AUTO_TEST_SUITE_END()

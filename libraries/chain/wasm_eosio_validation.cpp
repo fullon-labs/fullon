@@ -1,3 +1,4 @@
+#include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/wasm_eosio_constraints.hpp>
 #include <eosio/chain/wasm_eosio_validation.hpp>
 #include <eosio/chain/wasm_eosio_binary_ops.hpp>
@@ -16,7 +17,7 @@ void noop_validation_visitor::validate( const Module& m ) {
 
 void memories_validation_visitor::validate( const Module& m ) {
    if ( m.memories.defs.size() && m.memories.defs[0].type.size.min > wasm_constraints::maximum_linear_memory/(64*1024) )
-      FC_THROW_EXCEPTION(wasm_execution_error, "Smart contract initial memory size must be less than or equal to ${k}KiB", 
+      FC_THROW_EXCEPTION(wasm_execution_error, "Smart contract initial memory size must be less than or equal to ${k}KiB",
             ("k", wasm_constraints::maximum_linear_memory/1024));
 }
 
@@ -26,14 +27,14 @@ void data_segments_validation_visitor::validate(const Module& m ) {
          FC_THROW_EXCEPTION( wasm_execution_error, "Smart contract has unexpected memory base offset type" );
 
       if ( static_cast<uint32_t>( ds.baseOffset.i32 ) + ds.data.size() > wasm_constraints::maximum_linear_memory_init )
-         FC_THROW_EXCEPTION(wasm_execution_error, "Smart contract data segments must lie in first ${k}KiB", 
+         FC_THROW_EXCEPTION(wasm_execution_error, "Smart contract data segments must lie in first ${k}KiB",
                ("k", wasm_constraints::maximum_linear_memory_init/1024));
    }
 }
 
 void tables_validation_visitor::validate( const Module& m ) {
    if ( m.tables.defs.size() && m.tables.defs[0].type.size.min > wasm_constraints::maximum_table_elements )
-      FC_THROW_EXCEPTION(wasm_execution_error, "Smart contract table limited to ${t} elements", 
+      FC_THROW_EXCEPTION(wasm_execution_error, "Smart contract table limited to ${t} elements",
             ("t", wasm_constraints::maximum_table_elements));
 }
 

@@ -325,8 +325,7 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions_tester, validating_tester) { t
       control->get_account( a ); // throws if it does not exist
 
       auto unapplied_trxs = control->abort_block(); // should be empty now
-
-      BOOST_REQUIRE_EQUAL( 0,  unapplied_trxs.size() );
+      BOOST_REQUIRE_EQUAL( 0,  unapplied_trxs.size() ); // no any shard
 
    } FC_LOG_AND_RETHROW() }
 

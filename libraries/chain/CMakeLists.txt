@@ -106,7 +106,6 @@ add_library( eosio_chain
               wasm_eosio_injection.cpp
               wasm_config.cpp
               apply_context.cpp
-              apply_context_shard.cpp
               abi_serializer.cpp
               asset.cpp
               snapshot.cpp

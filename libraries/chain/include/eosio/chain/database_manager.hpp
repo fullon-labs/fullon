@@ -37,6 +37,7 @@ namespace eosio{ namespace chain {
          database& shard_db( db_name shard_name) { return _shard_db_map.at(shard_name);}
 
          database* find_shard_db(const shard_name& name);
+         const database* find_shard_db(const shard_name& name) const;
          std::map<db_name, database>& shard_dbs() { return _shard_db_map; }
 
          struct session {
@@ -166,8 +167,8 @@ namespace eosio{ namespace chain {
           * chainbase. This ensures state is not modified by mistake when
           * application does not intend to change state.
           */
-         bool                             _read_only_mode = false;
-         bool                             _is_saving_catalog;
+         bool                             _read_only_mode      = false;
+         bool                             _is_saving_catalog   = false;
    };
 
    // struct shard_db_info {

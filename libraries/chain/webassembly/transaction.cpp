@@ -24,15 +24,17 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    void interface::send_deferred( legacy_ptr<const uint128_t> sender_id, account_name payer, legacy_span<const char> data, uint32_t replace_existing) {
+      EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "send_deferred only allowed in main shard");
       transaction trx;
       fc::raw::unpack<transaction>(data.data(), data.size(), trx);
+      EOS_ASSERT( trx.get_shard_name() == config::main_shard_name, only_main_shard_allowed_exception, "send_deferred trx only allowed in main shard");
       context.schedule_deferred_transaction(*sender_id, payer, std::move(trx), replace_existing);
    }
 
    bool interface::cancel_deferred( legacy_ptr<const uint128_t> val ) {
       return context.cancel_deferred_transaction( *val );
    }
-   
+
    shard_name interface::get_shard_name() const{
       return context.shard_name;
    }

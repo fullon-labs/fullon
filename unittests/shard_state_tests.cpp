@@ -27,7 +27,7 @@ class resource_limits_fixture: private database_manager_fixture<1024*1024>, publ
       chainbase::database::session start_session() {
          return database_manager_fixture::_dbm->main_db().start_undo_session(true);
       }
-      
+
       chainbase::database& get_main() { return (*database_manager_fixture::_dbm).main_db();}
       chainbase::database& get_shared() { return (*database_manager_fixture::_dbm).shared_db();}
 };
@@ -52,9 +52,9 @@ class currency_test : public validating_tester {
          trx.sign(get_private_key(signer, "active"), control->get_chain_id());
          return push_transaction(trx);
       }
-      
+
       asset get_balance(const account_name& account) const {
-         return get_currency_balance("gax.token"_n, symbol(SY(4,CUR)), account); 
+         return get_currency_balance("gax.token"_n, symbol(SY(4,CUR)), account);
       }
       //TODO: simplify
       asset get_balance_on_shard(const account_name& account) const {
@@ -74,7 +74,7 @@ class currency_test : public validating_tester {
                fc::raw::unpack(ds, result);
             }
          }
-         return asset(result, asset_symbol);  
+         return asset(result, asset_symbol);
       }
 
       auto transfer(const account_name& from, const account_name& to, const std::string& quantity, const std::string& memo = "") {
@@ -173,7 +173,7 @@ transaction_trace_ptr create_account_on_subshard( tester& t, account_name a, acc
 
       t.set_transaction_headers(trx);
       trx.sign( t.get_private_key( creator, "active" ), t.control->get_chain_id()  );
-      return t.push_transaction( trx ); 
+      return t.push_transaction( trx );
    }
 
 BOOST_AUTO_TEST_SUITE(shard_state_tests)
@@ -184,11 +184,11 @@ BOOST_AUTO_TEST_CASE(query_account_object_from_share_db_test){
     BOOST_CHECK_NO_THROW(t.create_account("test"_n));
     t.produce_block();
     //account test create account hello on shard1.
-    BOOST_CHECK_EXCEPTION(create_account_on_subshard(t, "hello"_n, "test"_n), fc::exception, [](const fc::exception& e) {
-      return e.to_detail_string().find("newaccount not allowed in sub shards") != std::string::npos;
-    });
+    BOOST_CHECK_EXCEPTION(create_account_on_subshard(t, "hello"_n, "test"_n),
+               only_main_shard_allowed_exception,
+               fc_exception_message_contains("newaccount only allowed in main shard")
+    );
     t.produce_block();
-
 
 }
 
@@ -219,7 +219,7 @@ BOOST_FIXTURE_TEST_CASE( shard_tx_test, currency_test ) try {
    BOOST_CHECK_NO_THROW(create_account("alice"_n));
    BOOST_CHECK_NO_THROW(create_account("bob"_n));
    produce_block();
-   
+
    auto trace = push_action("gax.token"_n, "transfer"_n, mutable_variant_object()
       ("from", currency_test::gax_token)
       ("to",   "alice")
@@ -229,10 +229,10 @@ BOOST_FIXTURE_TEST_CASE( shard_tx_test, currency_test ) try {
    );
 
    produce_block();
-   
+
    BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trace->id));
    BOOST_REQUIRE_EQUAL(get_balance_on_shard("alice"_n), asset::from_string( "100.0000 CUR" ) );
-   
+
 } FC_LOG_AND_RETHROW ();
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -2,7 +2,6 @@
 
 #include <eosio/chain/account_object.hpp>
 #include <eosio/chain/contract_table_objects.hpp>
-#include <eosio/chain/shared_contract_table_objects.hpp>
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>

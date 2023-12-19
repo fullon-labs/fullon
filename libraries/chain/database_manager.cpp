@@ -124,6 +124,18 @@ namespace eosio { namespace chain {
       return nullptr;
    }
 
+   const database_manager::database* database_manager::find_shard_db(const shard_name& name) const {
+      if (name == config::main_shard_name) {
+         return &_main_db;
+      } else {
+         auto itr = _shard_db_map.find(name);
+         if (itr != _shard_db_map.end()) {
+            return &itr->second;
+         }
+      }
+      return nullptr;
+   }
+
    void shard_db_catalog::save(database_manager& dbm) {
       auto catalog_dat = dbm.dir / config::shard_db_catalog_filename;
 
@@ -142,7 +154,7 @@ namespace eosio { namespace chain {
       std::string error_msg;
 
       const auto& s_indx = shared_db.get_index<shard_index, by_id>();
-      for( auto itr = s_indx.begin(); itr != s_indx.end(); itr = s_indx.begin() ) {
+      for( auto itr = s_indx.begin(); itr != s_indx.end(); itr++ ) {
          // TODO: check if control->config (itr->name)
          auto db_ptr = dbm.find_shard_db(itr->name);
          if (!db_ptr) {
@@ -153,7 +165,8 @@ namespace eosio { namespace chain {
          shards.push_back(itr->name);
       }
 
-      fc::raw::pack( shards );
+      fc::raw::pack( out, shards );
+      fc::raw::pack( out, error_msg );
       // TODO: calc and pack check sum
    }
 

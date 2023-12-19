@@ -26,7 +26,7 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/shard_object.hpp>
-#include <eosio/chain/shared_contract_table_objects.hpp>
+#include <eosio/chain/shard_message_object.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -43,6 +43,9 @@ namespace eosio { namespace chain {
 
 using resource_limits::resource_limits_manager;
 
+// TODO: main_shard_db_index_set
+// TODO: sub_shard_db_index_set
+
 using controller_index_set = index_set<
    account_index,
    account_metadata_index,
@@ -58,7 +61,8 @@ using controller_index_set = index_set<
    database_header_multi_index,
    shard_index,
    shard_change_index,
-   shared_table_id_multi_index
+   shared_table_id_multi_index,
+   shard_message_index
 >;
 
 using contract_database_index_set = index_set<
@@ -68,6 +72,15 @@ using contract_database_index_set = index_set<
    index256_index,
    index_double_index,
    index_long_double_index
+>;
+
+using contract_shared_database_index_set = index_set<
+   shared_key_value_index,
+   shared_index64_index,
+   shared_index128_index,
+   shared_index256_index,
+   shared_index_double_index,
+   shared_index_long_double_index
 >;
 
 using shared_index_set = index_set<
@@ -81,7 +94,8 @@ using shared_index_set = index_set<
    // block_summary_multi_index,
    code_index,
    shard_index,
-   shared_table_id_multi_index
+   shared_table_id_multi_index,
+   shard_message_index
 >;
 
 template<typename DatabaseType>
@@ -135,6 +149,13 @@ class maybe_session {
 using dbm_maybe_session = maybe_session<database_manager>;
 using db_maybe_session = maybe_session<database>;
 
+struct posted_message
+{
+   postmsg                       msg;
+   transaction_id_type           trx_id;
+   uint32_t                      trx_action_sequence;
+};
+
 struct building_shard {
    shard_name                                   _name;
    database&                                    _db;
@@ -143,6 +164,9 @@ struct building_shard {
    deque<transaction_receipt>                   _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
    digests_t                                    _trx_mroot_or_receipt_digests;
    digests_t                                    _action_receipt_digests;
+   deque<message_id_type>                       _recv_msgs;
+   flat_set<message_id_type>                    _recv_msg_set;
+   deque<posted_message>                        _posted_msgs;
 
    building_shard(const shard_name& name, database& db, database& shared_db):
       _name(name), _db(db), _shared_db(shared_db) {}
@@ -184,7 +208,9 @@ struct building_block {
    inline transaction_metadata_map extract_trx_metas() {
       transaction_metadata_map result;
       for (auto& shard : _shards) {
-         result[shard.first] = std::move(shard.second._pending_trx_metas);
+         if (!shard.second._pending_trx_metas.empty()) {
+            result[shard.first] = std::move(shard.second._pending_trx_metas);
+         }
       }
       return result;
    }
@@ -192,7 +218,9 @@ struct building_block {
    inline transaction_receipt_map extract_trx_receipt_map() {
       transaction_receipt_map result;
       for (auto& shard : _shards) {
-         result[shard.first] = std::move(shard.second._pending_trx_receipts);
+         if (!shard.second._pending_trx_receipts.empty()) {
+            result[shard.first] = std::move(shard.second._pending_trx_receipts);
+         }
       }
       return result;
    }
@@ -200,7 +228,9 @@ struct building_block {
    inline digests_t extract_receipt_digests() {
       digests_t result;
       for (auto& shard : _shards) {
-         fc::move_append( result, std::move(shard.second._trx_mroot_or_receipt_digests) );
+         if (!shard.second._trx_mroot_or_receipt_digests.empty()) {
+            fc::move_append( result, std::move(shard.second._trx_mroot_or_receipt_digests) );
+         }
       }
       return result;
    }
@@ -208,7 +238,9 @@ struct building_block {
    inline digests_t extract_action_receipt_digests() {
       digests_t result;
       for (auto& shard : _shards) {
-         fc::move_append( result, std::move(shard.second._action_receipt_digests) );
+         if (!shard.second._action_receipt_digests.empty()) {
+            fc::move_append( result, std::move(shard.second._action_receipt_digests) );
+         }
       }
       return result;
    }
@@ -883,6 +915,9 @@ struct controller_impl {
    void init_db() {
       // TODO: move to database_manager
       shared_index_set::add_indices(dbm.shared_db());
+	   resource_limits_manager::add_shared_indices(dbm.shared_db());
+      contract_shared_database_index_set::add_indices(dbm.shared_db()); // TODO: main shard only
+
       add_indices_to_shard_db(dbm.main_db());
 
       auto catalog = shard_db_catalog::load(conf.state_dir);
@@ -890,24 +925,20 @@ struct controller_impl {
          add_shard_db(shard);
          // TODO: validate shard dbs?
       }
+
       dbm.enable_saving_catalog(); // TODO: Is it appropriate to call here
    }
 
+   // TODO: rename to init_db?
    void add_indices() {
-      // TODO: move to database_manager
-      shared_index_set::add_indices(dbm.shared_db());
-      add_indices_to_shard_db(dbm.main_db());
-
-      for (auto& item : dbm.shard_dbs()) {
-         add_indices_to_shard_db(item.second);
-      }
-	  resource_limits_manager::add_shared_indices(dbm.shared_db());
+      init_db();
    }
 
    void add_indices_to_shard_db(database& db) {
       // TODO: move to database_manager
       controller_index_set::add_indices(db);
       contract_database_index_set::add_indices(db);
+      contract_shared_database_index_set::add_indices(db); // TODO: main shard only
       authorization_manager::add_indices(db);
       resource_limits_manager::add_indices(db);
    }
@@ -936,6 +967,22 @@ struct controller_impl {
          itr = new_ret.first;
       }
       return itr->second;
+   }
+
+   // sync changes from main db to shared db
+   void sync_shared_db() {
+      // apply shared changes of main_db to shared_db
+      // TODO: del me
+      // wdump(("copy block state changes from main to shared db")(pbhs.block_num));
+      // auto& acct_idx = dbm.main_db().get_index<account_index>();
+      // auto acct_undo = acct_idx.last_undo_session();
+      // size_t num_old = std::distance(acct_undo.old_values.begin(), acct_undo.old_values.end());
+      // size_t num_rm = std::distance(acct_undo.removed_values.begin(), acct_undo.removed_values.end());
+      // size_t num_new = std::distance(acct_undo.new_values.begin(), acct_undo.new_values.end());
+      // wdump((pbhs.block_num)(acct_idx.undo_stack_revision_range())(num_old)(num_rm)(num_new));
+      shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
+      contract_shared_database_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
+      resource_limits_manager::copy_changes(dbm.main_db(), dbm.shared_db());
    }
 
    void clear_all_undo() {
@@ -1311,11 +1358,15 @@ struct controller_impl {
       auto orig_trx_metas_size              = shard._pending_trx_metas.size();
       auto orig_trx_receipt_digests_size    = !bb._trx_mroot ? shard._trx_mroot_or_receipt_digests.size() : 0;
       auto orig_action_receipt_digests_size = shard._action_receipt_digests.size();
+      auto orig_recv_msgs_size = shard._recv_msgs.size();
+      auto orig_posted_msgs_size = shard._posted_msgs.size();
       std::function<void()> callback = [this, &shard,
             orig_trx_receipts_size,
             orig_trx_metas_size,
             orig_trx_receipt_digests_size,
-            orig_action_receipt_digests_size]()
+            orig_action_receipt_digests_size,
+            orig_recv_msgs_size,
+            orig_posted_msgs_size]()
       {
          auto& bb = std::get<building_block>(pending->_block_stage);
          shard._pending_trx_receipts.resize(orig_trx_receipts_size);
@@ -1323,6 +1374,11 @@ struct controller_impl {
          if( !bb._trx_mroot )
             shard._trx_mroot_or_receipt_digests.resize(orig_trx_receipt_digests_size);
          shard._action_receipt_digests.resize(orig_action_receipt_digests_size);
+         for(size_t i = shard._recv_msgs.size() - 1; i > orig_recv_msgs_size - 1; i-- ) {
+            shard._recv_msg_set.erase(shard._recv_msgs[i]);
+         }
+         shard._recv_msgs.resize(orig_recv_msgs_size);
+         shard._posted_msgs.resize(orig_posted_msgs_size);
       };
 
       return fc::make_scoped_exit( std::move(callback) );
@@ -1739,6 +1795,35 @@ struct controller_impl {
          }
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
+
+         deque<message_id_type> recv_msgs;
+         deque<posted_message> posted_msgs;
+
+         for(uint32_t i = 0; i < trn.actions.size(); i++) {
+            const action& act = trn.actions[i];
+            if (act.account == postmsg::get_name() && act.name == postmsg::get_name() ) {
+               // TODO: check delay == 0
+               postmsg msg = act.data_as<postmsg>();
+               shard._posted_msgs.emplace_back( posted_message {
+                  .msg                 = std::move(msg),
+                  .trx_id              = trx->id(),
+                  .trx_action_sequence = i
+               });
+            }
+
+            if (act.account == recvmsg::get_name() && act.name == recvmsg::get_name() ) {
+               // TODO: check delay == 0
+               recvmsg msg = act.data_as<recvmsg>();
+               const auto *msg_obj = shard._shared_db.find<shard_message_object, by_msg_id>(msg.msg_id);
+               // TODO: shard_msg_exception
+               EOS_ASSERT( msg_obj, action_validate_exception, "Received message not found" );
+               EOS_ASSERT( msg_obj->owner == msg.owner, action_validate_exception, "owner of message unmatched" );
+               EOS_ASSERT( msg_obj->to_shard == shard._name, action_validate_exception, "to shard of message unmatched" );
+               EOS_ASSERT( shard._recv_msg_set.count(msg.msg_id) == 0, action_validate_exception, "Received message duplicated" );
+               recv_msgs.emplace_back(msg.msg_id);
+            }
+         }
+
          transaction_checktime_timer trx_timer(timer);
          transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), shard._db, shard._shared_db, start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
@@ -1805,6 +1890,13 @@ struct controller_impl {
             if ( !trx->is_read_only() ) {
                fc::move_append( shard._action_receipt_digests,
                                 std::move(trx_context.executed_action_receipt_digests) );
+
+               for (const auto& msg : recv_msgs) {
+                  shard._recv_msg_set.insert(msg);
+               }
+               fc::move_append( shard._recv_msgs, std::move(recv_msgs) );
+               fc::move_append( shard._posted_msgs, std::move(posted_msgs) );
+
                 if ( !trx->is_dry_run() ) {
                    // call the accept signal but only once for this transaction
                    if (!trx->accepted) {
@@ -2011,15 +2103,19 @@ struct controller_impl {
             if (sp == nullptr) {
                // create new shard
                main_db.create<shard_object>( [&]( auto& s ) {
-                  s.name        = itr->name;
-                  s.enabled     = itr->enabled;
-                  s.creation_at = pbhs.timestamp;
+                  s.name            = itr->name;
+                  s.owner           = itr->owner;
+                  s.shard_type      = itr->shard_type;
+                  s.enabled         = itr->enabled;
+                  s.creation_date   = pbhs.timestamp;
                });
                add_shard_db(itr->name);
             } else {
                // modify shard
+               EOS_ASSERT( itr->shard_type == sp->shard_type, shard_exception, "can not change the existed shard_type" );
                main_db.modify( *sp, [&]( auto& s ) {
-                  s.enabled     = itr->enabled;
+                  s.owner           = itr->owner;
+                  s.enabled         = itr->enabled;
                });
                // TODO: check shard db exists?
             }
@@ -2088,6 +2184,33 @@ struct controller_impl {
                                            } );
       }
 
+      // process shard msgs
+      for (auto& shard : bb._shards) {
+         // post message
+         for (const auto& posted_msg : shard.second._posted_msgs) {
+            dbm.main_db().create<shard_message_object>( [&]( auto& smo ) {
+               const auto& msg = posted_msg.msg;
+               smo.owner               = msg.owner;
+               smo.from_shard          = shard.second._name;
+               smo.to_shard            = msg.to_shard;
+               smo.contract            = msg.contract;
+               smo.action_name         = msg.action_name;
+               smo.action_data         = msg.action_data;
+               smo.trx_id              = posted_msg.trx_id;
+               smo.trx_action_sequence = posted_msg.trx_action_sequence;
+            } );
+         }
+
+         // receive message
+         for (const auto& msg_id : shard.second._recv_msgs) {
+            const auto *msg_obj = dbm.main_db().find<shard_message_object, by_msg_id>(msg_id);
+            // TODO: msg exception
+            EOS_ASSERT( msg_obj, action_validate_exception, "Received message not found" );
+            dbm.main_db().remove(*msg_obj);
+         }
+      }
+
+
       // Update resource limits:
       resource_limits.process_account_limit_updates();
       const auto& chain_config = self.get_global_properties().configuration;
@@ -2098,18 +2221,7 @@ struct controller_impl {
       );
       resource_limits.process_block_usage(pbhs.block_num);
 
-      // apply shared changes of main_db to shared_db
-      // TODO: del me
-      // wdump(("copy block state changes from main to shared db")(pbhs.block_num));
-      // auto& acct_idx = dbm.main_db().get_index<account_index>();
-      // auto acct_undo = acct_idx.last_undo_session();
-      // size_t num_old = std::distance(acct_undo.old_values.begin(), acct_undo.old_values.end());
-      // size_t num_rm = std::distance(acct_undo.removed_values.begin(), acct_undo.removed_values.end());
-      // size_t num_new = std::distance(acct_undo.new_values.begin(), acct_undo.new_values.end());
-      // wdump((pbhs.block_num)(acct_idx.undo_stack_revision_range())(num_old)(num_rm)(num_new));
-      shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
-      resource_limits_manager::copy_changes(dbm.main_db(), dbm.shared_db());
-      // TODO: clear empty trx receipts
+      sync_shared_db();
 
       // Create (unsigned) block:
       auto block_ptr = std::make_shared<signed_block>( pbhs.make_block_header(
@@ -3068,9 +3180,9 @@ controller::~controller() {
 void controller::add_indices() {
    my->add_indices();
 }
-//HACK: used to tester
+//HACK: used to tester // TODO: remove me
 void controller::add_shard_db(shard_name shard){
-   mutable_dbm().add_shard_db( shard, my->conf.state_size );
+   my->add_shard_db( shard );
 }
 
 void controller::startup( std::function<void()> shutdown, std::function<bool()> check_shutdown, const snapshot_reader_ptr& snapshot ) {
