@@ -26,7 +26,7 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/shard_object.hpp>
-#include <eosio/chain/shard_message_object.hpp>
+#include <eosio/chain/xshard_object.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -62,7 +62,7 @@ using controller_index_set = index_set<
    shard_index,
    shard_change_index,
    shared_table_id_multi_index,
-   shard_message_index
+   xshard_index
 >;
 
 using contract_database_index_set = index_set<
@@ -95,7 +95,7 @@ using shared_index_set = index_set<
    code_index,
    shard_index,
    shared_table_id_multi_index,
-   shard_message_index
+   xshard_index
 >;
 
 template<typename DatabaseType>
@@ -149,9 +149,9 @@ class maybe_session {
 using dbm_maybe_session = maybe_session<database_manager>;
 using db_maybe_session = maybe_session<database>;
 
-struct posted_message
+struct xsh_out_action
 {
-   postmsg                       msg;
+   chain::xshout                 xsh_out;
    transaction_id_type           trx_id;
    uint32_t                      trx_action_sequence;
 };
@@ -164,9 +164,9 @@ struct building_shard {
    deque<transaction_receipt>                   _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
    digests_t                                    _trx_mroot_or_receipt_digests;
    digests_t                                    _action_receipt_digests;
-   deque<message_id_type>                       _recv_msgs;
-   flat_set<message_id_type>                    _recv_msg_set;
-   deque<posted_message>                        _posted_msgs;
+   deque<xshard_id_type>                        _xsh_ins;
+   flat_set<xshard_id_type>                     _xsh_in_set;
+   deque<xsh_out_action>                       _xsh_out_actions;
 
    building_shard(const shard_name& name, database& db, database& shared_db):
       _name(name), _db(db), _shared_db(shared_db) {}
@@ -1358,8 +1358,8 @@ struct controller_impl {
       auto orig_trx_metas_size              = shard._pending_trx_metas.size();
       auto orig_trx_receipt_digests_size    = !bb._trx_mroot ? shard._trx_mroot_or_receipt_digests.size() : 0;
       auto orig_action_receipt_digests_size = shard._action_receipt_digests.size();
-      auto orig_recv_msgs_size = shard._recv_msgs.size();
-      auto orig_posted_msgs_size = shard._posted_msgs.size();
+      auto orig_recv_msgs_size = shard._xsh_ins.size();
+      auto orig_posted_msgs_size = shard._xsh_out_actions.size();
       std::function<void()> callback = [this, &shard,
             orig_trx_receipts_size,
             orig_trx_metas_size,
@@ -1374,11 +1374,11 @@ struct controller_impl {
          if( !bb._trx_mroot )
             shard._trx_mroot_or_receipt_digests.resize(orig_trx_receipt_digests_size);
          shard._action_receipt_digests.resize(orig_action_receipt_digests_size);
-         for(size_t i = shard._recv_msgs.size() - 1; i > orig_recv_msgs_size - 1; i-- ) {
-            shard._recv_msg_set.erase(shard._recv_msgs[i]);
+         for(size_t i = shard._xsh_ins.size() - 1; i > orig_recv_msgs_size - 1; i-- ) {
+            shard._xsh_in_set.erase(shard._xsh_ins[i]);
          }
-         shard._recv_msgs.resize(orig_recv_msgs_size);
-         shard._posted_msgs.resize(orig_posted_msgs_size);
+         shard._xsh_ins.resize(orig_recv_msgs_size);
+         shard._xsh_out_actions.resize(orig_posted_msgs_size);
       };
 
       return fc::make_scoped_exit( std::move(callback) );
@@ -1796,31 +1796,31 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
 
-         deque<message_id_type> recv_msgs;
-         deque<posted_message> posted_msgs;
+         deque<xshard_id_type> xsh_ins;
+         deque<xsh_out_action> posted_msgs;
 
          for(uint32_t i = 0; i < trn.actions.size(); i++) {
             const action& act = trn.actions[i];
-            if (act.account == postmsg::get_name() && act.name == postmsg::get_name() ) {
+            if (act.account == xshout::get_name() && act.name == xshout::get_name() ) {
                // TODO: check delay == 0
-               postmsg msg = act.data_as<postmsg>();
-               shard._posted_msgs.emplace_back( posted_message {
-                  .msg                 = std::move(msg),
+               xshout xsh_out = act.data_as<xshout>();
+               shard._xsh_out_actions.emplace_back( xsh_out_action {
+                  .xsh_out            = std::move(xsh_out),
                   .trx_id              = trx->id(),
                   .trx_action_sequence = i
                });
             }
 
-            if (act.account == recvmsg::get_name() && act.name == recvmsg::get_name() ) {
+            if (act.account == xshin::get_name() && act.name == xshin::get_name() ) {
                // TODO: check delay == 0
-               recvmsg msg = act.data_as<recvmsg>();
-               const auto *msg_obj = shard._shared_db.find<shard_message_object, by_msg_id>(msg.msg_id);
-               // TODO: shard_msg_exception
-               EOS_ASSERT( msg_obj, action_validate_exception, "Received message not found" );
-               EOS_ASSERT( msg_obj->owner == msg.owner, action_validate_exception, "owner of message unmatched" );
-               EOS_ASSERT( msg_obj->to_shard == shard._name, action_validate_exception, "to shard of message unmatched" );
-               EOS_ASSERT( shard._recv_msg_set.count(msg.msg_id) == 0, action_validate_exception, "Received message duplicated" );
-               recv_msgs.emplace_back(msg.msg_id);
+               xshin xsh_in = act.data_as<xshin>();
+               const auto *xsh = shard._shared_db.find<xshard_object, by_xshard_id>(xsh_in.xsh_id);
+               // TODO: xshard_exception
+               EOS_ASSERT( xsh, action_validate_exception, "Received message not found" );
+               EOS_ASSERT( xsh->owner == xsh_in.owner, action_validate_exception, "owner of message unmatched" );
+               EOS_ASSERT( xsh->to_shard == shard._name, action_validate_exception, "to shard of message unmatched" );
+               EOS_ASSERT( shard._xsh_in_set.count(xsh_in.xsh_id) == 0, action_validate_exception, "Received message duplicated" );
+               xsh_ins.emplace_back(xsh_in.xsh_id);
             }
          }
 
@@ -1891,11 +1891,11 @@ struct controller_impl {
                fc::move_append( shard._action_receipt_digests,
                                 std::move(trx_context.executed_action_receipt_digests) );
 
-               for (const auto& msg : recv_msgs) {
-                  shard._recv_msg_set.insert(msg);
+               for (const auto& xsh_in : xsh_ins) {
+                  shard._xsh_in_set.insert(xsh_in);
                }
-               fc::move_append( shard._recv_msgs, std::move(recv_msgs) );
-               fc::move_append( shard._posted_msgs, std::move(posted_msgs) );
+               fc::move_append( shard._xsh_ins, std::move(xsh_ins) );
+               fc::move_append( shard._xsh_out_actions, std::move(posted_msgs) );
 
                 if ( !trx->is_dry_run() ) {
                    // call the accept signal but only once for this transaction
@@ -2157,29 +2157,29 @@ struct controller_impl {
                                            } );
       }
 
-      // process shard msgs
+      // process xshard
       for (auto& shard : bb._shards) {
-         // post message
-         for (const auto& posted_msg : shard.second._posted_msgs) {
-            dbm.main_db().create<shard_message_object>( [&]( auto& smo ) {
-               const auto& msg = posted_msg.msg;
-               smo.owner               = msg.owner;
-               smo.from_shard          = shard.second._name;
-               smo.to_shard            = msg.to_shard;
-               smo.contract            = msg.contract;
-               smo.action_name         = msg.action_name;
-               smo.action_data         = msg.action_data;
-               smo.trx_id              = posted_msg.trx_id;
-               smo.trx_action_sequence = posted_msg.trx_action_sequence;
+         // xshout
+         for (const auto& posted_msg : shard.second._xsh_out_actions) {
+            dbm.main_db().create<xshard_object>( [&]( auto& xsh ) {
+               const auto& xsh_out = posted_msg.xsh_out;
+               xsh.owner               = xsh_out.owner;
+               xsh.from_shard          = shard.second._name;
+               xsh.to_shard            = xsh_out.to_shard;
+               xsh.contract            = xsh_out.contract;
+               xsh.action_name         = xsh_out.action_name;
+               xsh.action_data         = xsh_out.action_data;
+               xsh.trx_id              = posted_msg.trx_id;
+               xsh.trx_action_sequence = posted_msg.trx_action_sequence;
             } );
          }
 
-         // receive message
-         for (const auto& msg_id : shard.second._recv_msgs) {
-            const auto *msg_obj = dbm.main_db().find<shard_message_object, by_msg_id>(msg_id);
-            // TODO: msg exception
-            EOS_ASSERT( msg_obj, action_validate_exception, "Received message not found" );
-            dbm.main_db().remove(*msg_obj);
+         // xshin
+         for (const auto& xsh_id : shard.second._xsh_ins) {
+            const auto *xsh = dbm.main_db().find<xshard_object, by_xshard_id>(xsh_id);
+            // TODO: xshard exception
+            EOS_ASSERT( xsh, action_validate_exception, "xshard object not found" );
+            dbm.main_db().remove(*xsh);
          }
       }
 

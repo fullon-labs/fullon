@@ -191,7 +191,7 @@ namespace eosio { namespace chain {
       // reserve 10 tables
       shard_object_type                      = 51,
       shard_change_object_type               = 52,
-      shard_message_object_type              = 53,
+      xshard_object_type                     = 53,
       shared_table_id_object_type            = 54,
       shared_key_value_object_type           = 55,
       shared_index64_object_type             = 56,
@@ -265,7 +265,7 @@ namespace eosio { namespace chain {
    using uint128_t           = unsigned __int128;
    using bytes               = vector<char>;
    using digests_t           = deque<digest_type>;
-   using message_id_type     = checksum_type;
+   using xshard_id_type      = checksum_type;
 
    struct sha256_less {
       bool operator()( const fc::sha256& lhs, const fc::sha256& rhs ) const {

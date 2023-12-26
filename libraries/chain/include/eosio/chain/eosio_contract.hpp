@@ -28,8 +28,8 @@ namespace eosio { namespace chain {
 
    void apply_gax_canceldelay(apply_context&);
 
-   void apply_gax_postmsg(apply_context&);
-   void apply_gax_recvmsg(apply_context&);
+   void apply_gax_xshout(apply_context&);
+   void apply_gax_xshin(apply_context&);
    ///@}  end action handlers
 
 } } /// namespace eosio::chain
