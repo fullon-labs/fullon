@@ -172,7 +172,6 @@ struct xshout {
 
 struct xshin {
    account_name                  owner;
-   // shard_name                    from_shard;
    xshard_id_type                xsh_id;
 
    static account_name get_account() {

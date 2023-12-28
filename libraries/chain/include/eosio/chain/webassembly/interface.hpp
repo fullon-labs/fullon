@@ -250,7 +250,7 @@ namespace webassembly {
          void set_privileged(account_name account, bool is_priv);
 
          /**
-          * Register shard, include `enabled` status.
+          * Register shard.
           *
           * @ingroup privileged
           * @param packed_shard - a span containing the packed shard to register.
@@ -258,6 +258,15 @@ namespace webassembly {
           * @return negative if registered shard schedule was unsuccessful, otherwise returns the version of the new registered shard.
          */
          int64_t register_shard_packed( span<const char> packed_shard );
+
+         /**
+          * Retrieve the xshard info by xsh_id.
+          * @ingroup privileged
+          *
+          * @param xsh_id - the input xshard id.
+          * @param[out] packed_xshard - the output buffer with the packed data of xshard info.
+         */
+         uint32_t get_xshard_packed( legacy_ptr<const fc::sha256> xsh_id, legacy_span<char> packed_xshard ) const;
 
          // softfloat api
          float _eosio_f32_add(float, float) const;

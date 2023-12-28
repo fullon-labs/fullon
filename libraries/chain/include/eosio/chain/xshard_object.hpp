@@ -14,20 +14,30 @@ namespace eosio { namespace chain {
     */
    class xshard_object : public chainbase::object<xshard_object_type, xshard_object>
    {
-      OBJECT_CTOR(xshard_object)
+      OBJECT_CTOR(xshard_object, (action_data))
 
       id_type                       id;
+      xshard_id_type                xsh_id;
       account_name                  owner;
       shard_name                    from_shard;
       shard_name                    to_shard;
       account_name                  contract;
       eosio::chain::action_name     action_name;
-      bytes                         action_data;
-      transaction_id_type           trx_id;
-      uint32_t                      trx_action_sequence;
+      shared_blob                   action_data;
 
+      xshard_object& operator=(const xshard_object& a) {
+         id                = a.id;
+         xsh_id            = a.xsh_id;
+         owner             = a.owner;
+         from_shard        = a.from_shard;
+         to_shard          = a.to_shard;
+         contract          = a.contract;
+         action_name       = a.action_name;
+         action_data.assign(a.action_data.data(), a.action_data.size());
+         return *this;
+      }
 
-      xshard_id_type xshard_id() const {
+      static inline xshard_id_type make_xsh_id(const transaction_id_type& trx_id, uint32_t trx_action_sequence) {
          digest_type::encoder enc;
          fc::raw::pack( enc, trx_id );
          fc::raw::pack( enc, trx_action_sequence  );
@@ -41,7 +51,7 @@ namespace eosio { namespace chain {
       xshard_object,
       indexed_by<
          ordered_unique< tag<by_id>, BOOST_MULTI_INDEX_MEMBER(xshard_object, xshard_object::id_type, id)>,
-         ordered_unique< tag<by_xshard_id>, BOOST_MULTI_INDEX_CONST_MEM_FUN(xshard_object, digest_type, xshard_id) >,
+         ordered_unique< tag<by_xshard_id>, BOOST_MULTI_INDEX_MEMBER(xshard_object, digest_type, xsh_id) >,
          ordered_unique< tag<by_owner_xshard>,
             composite_key< xshard_object,
                BOOST_MULTI_INDEX_MEMBER( xshard_object, account_name, owner ),
@@ -54,6 +64,6 @@ namespace eosio { namespace chain {
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::xshard_object, eosio::chain::xshard_index)
 
-FC_REFLECT(eosio::chain::xshard_object, (owner)(from_shard)(to_shard)(contract)(action_name)(action_data)(trx_id)(trx_action_sequence))
+FC_REFLECT(eosio::chain::xshard_object, (xsh_id)(owner)(from_shard)(to_shard)(contract)(action_name)(action_data))
 
 

@@ -2163,14 +2163,14 @@ struct controller_impl {
          for (const auto& posted_msg : shard.second._xsh_out_actions) {
             dbm.main_db().create<xshard_object>( [&]( auto& xsh ) {
                const auto& xsh_out = posted_msg.xsh_out;
+
+               xsh.xsh_id              = xshard_object::make_xsh_id( posted_msg.trx_id, posted_msg.trx_action_sequence );
                xsh.owner               = xsh_out.owner;
                xsh.from_shard          = shard.second._name;
                xsh.to_shard            = xsh_out.to_shard;
                xsh.contract            = xsh_out.contract;
                xsh.action_name         = xsh_out.action_name;
-               xsh.action_data         = xsh_out.action_data;
-               xsh.trx_id              = posted_msg.trx_id;
-               xsh.trx_action_sequence = posted_msg.trx_action_sequence;
+               xsh.action_data.assign(xsh_out.action_data.data(), xsh_out.action_data.size());
             } );
          }
 

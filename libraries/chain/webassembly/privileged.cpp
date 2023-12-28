@@ -5,6 +5,7 @@
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/shard_object.hpp>
+#include <eosio/chain/xshard_object.hpp>
 
 #include <vector>
 #include <set>
@@ -266,6 +267,24 @@ namespace eosio { namespace chain { namespace webassembly {
             return (int64_t)new_version;
          }
       }, rsv);
+   }
+
+   uint32_t interface::get_xshard_packed( legacy_ptr<const fc::sha256> xsh_id, legacy_span<char> packed_xshard ) const {
+      const auto *xsh = context.shared_db.find<xshard_object, by_xshard_id>(*xsh_id);
+      if (xsh == nullptr) {
+         return 0;
+      }
+
+      auto size = fc::raw::pack_size( *xsh );
+      if( packed_xshard.size() == 0 ) return size;
+
+      EOS_ASSERT(size <= packed_xshard.size(),
+                 chain::config_parse_error,
+                 "get_xshard_packed: buffer size is smaller than ${size}", ("size", size));
+
+      datastream<char*> ds( packed_xshard.data(), size );
+      fc::raw::pack( ds, *xsh );
+      return size;
    }
 
 }}} // ns eosio::chain::webassembly
