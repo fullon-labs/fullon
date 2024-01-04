@@ -156,7 +156,7 @@ struct xshout {
    account_name                  owner;
    shard_name                    to_shard;
    account_name                  contract;
-   eosio::chain::action_name     action_name;
+   action_name                   action_type;
    bytes                         action_data;
 
 
@@ -196,5 +196,5 @@ FC_REFLECT( eosio::chain::linkauth                         , (account)(code)(typ
 FC_REFLECT( eosio::chain::unlinkauth                       , (account)(code)(type) )
 FC_REFLECT( eosio::chain::canceldelay                      , (canceling_auth)(trx_id) )
 FC_REFLECT( eosio::chain::onerror                          , (sender_id)(sent_trx) )
-FC_REFLECT( eosio::chain::xshout                           , (owner)(to_shard)(contract)(action_name)(action_data) )
+FC_REFLECT( eosio::chain::xshout                           , (owner)(to_shard)(contract)(action_type)(action_data) )
 FC_REFLECT( eosio::chain::xshin                            , (owner)(xsh_id) )

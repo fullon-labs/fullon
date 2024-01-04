@@ -2169,7 +2169,7 @@ struct controller_impl {
                xsh.from_shard          = shard.second._name;
                xsh.to_shard            = xsh_out.to_shard;
                xsh.contract            = xsh_out.contract;
-               xsh.action_name         = xsh_out.action_name;
+               xsh.action_type         = xsh_out.action_type;
                xsh.action_data.assign(xsh_out.action_data.data(), xsh_out.action_data.size());
             } );
          }

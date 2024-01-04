@@ -22,7 +22,7 @@ namespace eosio { namespace chain {
       shard_name                    from_shard;
       shard_name                    to_shard;
       account_name                  contract;
-      eosio::chain::action_name     action_name;
+      action_name                   action_type;
       shared_blob                   action_data;
 
       xshard_object& operator=(const xshard_object& a) {
@@ -32,7 +32,7 @@ namespace eosio { namespace chain {
          from_shard        = a.from_shard;
          to_shard          = a.to_shard;
          contract          = a.contract;
-         action_name       = a.action_name;
+         action_type       = a.action_type;
          action_data.assign(a.action_data.data(), a.action_data.size());
          return *this;
       }
@@ -64,6 +64,6 @@ namespace eosio { namespace chain {
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::xshard_object, eosio::chain::xshard_index)
 
-FC_REFLECT(eosio::chain::xshard_object, (xsh_id)(owner)(from_shard)(to_shard)(contract)(action_name)(action_data))
+FC_REFLECT(eosio::chain::xshard_object, (xsh_id)(owner)(from_shard)(to_shard)(contract)(action_type)(action_data))
 
 
