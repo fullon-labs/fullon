@@ -9,6 +9,7 @@
 #include <eosio/print.hpp>
 #include <eosio/privileged.hpp>
 #include <eosio/producer_schedule.hpp>
+#include <eosio/asset.hpp>
 
 namespace eosiosystem {
 
@@ -117,6 +118,17 @@ namespace eosiosystem {
       uint64_t primary_key()const { return owner.value; }
 
       EOSLIB_SERIALIZE( abi_hash, (owner)(hash) )
+   };
+
+   /**
+    * xtoken is the struct of `xtransfer` action type of xshard.
+    */
+   struct [[eosio::action]] xtoken {
+      eosio::asset      quantity;
+      std::string       memo;
+
+      // explicit serialization macro is not necessary, used here only to improve compilation time
+      EOSLIB_SERIALIZE( xtoken, (quantity)(memo) )
    };
 
    void check_auth_change(name contract, name account, const binary_extension<name>& authorized_by);
@@ -307,6 +319,31 @@ namespace eosiosystem {
          [[eosio::action]]
          void setcode( const name& account, uint8_t vmtype, uint8_t vmversion, const std::vector<char>& code,
                        const binary_extension<std::string>& memo ) {}
+         /**
+          * Allows `owner` account to make a request to transfer tokens from current shard to `to_shard`.
+          *
+          * @param owner - the owner account to execute this action,
+          * @param to_shard - the shard to be transferred to,
+          * @param contract - the token contract,
+          * @param action_type - the action type: `xtoken`.
+          * @param action_data - the action data
+          */
+         [[eosio::action]]
+         void xshout(   name                 owner,
+                        name                 to_shard,
+                        name                 contract,
+                        name                 action_name,
+                        std::vector<char>    action_data );
+
+         /**
+          * Allows `owner` account of current shard to accept the tokens transfered from `from_shard`.
+          * The `owner` account is credited with `quantity` tokens,
+          *
+          * @param owner - the owner account to execute this action,
+          * @param xsh_id - the xshard id,
+          */
+         [[eosio::action]]
+         void xshin( const name& owner, const checksum256& xsh_id );
 
          using newaccount_action = eosio::action_wrapper<"newaccount"_n, &native::newaccount>;
          using updateauth_action = eosio::action_wrapper<"updateauth"_n, &native::updateauth>;
@@ -316,5 +353,7 @@ namespace eosiosystem {
          using canceldelay_action = eosio::action_wrapper<"canceldelay"_n, &native::canceldelay>;
          using setcode_action = eosio::action_wrapper<"setcode"_n, &native::setcode>;
          using setabi_action = eosio::action_wrapper<"setabi"_n, &native::setabi>;
+         using xshout_action = eosio::action_wrapper<"xshout"_n, &native::xshout>;
+         using xshin_action = eosio::action_wrapper<"xshin"_n, &native::xshin>;
    };
 }
