@@ -21,6 +21,8 @@ elseif( USE_EOSIO_CDT_1_8_X )
    add_definitions(-DUSE_EOSIO_CDT_1_8_X=true)
 endif()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-missing-ricardian-clause")
+
 add_subdirectory( asserter )
 add_subdirectory( deferred_test )
 add_subdirectory( get_sender_test )
