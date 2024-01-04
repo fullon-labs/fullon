@@ -164,4 +164,46 @@ void token::close( const name& owner, const symbol& symbol )
    acnts.erase( it );
 }
 
+void token::xshout( const name& owner, const name& to_shard, const asset& quantity, const string& memo ) {
+
+    require_auth( owner );
+    require_auth( system_account );
+    check(get_first_receiver() == system_account, "this action can only be called by system_account");
+    auto sym = quantity.symbol.code();
+    stats statstable( get_self(), sym.raw() );
+    // TODO: issuer must init the currency in to shard before xshout
+    const auto& st = statstable.get( sym.raw() );
+
+   //  require_recipient( owner );
+
+    check( quantity.is_valid(), "invalid quantity" );
+    check( quantity.amount > 0, "must transfer positive quantity" );
+    check( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
+    check( memo.size() <= 256, "memo has more than 256 bytes" );
+
+    sub_balance( owner, quantity );
+
+   // TODO:  st.shard_balance -= quantity;
+}
+
+void token::xshin( const name& owner, const name& from_shard, const asset& quantity, const string& memo ) {
+
+    require_auth( system_account );
+    check(get_first_receiver() == system_account, "this action can only be called by system_account");
+   //  auto sym = quantity.symbol.code();
+   //  stats statstable( get_self(), sym.raw() );
+    // TODO: issuer must init the currency in to shard before xshout
+   //  const auto& st = statstable.get( sym.raw() );
+
+   //  require_recipient( owner );
+
+   // check( quantity.is_valid(), "invalid quantity" );
+   check( quantity.amount > 0, "must transfer positive quantity" );
+   // check( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
+   check( memo.size() <= 256, "memo has more than 256 bytes" );
+
+   add_balance( owner, quantity, owner ); // TODO: payer??
+   // TODO: st.shard_balance += quantity;
+}
+
 } /// namespace eosio
