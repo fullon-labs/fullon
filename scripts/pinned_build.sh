@@ -115,12 +115,12 @@ install_boost() {
         try tar --transform="s:^boost_${BOOST_VER//\./_}:boost_${BOOST_VER//\./_}patched:" -xvzf "boost_${BOOST_VER//\./_}.tar.gz" -C "${DEP_DIR}"
         pushdir "${BOOST_DIR}"
         patch -p1 < "${SCRIPT_DIR}/0001-beast-fix-moved-from-executor.patch"
-        try ./bootstrap.sh -with-toolset=clang --prefix="${BOOST_DIR}/bin"
+        try ./bootstrap.sh -with-toolset=clang --prefix="${BOOST_DIR}/boost_root"
         ./b2 toolset=clang cxxflags="-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I\${CLANG_DIR}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE" linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -q -j "${JOBS}" install
         popdir "${DEP_DIR}"
         rm "boost_${BOOST_VER//\./_}.tar.gz"
     fi
-    export BOOST_DIR="${BOOST_DIR}"
+    export BOOST_ROOT="${BOOST_DIR}/boost_root"
 }
 
 pushdir "${DEP_DIR}"
@@ -136,7 +136,7 @@ pushdir "${LEAP_DIR}"
 
 # build Leap
 echo "Building Leap ${SCRIPT_DIR}"
-try cmake ${CMAKE_ARGS} -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX=${LEAP_PINNED_INSTALL_PREFIX:-/usr/local} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_PREFIX_PATH="${LLVM_DIR}/lib/cmake" -DCMAKE_PREFIX_PATH="${BOOST_DIR}/bin" "${SCRIPT_DIR}/.."
+try cmake ${CMAKE_ARGS} -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX=${LEAP_PINNED_INSTALL_PREFIX:-/usr/local} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_PREFIX_PATH="${LLVM_DIR}/lib/cmake" "${SCRIPT_DIR}/.."
 
 try make -j "${JOBS}"
 try cpack
