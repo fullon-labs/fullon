@@ -738,15 +738,21 @@ int apply_context::get_context_free_data( uint32_t index, char* buffer, size_t b
 }
 
 uint64_t apply_context::next_global_sequence() {
-   const auto& p = control.get_dynamic_global_properties();
+   const dynamic_global_property_object* p = nullptr;
+   p = db.find<dynamic_global_property_object>();
+   if( p == nullptr ) {
+      p = &db.create<dynamic_global_property_object>([&](auto& d) {
+   
+      });
+   }
    if ( trx_context.is_read_only() ) {
       // To avoid confusion of duplicated global sequence number, hard code to be 0.
       return 0;
    } else {
-      db.modify( p, [&]( auto& dgp ) {
+      db.modify( *p, [&]( auto& dgp ) {
          ++dgp.global_action_sequence;
       });
-      return p.global_action_sequence;
+      return p->global_action_sequence;
    }
 }
 

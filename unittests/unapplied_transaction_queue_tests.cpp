@@ -161,8 +161,9 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
 
    // fifo forked
    auto bs4 = create_test_block_state( { trx7 } );
+   const branch_type forked_branch1 = { bs3, bs2 };
    q.add_forked( { bs1 } );
-   q.add_forked( { bs3, bs2 } );
+   q.add_forked( forked_branch1 );
    q.add_forked( { bs4 } );
    BOOST_CHECK( q.size() == 7 );
    BOOST_REQUIRE( next( q ) == trx1 );
@@ -197,8 +198,10 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    auto bs6 = create_test_block_state( { trx11, trx15 } );
    q.add_forked( { bs3, bs2, bs1 } );
    q.add_forked( { bs4 } );
-   q.add_forked( { bs3, bs2 } ); // dups ignored
-   q.add_forked( { bs6, bs5 } );
+   const branch_type forked_branch2 = { bs3, bs2 };
+   q.add_forked( forked_branch2 ); // dups ignored
+   const branch_type forked_branch3 = { bs6, bs5 };
+   q.add_forked( forked_branch3 );
    BOOST_CHECK_EQUAL( q.size(), 11 );
    BOOST_REQUIRE( next( q ) == trx1 );
    BOOST_CHECK( q.size() == 10 );
