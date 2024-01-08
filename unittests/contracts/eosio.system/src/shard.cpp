@@ -49,4 +49,19 @@ void native::xshin( const name& owner, const checksum256& xsh_id ) {
    }
 }
 
+void system_contract::regshard( const eosio::name& name, const eosio::name& owner, bool enabled ) {
+   require_auth(_self);
+
+   // TODO: add shard table??
+   eosio::registered_shard  shard = {
+      .name          = name,
+      .shard_type    = (uint8_t)eosio::shard_type::normal,
+      .owner         = owner,
+      .enabled       = enabled,
+      .opts          = 0
+   };
+   auto ret = register_shard(eosio::registered_shard_var(std::move(shard)));
+   check(ret >= 0, "register shard error(" + std::to_string(ret) + ")");
+}
+
 }; /// namespace eosiosystem
