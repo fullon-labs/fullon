@@ -239,7 +239,25 @@ public:
          return base_tester::push_action( std::move(act), auth ? signer.to_uint64_t() :
                                                 signer == "bob111111111"_n ? "alice1111111"_n.to_uint64_t() : "bob111111111"_n.to_uint64_t() );
    }
+   
+   auto push_action_on_shard(const account_name& signer, const action_name &name, const variant_object &data ) {
+      string action_type_name = abi_ser.get_action_type(name);
 
+      action act;
+      act.account = "gax.token"_n;
+      act.name = name;
+      act.authorization = vector<permission_level>{{signer, config::active_name}};
+      act.data = abi_ser.variant_to_binary(action_type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ));
+
+      signed_transaction trx;
+      trx.set_shard_name("shard1"_n);
+      trx.actions.emplace_back(std::move(act));
+
+      set_transaction_headers(trx);
+      trx.sign(get_private_key(signer, "active"), control->get_chain_id());
+      return push_transaction(trx);
+   }
+      
    action_result stake( const account_name& from, const account_name& to, const asset& net, const asset& cpu ) {
       return push_action( name(from), "delegatebw"_n, mvo()
                           ("from",     from)

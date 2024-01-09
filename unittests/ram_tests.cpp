@@ -18,7 +18,7 @@
  * register test suite `ram_tests`
  */
 BOOST_AUTO_TEST_SUITE(ram_tests)
-#if 0
+#if 1
 /*************************************************************************************
  * ram_tests test case
  *************************************************************************************/
@@ -73,8 +73,9 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
    auto total = get_total_stake( "testram11111"_n );
    const auto init_bytes =  total["ram_bytes"].as_uint64();
    //query RAM consumed of testram11111
+   chainbase::database& db = const_cast<database_manager&>(control->dbm()).main_db();
    auto rlm = control->get_resource_limits_manager();
-   auto initial_ram_usage = rlm.get_account_ram_usage("testram11111"_n);
+   auto initial_ram_usage = rlm.get_account_ram_usage("testram11111"_n, db);
    /**
    *init_bytes: total staked ram.
    *table_allocation_bytes: system will consume to store data into database.
@@ -104,7 +105,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
                         ("to", 10)
                         ("size", 1780 /*1910*/));
    produce_blocks(1);
-   auto ram_usage = rlm.get_account_ram_usage("testram11111"_n);
+   auto ram_usage = rlm.get_account_ram_usage("testram11111"_n, db);
 
    total = get_total_stake( "testram11111"_n );
    const auto ram_bytes =  total["ram_bytes"].as_uint64();
@@ -130,7 +131,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
    wlog("ram_tests 2    %%%%%%");
    produce_blocks(1);
    //if transaction fail, RAM usage isn't accumulation
-   BOOST_REQUIRE_EQUAL(ram_usage, rlm.get_account_ram_usage("testram11111"_n));
+   BOOST_REQUIRE_EQUAL(ram_usage, rlm.get_account_ram_usage("testram11111"_n, db));
 
    // update the entries with smaller allocations so that we can verify space is freed and new allocations can be made
    //available = if index == 11 ? 19002 - 17800 = 1202 : 19002
@@ -147,7 +148,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
                         ("size", 1680/*1810*/));
    produce_blocks(1);
    //(1780-1680)*10 = 1000
-   BOOST_REQUIRE_EQUAL(ram_usage - 1000, rlm.get_account_ram_usage("testram11111"_n));
+   BOOST_REQUIRE_EQUAL(ram_usage - 1000, rlm.get_account_ram_usage("testram11111"_n, db));
 
    // verify the added entry is beyond the allocation bytes limit
    //available = 19002 
@@ -168,7 +169,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
                            fc_exception_message_starts_with("account testram11111 has insufficient ram"));
    produce_blocks(1);
    //if transaction fail, RAM usage isn't accumulation
-   BOOST_REQUIRE_EQUAL(ram_usage - 1000, rlm.get_account_ram_usage("testram11111"_n));
+   BOOST_REQUIRE_EQUAL(ram_usage - 1000, rlm.get_account_ram_usage("testram11111"_n, db));
 
    // verify the new entry's bytes minus the freed up bytes for existing entries still exceeds the allocation bytes limit
    // test content store table:
@@ -187,7 +188,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
                            ram_usage_exceeded,
                            fc_exception_message_starts_with("account testram11111 has insufficient ram"));
    produce_blocks(1);
-   BOOST_REQUIRE_EQUAL(ram_usage - 1000, rlm.get_account_ram_usage("testram11111"_n));
+   BOOST_REQUIRE_EQUAL(ram_usage - 1000, rlm.get_account_ram_usage("testram11111"_n, db));
 
    // verify the new entry's bytes minus the freed up bytes for existing entries are under the allocation bytes limit
    // test content store table:
@@ -204,7 +205,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
                         ("to", 11)
                         ("size", /*1600*/1720));
    produce_blocks(1);
-   ram_usage = rlm.get_account_ram_usage("testram11111"_n);
+   ram_usage = rlm.get_account_ram_usage("testram11111"_n, db);
    //delete an item, free ram
    // test content store table:
    // | item index  | item size | available | expection
@@ -219,7 +220,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
                         ("from", 3)
                         ("to", 3));
    produce_blocks(1);
-   ram_usage = rlm.get_account_ram_usage("testram11111"_n);
+   ram_usage = rlm.get_account_ram_usage("testram11111"_n, db);
    // verify that the new entry will exceed the allocation bytes limit
    // test content store table:
    // | item index  | item size | available | expection

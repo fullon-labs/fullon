@@ -57,7 +57,8 @@ namespace eosio::trace_api {
                              std::vector<chain::packed_transaction> trxs ) {
          chain::signed_block_ptr block = std::make_shared<chain::signed_block>();
          // TODO: multi shard trx
-         auto& receipts = block->transactions[chain::config::main_shard_name];
+         auto itr = block->transactions.find(chain::config::main_shard_name);
+         auto&& receipts = (itr != block->transactions.end() ? itr->second : eosio::chain::deque<eosio::chain::transaction_receipt>());
          for( auto& trx : trxs ) {
             receipts.emplace_back( trx );
          }

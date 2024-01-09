@@ -320,13 +320,13 @@ namespace eosio { namespace chain {
    using object_to_table_id_tag_t = typename object_to_table_id_tag<T>::tag_type;
 
    struct contract_tables {
-      using table_id_object = table_id_object;
-      using key_value_object = key_value_object;
-      using index64_object = index64_object;
-      using index128_object = index128_object;
-      using index256_object = index256_object;
-      using index_double_object = index_double_object;
-      using index_long_double_object = index_long_double_object;
+      typedef eosio::chain::table_id_object table_id_object;
+      typedef eosio::chain::key_value_object key_value_object;
+      typedef eosio::chain::index64_object   index64_object;
+      typedef eosio::chain::index128_object  index128_object;
+      typedef eosio::chain::index256_object  index256_object;
+      typedef eosio::chain::index_double_object index_double_object;
+      typedef eosio::chain::index_long_double_object index_long_double_object;
    };
 
    struct contract_shared_tables {
