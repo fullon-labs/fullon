@@ -359,6 +359,9 @@ namespace eosiobios {
          [[eosio::action]]
          void reqactivated( const eosio::checksum256& feature_digest );
 
+         [[eosio::action]]
+         void regshard( const eosio::name& name, const eosio::name& owner, bool enabled );
+
          /**
           * Abi hash structure
           *

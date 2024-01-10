@@ -56,4 +56,19 @@ void bios::reqactivated( const eosio::checksum256& feature_digest ) {
    check( is_feature_activated( feature_digest ), "protocol feature is not activated" );
 }
 
+
+void bios::regshard( const eosio::name& name, const eosio::name& owner, bool enabled ) {
+   require_auth(_self);
+
+   eosio::registered_shard  shard = {
+      .name          = name,
+      .shard_type    = (uint8_t)eosio::shard_type::normal,
+      .owner         = owner,
+      .enabled       = enabled,
+      .opts          = 0
+   };
+   auto ret = register_shard(eosio::registered_shard_var(std::move(shard)));
+   check(ret >= 0, "register shard error(" + std::to_string(ret) + ")");
+}
+
 }
