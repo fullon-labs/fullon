@@ -289,7 +289,7 @@ namespace eosio { namespace chain {
          bool is_protocol_feature_activated( const digest_type& feature_digest )const;
          bool is_builtin_activated( builtin_protocol_feature_t f )const;
 
-         bool is_known_unexpired_transaction( const transaction_id_type& id) const;
+         bool is_known_unexpired_transaction( const transaction_id_type& id, const shard_name sname) const;
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 

@@ -800,10 +800,14 @@ namespace eosio { namespace chain {
 
    void transaction_context::record_transaction( const transaction_id_type& id, fc::time_point_sec expire ) {
       try {
-          control.mutable_db().create<transaction_object>([&](transaction_object& transaction) {
+         //  control.mutable_db().create<transaction_object>([&](transaction_object& transaction) {
+         //      transaction.trx_id = id;
+         //      transaction.expiration = expire;
+         //  });
+         db.create<transaction_object>([&](transaction_object& transaction) {
               transaction.trx_id = id;
               transaction.expiration = expire;
-          });
+         }); 
       } catch( const boost::interprocess::bad_alloc& ) {
          throw;
       } catch ( ... ) {

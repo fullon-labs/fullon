@@ -3929,9 +3929,9 @@ bool controller::is_builtin_activated( builtin_protocol_feature_t f )const {
    return my->protocol_features.is_builtin_activated( f, current_block_num );
 }
 
-bool controller::is_known_unexpired_transaction( const transaction_id_type& id) const {
+bool controller::is_known_unexpired_transaction( const transaction_id_type& id, const shard_name sname) const {
    // TODO: shared_db()?
-   auto& db = my->dbm.main_db();
+   auto& db = my->dbm.shard_db(sname);
    return db.find<transaction_object, by_trx_id>(id);
 }
 
