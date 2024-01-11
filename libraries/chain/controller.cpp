@@ -2096,33 +2096,6 @@ struct controller_impl {
             });
          }
 
-         // TODO: should move to finalize_block()?
-         const auto& sc_indx = main_db.get_index<shard_change_index, by_id>();
-         for( auto itr = sc_indx.begin(); itr != sc_indx.end() && itr->block_num <= pbhs.dpos_irreversible_blocknum; itr = sc_indx.begin() ) {
-            const auto* sp = main_db.find<shard_object, by_name>( itr->name );
-            if (sp == nullptr) {
-               // create new shard
-               main_db.create<shard_object>( [&]( auto& s ) {
-                  s.name            = itr->name;
-                  s.owner           = itr->owner;
-                  s.shard_type      = itr->shard_type;
-                  s.enabled         = itr->enabled;
-                  s.creation_date   = pbhs.timestamp;
-               });
-               add_shard_db(itr->name);
-            } else {
-               // modify shard
-               EOS_ASSERT( itr->shard_type == sp->shard_type, shard_exception, "can not change the existed shard_type" );
-               main_db.modify( *sp, [&]( auto& s ) {
-                  s.owner           = itr->owner;
-                  s.enabled         = itr->enabled;
-               });
-               // TODO: check shard db exists?
-            }
-            main_db.remove( *itr );
-         }
-
-
          try {
             transaction_metadata_ptr onbtrx =
                   transaction_metadata::create_no_recover_keys( std::make_shared<packed_transaction>( get_on_block_transaction() ),
@@ -2220,7 +2193,30 @@ struct controller_impl {
          {EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct), chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
       );
       resource_limits.process_block_usage(pbhs.block_num);
-
+      const auto& sc_indx = dbm.main_db().get_index<shard_change_index, by_id>();
+      for( auto itr = sc_indx.begin(); itr != sc_indx.end() && itr->block_num <= pbhs.dpos_irreversible_blocknum; itr = sc_indx.begin() ) {
+         const auto* sp = dbm.main_db().find<shard_object, by_name>( itr->name );
+         if (sp == nullptr) {
+            // create new shard
+            dbm.main_db().create<shard_object>( [&]( auto& s ) {
+               s.name            = itr->name;
+               s.owner           = itr->owner;
+               s.shard_type      = itr->shard_type;
+               s.enabled         = itr->enabled;
+               s.creation_date   = pbhs.timestamp;
+            });
+            add_shard_db(itr->name);
+         } else {
+            // modify shard
+            EOS_ASSERT( itr->shard_type == sp->shard_type, shard_exception, "can not change the existed shard_type" );
+            dbm.main_db().modify( *sp, [&]( auto& s ) {
+               s.owner           = itr->owner;
+               s.enabled         = itr->enabled;
+            });
+            // TODO: check shard db exists?
+         }
+         dbm.main_db().remove( *itr );
+      }
       sync_shared_db();
 
       // Create (unsigned) block:
