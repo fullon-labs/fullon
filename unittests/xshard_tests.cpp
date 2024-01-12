@@ -32,7 +32,9 @@ public:
       produce_blocks();
       create_account_with_resources( shard1_owner, config::system_account_name, core_from_string("10.0000"), false );
       regshard(config::system_account_name, shard1_name, shard1_owner, true);
-      produce_blocks();
+      produce_blocks(2);
+      const auto* shard_obj1 = control->dbm().main_db().find<shard_object, by_name>( shard1_name );
+      BOOST_REQUIRE( shard_obj1 != nullptr);
    }
 
    transaction_trace_ptr    push_action( const account_name& code,
@@ -124,8 +126,6 @@ BOOST_AUTO_TEST_SUITE(xshard_tests)
  *************************************************************************************/
 
 BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
-   const auto* shard_obj1 = control->dbm().main_db().find<shard_object, by_name>( shard1_name );
-   BOOST_REQUIRE( shard_obj1 != nullptr);
 
    transfer(config::system_account_name, "alice1111111"_n, core_from_string("100.0000"));
    auto xshout_data = fc::raw::pack( xtoken{core_from_string("1.0000"), ""} );

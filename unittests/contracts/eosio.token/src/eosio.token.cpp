@@ -187,8 +187,9 @@ void token::xshout( const name& owner, const name& to_shard, const asset& quanti
 
 void token::xshin( const name& owner, const name& from_shard, const asset& quantity, const string& memo ) {
 
+    require_auth( owner );
     require_auth( system_account );
-    check(get_first_receiver() == system_account, "this action can only be called by system_account");
+   //  check(get_first_receiver() == system_account, "this action can only be called by system_account");
    //  auto sym = quantity.symbol.code();
    //  stats statstable( get_self(), sym.raw() );
     // TODO: issuer must init the currency in to shard before xshout
