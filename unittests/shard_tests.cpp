@@ -13,9 +13,9 @@ using mvo = fc::mutable_variant_object;
 
 class shard_base_tester : public TEST {
 public:
-   const name contract_name   = "shard.test"_n;
-   const name shard1_name     = "sub.shard1"_n;
-   const name shard1_owner    = "owner.shard1"_n;
+   static constexpr name contract_name   = "shard.test"_n;
+   static constexpr name shard1_name     = "sub.shard1"_n;
+   static constexpr name shard1_owner    = "owner.shard1"_n;
 
    shard_base_tester() {
       produce_blocks();

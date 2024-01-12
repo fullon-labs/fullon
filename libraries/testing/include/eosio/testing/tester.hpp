@@ -458,8 +458,26 @@ namespace eosio { namespace testing {
          map<account_name, block_id_type>              last_produced_block;
          unapplied_transaction_queue                   unapplied_transactions;
 
+         eosio::chain::shard_name                      trx_shard_name = config::main_shard_name;
+
       public:
          vector<digest_type>                           protocol_features_to_be_activated_wo_preactivation;
+
+         struct shard_name_scope {
+            shard_name_scope(base_tester &t, const eosio::chain::shard_name &new_shard_name)
+                  : tester(t), old_shard_name(t.trx_shard_name)
+            {
+               tester.trx_shard_name = new_shard_name;
+            }
+
+            ~shard_name_scope() {
+               tester.trx_shard_name = old_shard_name;
+            }
+
+            base_tester &tester;
+            eosio::chain::shard_name old_shard_name;
+
+         };
    };
 
    class tester : public base_tester {

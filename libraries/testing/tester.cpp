@@ -539,14 +539,14 @@ namespace eosio { namespace testing {
 
 
   void base_tester::set_transaction_headers( transaction& trx, uint32_t expiration, uint32_t delay_sec ) const {
-     if (!trx.shard_name)
-       trx.shard_name = config::main_shard_name;
-     trx.expiration = control->head_block_time() + fc::seconds(expiration);
-     trx.set_reference_block( control->head_block_id() );
 
-     trx.max_net_usage_words = 0; // No limit
-     trx.max_cpu_usage_ms = 0; // No limit
-     trx.delay_sec = delay_sec;
+      trx.shard_name = trx_shard_name;
+      trx.expiration = control->head_block_time() + fc::seconds(expiration);
+      trx.set_reference_block( control->head_block_id() );
+
+      trx.max_net_usage_words = 0; // No limit
+      trx.max_cpu_usage_ms = 0; // No limit
+      trx.delay_sec = delay_sec;
   }
 
 

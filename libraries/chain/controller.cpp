@@ -1797,28 +1797,28 @@ struct controller_impl {
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
 
          deque<xshard_id_type> xsh_ins;
-         deque<xsh_out_action> posted_msgs;
+         deque<xsh_out_action> xsh_out_actions;
 
          for(uint32_t i = 0; i < trn.actions.size(); i++) {
             const action& act = trn.actions[i];
-            if (act.account == xshout::get_name() && act.name == xshout::get_name() ) {
+            if (act.account == config::system_account_name && act.name == xshout::get_name() ) {
                // TODO: check delay == 0
                xshout xsh_out = act.data_as<xshout>();
-               shard._xsh_out_actions.emplace_back( xsh_out_action {
+               xsh_out_actions.emplace_back( xsh_out_action {
                   .xsh_out            = std::move(xsh_out),
                   .trx_id              = trx->id(),
                   .trx_action_sequence = i
                });
             }
 
-            if (act.account == xshin::get_name() && act.name == xshin::get_name() ) {
+            if (act.account == config::system_account_name && act.name == xshin::get_name() ) {
                // TODO: check delay == 0
                xshin xsh_in = act.data_as<xshin>();
                const auto *xsh = shard._shared_db.find<xshard_object, by_xshard_id>(xsh_in.xsh_id);
                // TODO: xshard_exception
                EOS_ASSERT( xsh, action_validate_exception, "Received message not found" );
                EOS_ASSERT( xsh->owner == xsh_in.owner, action_validate_exception, "owner of message unmatched" );
-               EOS_ASSERT( xsh->to_shard == shard._name, action_validate_exception, "to shard of message unmatched" );
+               EOS_ASSERT( xsh->to_shard == shard._name, action_validate_exception, "to_shard of xshard mismatch" );
                EOS_ASSERT( shard._xsh_in_set.count(xsh_in.xsh_id) == 0, action_validate_exception, "Received message duplicated" );
                xsh_ins.emplace_back(xsh_in.xsh_id);
             }
@@ -1895,7 +1895,7 @@ struct controller_impl {
                   shard._xsh_in_set.insert(xsh_in);
                }
                fc::move_append( shard._xsh_ins, std::move(xsh_ins) );
-               fc::move_append( shard._xsh_out_actions, std::move(posted_msgs) );
+               fc::move_append( shard._xsh_out_actions, std::move(xsh_out_actions) );
 
                 if ( !trx->is_dry_run() ) {
                    // call the accept signal but only once for this transaction
@@ -2160,11 +2160,11 @@ struct controller_impl {
       // process xshard
       for (auto& shard : bb._shards) {
          // xshout
-         for (const auto& posted_msg : shard.second._xsh_out_actions) {
+         for (const auto& act : shard.second._xsh_out_actions) {
             dbm.main_db().create<xshard_object>( [&]( auto& xsh ) {
-               const auto& xsh_out = posted_msg.xsh_out;
+               const auto& xsh_out = act.xsh_out;
 
-               xsh.xsh_id              = xshard_object::make_xsh_id( posted_msg.trx_id, posted_msg.trx_action_sequence );
+               xsh.xsh_id              = xshard_object::make_xsh_id( act.trx_id, act.trx_action_sequence );
                xsh.owner               = xsh_out.owner;
                xsh.from_shard          = shard.second._name;
                xsh.to_shard            = xsh_out.to_shard;
