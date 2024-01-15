@@ -126,10 +126,14 @@ BOOST_AUTO_TEST_SUITE(xshard_tests)
  *************************************************************************************/
 
 BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
-
+   const auto& dbm = control->dbm();
+   const auto& main_db = dbm.main_db();
+   const auto* shard1_db = dbm.find_shard_db(shard1_name);
+   if (!shard1_db) BOOST_ERROR("shard1 db not found");
    transfer(config::system_account_name, "alice1111111"_n, core_from_string("100.0000"));
    auto xshout_data = fc::raw::pack( xtoken{core_from_string("1.0000"), ""} );
    auto xshout_trx = xshout( "alice1111111"_n, shard1_name, "gax.token"_n, "xtoken"_n, xshout_data );
+   BOOST_REQUIRE_EQUAL(get_balance(main_db, "alice1111111"_n), core_from_string("99.0000"));
 
    const auto& xsh_indx = control->dbm().shared_db().get_index<xshard_index, by_id>();
    auto xsh_id = xshard_object::make_xsh_id(xshout_trx->id, 0);
@@ -149,10 +153,13 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
    BOOST_REQUIRE_EQUAL(xsh_itr->action_type, "xtoken"_n);
    BOOST_REQUIRE(bytes(xsh_itr->action_data.begin(), xsh_itr->action_data.end())  == xshout_data);
 
+   static const asset& balance0 = core_from_string("0.0000");
+   BOOST_REQUIRE_EQUAL(get_balance(*shard1_db, "alice1111111"_n), balance0);
    {
       shard_name_scope scope(*this, shard1_name);
       xshin("alice1111111"_n, xsh_id);
    }
+   BOOST_REQUIRE_EQUAL(get_balance(*shard1_db, "alice1111111"_n), core_from_string("1.0000"));
 
    produce_blocks();
 
