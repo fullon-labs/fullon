@@ -152,8 +152,10 @@ using db_maybe_session = maybe_session<database>;
 struct xsh_out_action
 {
    chain::xshout                 xsh_out;
-   transaction_id_type           trx_id;
-   uint32_t                      trx_action_sequence;
+   xshard_id_type                xsh_id;
+   transaction_id_type           scheduled_xshin_trx_id;
+   bytes                         scheduled_xshin_trx_packed;
+
 };
 
 struct building_shard {
@@ -1464,18 +1466,17 @@ struct controller_impl {
       return trace;
    }
 
-   int64_t remove_scheduled_transaction( const generated_transaction_object& gto ) {
+   int64_t remove_scheduled_transaction( building_shard& shard, const generated_transaction_object& gto ) {
       // deferred transactions cannot be transient.
       if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", gto.id)), "deferred_trx", "remove", "deferred_trx_removed");
       }
 
       int64_t ram_delta = -(config::billable_size_v<generated_transaction_object> + gto.packed_trx.size());
-      // TODO: must run in main shard
-      auto& db = dbm.main_db();
-      resource_limits.add_pending_ram_usage( gto.payer, ram_delta, db, false ); // false for doing dm logging
+      // must run in main shard
+      resource_limits.add_pending_ram_usage( gto.payer, ram_delta, shard._db, false ); // false for doing dm logging
       // No need to verify_account_ram_usage since we are only reducing memory
-      db.remove( gto );
+      shard._shared_db.remove( gto );
       return ram_delta;
    }
 
@@ -1508,7 +1509,7 @@ struct controller_impl {
                                                      fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    {
-      auto& db = dbm.main_db();
+      auto& db = shard._shared_db;
       const auto& idx = db.get_index<generated_transaction_multi_index,by_trx_id>();
       auto itr = idx.find( trxid );
       EOS_ASSERT( itr != idx.end(), unknown_transaction_exception, "unknown transaction" );
@@ -1519,8 +1520,6 @@ struct controller_impl {
                                                      fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    { try {
-      // TODO: run in main shard only
-      assert( shard._name == config::main_shard_name );
       auto start = fc::time_point::now();
       const bool validating = !self.is_speculative_block();
       EOS_ASSERT( !validating || explicit_billed_cpu_time, transaction_exception, "validating requires explicit billing" );
@@ -1538,7 +1537,14 @@ struct controller_impl {
       //
       // IF the transaction FAILs in a subjective way, `undo_session` should expire without being squashed
       // resulting in the GTO being restored and available for a future block to retire.
-      int64_t trx_removal_ram_delta = remove_scheduled_transaction(gto);
+      int64_t trx_removal_ram_delta = 0;
+      if (!gto.is_xshard) {
+         // TODO: run in main shard only
+         assert( shard._name == config::main_shard_name );
+         EOS_ASSERT( shard._name == config::main_shard_name, transaction_exception,
+                     "Delayed transaction is only allowed on the main shard" );
+         trx_removal_ram_delta = remove_scheduled_transaction(shard, gto);
+      }
 
       fc::datastream<const char*> ds( gtrx.packed_trx.data(), gtrx.packed_trx.size() );
 
@@ -1803,12 +1809,31 @@ struct controller_impl {
             const action& act = trn.actions[i];
             if (act.account == config::system_account_name && act.name == xshout::get_name() ) {
                // TODO: check delay == 0
-               xshout xsh_out = act.data_as<xshout>();
-               xsh_out_actions.emplace_back( xsh_out_action {
-                  .xsh_out            = std::move(xsh_out),
-                  .trx_id              = trx->id(),
-                  .trx_action_sequence = i
-               });
+
+               xsh_out_action xsh_out_act;
+               xsh_out_act.xsh_out     = act.data_as<xshout>();
+               xsh_out_act.xsh_id      = xshard_object::make_xsh_id( trx->id(), i );
+
+               signed_transaction gen_xsh_in_trx;
+
+               xshin xsh_in = {
+                  .owner = xsh_out_act.xsh_out.owner,
+                  .xsh_id = xsh_out_act.xsh_id
+               };
+               action xsh_in_act(vector<permission_level>{{xsh_in.owner, config::active_name}}, xsh_in );
+
+               gen_xsh_in_trx.actions.emplace_back(std::move(xsh_in_act));
+               if( self.is_builtin_activated( builtin_protocol_feature_t::no_duplicate_deferred_id ) ) {
+                  gen_xsh_in_trx.expiration = time_point_sec();
+                  gen_xsh_in_trx.ref_block_num = 0;
+                  gen_xsh_in_trx.ref_block_prefix = 0;
+               } else {
+                  gen_xsh_in_trx.expiration = self.pending_block_time() + fc::microseconds(999'999); // Round up to nearest second to avoid appearing expired
+                  gen_xsh_in_trx.set_reference_block( self.head_block_id() );
+               }
+
+               xsh_out_act.scheduled_xshin_trx_id = gen_xsh_in_trx.id();
+               xsh_out_act.scheduled_xshin_trx_packed = fc::raw::pack( gen_xsh_in_trx );
             }
 
             if (act.account == config::system_account_name && act.name == xshin::get_name() ) {
@@ -2161,16 +2186,38 @@ struct controller_impl {
       for (auto& shard : bb._shards) {
          // xshout
          for (const auto& act : shard.second._xsh_out_actions) {
-            dbm.main_db().create<xshard_object>( [&]( auto& xsh ) {
-               const auto& xsh_out = act.xsh_out;
+            const auto& xsh_out = act.xsh_out;
+            // TODO: generate in trx exection
 
-               xsh.xsh_id              = xshard_object::make_xsh_id( act.trx_id, act.trx_action_sequence );
+            const auto& new_xsh = dbm.main_db().create<xshard_object>( [&]( auto& xsh ) {
+
+               xsh.xsh_id              = act.xsh_id;
                xsh.owner               = xsh_out.owner;
                xsh.from_shard          = shard.second._name;
                xsh.to_shard            = xsh_out.to_shard;
                xsh.contract            = xsh_out.contract;
                xsh.action_type         = xsh_out.action_type;
                xsh.action_data.assign(xsh_out.action_data.data(), xsh_out.action_data.size());
+               xsh.scheduled_xshin_trx = act.scheduled_xshin_trx_id;
+            } );
+
+            const auto& gpo = dbm.main_db().get<global_property_object>();
+            dbm.main_db().create<generated_transaction_object>( [&]( auto& gtx ) {
+               gtx.trx_id      = act.scheduled_xshin_trx_id;
+               gtx.sender      = xsh_out.owner;
+               gtx.sender_id   = new_xsh.id._id;
+               gtx.payer       = name();
+               gtx.published   = bb._pending_block_header_state.timestamp;;
+               gtx.delay_until = gtx.published + fc::seconds(config::block_interval_ms);
+               gtx.expiration  = gtx.delay_until + fc::seconds(gpo.configuration.deferred_trx_expiration_window);
+
+               gtx.packed_trx.assign(act.scheduled_xshin_trx_packed.data(), act.scheduled_xshin_trx_packed.size());
+
+               // TODO: on_send_xshard
+               // if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
+               //    dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::none, gtx);
+               //    dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", gtx.id)), "deferred_trx", "add", "deferred_trx_add");
+               // }
             } );
          }
 
@@ -2179,6 +2226,16 @@ struct controller_impl {
             const auto *xsh = dbm.main_db().find<xshard_object, by_xshard_id>(xsh_id);
             // TODO: xshard exception
             EOS_ASSERT( xsh, action_validate_exception, "xshard object not found" );
+
+            const auto *gto = dbm.main_db().find<generated_transaction_object, by_trx_id>(xsh->scheduled_xshin_trx);
+            if (gto) {
+               if (auto dm_logger = get_deep_mind_logger(false)) {
+                  dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", gto->id)), "scheduled_xshard_trx", "remove", "scheduledxshard_trx_removed");
+               }
+               // TODO: ram
+               dbm.main_db().remove(*gto);
+            }
+
             dbm.main_db().remove(*xsh);
          }
       }

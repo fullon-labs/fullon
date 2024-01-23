@@ -32,6 +32,7 @@ namespace eosio { namespace chain {
          time_point                    expiration; /// this generated transaction will not be applied after this time
          time_point                    published;
          shared_blob                   packed_trx;
+         bool                          is_xshard = false;
 
          uint32_t set( const transaction& trx ) {
             auto trxsize = fc::raw::pack_size( trx );
@@ -100,6 +101,7 @@ namespace eosio { namespace chain {
          time_point                    expiration; /// this generated transaction will not be applied after this time
          time_point                    published;
          vector<char>                  packed_trx;
+         bool                          is_xshard = false;
 
    };
 
@@ -114,4 +116,4 @@ namespace eosio { namespace chain {
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::generated_transaction_object, eosio::chain::generated_transaction_multi_index)
 
-FC_REFLECT(eosio::chain::generated_transaction_object, (trx_id)(sender)(sender_id)(payer)(delay_until)(expiration)(published)(packed_trx))
+FC_REFLECT(eosio::chain::generated_transaction_object, (trx_id)(sender)(sender_id)(payer)(delay_until)(expiration)(published)(packed_trx)(is_xshard))

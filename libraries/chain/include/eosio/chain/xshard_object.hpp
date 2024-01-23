@@ -24,6 +24,7 @@ namespace eosio { namespace chain {
       account_name                  contract;
       action_name                   action_type;
       shared_blob                   action_data;
+      transaction_id_type           scheduled_xshin_trx;
 
       xshard_object& operator=(const xshard_object& a) {
          id                = a.id;
@@ -34,6 +35,7 @@ namespace eosio { namespace chain {
          contract          = a.contract;
          action_type       = a.action_type;
          action_data.assign(a.action_data.data(), a.action_data.size());
+         scheduled_xshin_trx = a.scheduled_xshin_trx;
          return *this;
       }
 
@@ -64,6 +66,6 @@ namespace eosio { namespace chain {
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::xshard_object, eosio::chain::xshard_index)
 
-FC_REFLECT(eosio::chain::xshard_object, (xsh_id)(owner)(from_shard)(to_shard)(contract)(action_type)(action_data))
+FC_REFLECT(eosio::chain::xshard_object, (xsh_id)(owner)(from_shard)(to_shard)(contract)(action_type)(action_data)(scheduled_xshin_trx))
 
 
