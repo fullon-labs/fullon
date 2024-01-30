@@ -113,6 +113,14 @@ class currency_test : public validating_tester {
                  ("can_whitelist", 0),
                  "shard1"_n
          );
+         result = push_action("gax.token"_n, "create"_n, mutable_variant_object()
+                 ("issuer",       gax_token)
+                 ("maximum_supply", "1000000000.0000 CUR")
+                 ("can_freeze", 0)
+                 ("can_recall", 0)
+                 ("can_whitelist", 0),
+                 "shard2"_n
+         );
          wdump((result));
          produce_block();
          result = push_action("gax.token"_n, "issue"_n, mutable_variant_object()
@@ -120,6 +128,12 @@ class currency_test : public validating_tester {
                  ("quantity", "1000000.0000 CUR")
                  ("memo", "gggggggggggg"),
                  "shard1"_n
+         );
+         result = push_action("gax.token"_n, "issue"_n, mutable_variant_object()
+                 ("to",       gax_token)
+                 ("quantity", "1000000.0000 CUR")
+                 ("memo", "gggggggggggg"),
+                 "shard2"_n
          );
          wdump((result));
          produce_block();
@@ -219,20 +233,32 @@ BOOST_FIXTURE_TEST_CASE( shard_tx_test, currency_test ) try {
    BOOST_CHECK_NO_THROW(create_account("alice"_n));
    BOOST_CHECK_NO_THROW(create_account("bob"_n));
    produce_block();
-
-   auto trace = push_action("gax.token"_n, "transfer"_n, mutable_variant_object()
-      ("from", currency_test::gax_token)
-      ("to",   "alice")
-      ("quantity", "100.0000 CUR")
-      ("memo", "fund Alice"),
-      "shard1"_n
-   );
-
-   produce_block();
-
-   BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trace->id));
-   BOOST_REQUIRE_EQUAL(get_balance_on_shard("alice"_n), asset::from_string( "100.0000 CUR" ) );
-
+   int loop = 10000;
+   for( int i=1 ; i< loop ; i++ ){
+      auto trace = push_action("gax.token"_n, "transfer"_n, mutable_variant_object()
+         ("from", currency_test::gax_token)
+         ("to",   "alice")
+         ("quantity", "1.0000 CUR")
+         ("memo", "fund Alice"),
+         "shard1"_n
+      );
+      idump((trace));
+      trace = push_action("gax.token"_n, "transfer"_n, mutable_variant_object()
+         ("from", currency_test::gax_token)
+         ("to",   "alice")
+         ("quantity", "1.0000 CUR")
+         ("memo", "fund Alice"),
+         "shard2"_n
+      );
+      idump((trace));
+      produce_block();
+      BOOST_TEST_MESSAGE("has produced: "<<i);
+      //BOOST_TEST_MESSAGE(control->head_block_num());
+      BOOST_REQUIRE_EQUAL(true, chain_has_transaction(trace->id));
+   }
+   std::string value = std::to_string(1*(loop-1))+".0000 CUR";
+   // BOOST_REQUIRE_EQUAL(get_balance_on_shard("alice"_n), asset::from_string( "500.0000 CUR" ) );
+   BOOST_REQUIRE_EQUAL(get_balance_on_shard("alice"_n), asset::from_string( value ) );
 } FC_LOG_AND_RETHROW ();
 
 BOOST_AUTO_TEST_SUITE_END()

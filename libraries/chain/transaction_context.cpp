@@ -57,7 +57,6 @@ namespace eosio { namespace chain {
    ,packed_trx(t)
    ,id(trx_id)
    ,undo_session()
-   ,undo_shared_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
    ,db(db)
@@ -70,7 +69,6 @@ namespace eosio { namespace chain {
       shard_name = packed_trx.get_transaction().get_shard_name();
       if (!c.skip_db_sessions() && !is_read_only()) {
          undo_session.emplace(db.start_undo_session(true));
-         undo_shared_session.emplace(shared_db.start_undo_session(true));
       }
       trace->id = id;
       trace->block_num = c.head_block_num() + 1;
@@ -430,12 +428,10 @@ namespace eosio { namespace chain {
 
    void transaction_context::squash() {
       if (undo_session) undo_session->squash();
-      if (undo_shared_session) undo_shared_session->squash();
    }
 
    void transaction_context::undo() {
       if (undo_session) undo_session->undo();
-      if (undo_shared_session) undo_shared_session->undo();
    }
 
    void transaction_context::check_net_usage()const {

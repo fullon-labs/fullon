@@ -132,7 +132,6 @@ namespace eosio { namespace chain {
          const packed_transaction&                   packed_trx;
          const transaction_id_type&                  id;
          std::optional<chainbase::database::session> undo_session;
-         std::optional<chainbase::database::session> undo_shared_session;
          transaction_trace_ptr                       trace;
          fc::time_point                              start;
          eosio::chain::shard_name                    shard_name = config::main_shard_name;

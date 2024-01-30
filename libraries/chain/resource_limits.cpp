@@ -233,10 +233,11 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
    }
 
    // account for this transaction in the block and do not exceed those limits either
-   shared_db.modify(state, [&](resource_limits_state_object& rls){
-      rls.pending_cpu_usage += cpu_usage;
-      rls.pending_net_usage += net_usage;
-   });
+   // Conflicts arise from transaction parallelism and block level restrictions
+   // shared_db.modify(state, [&](resource_limits_state_object& rls){
+   //    rls.pending_cpu_usage += cpu_usage;
+   //    rls.pending_net_usage += net_usage;
+   // });
 
    EOS_ASSERT( state.pending_cpu_usage <= config.cpu_limit_parameters.max, block_resource_exhausted, "Block has insufficient cpu resources" );
    EOS_ASSERT( state.pending_net_usage <= config.net_limit_parameters.max, block_resource_exhausted, "Block has insufficient net resources" );

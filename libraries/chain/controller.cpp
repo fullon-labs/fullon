@@ -2870,8 +2870,27 @@ struct controller_impl {
             break;
          }
       }
-      dlog("removed ${n} expired transactions of the ${t} input dedup list, pending block time ${pt}",
+      dlog("removed ${n} expired transactions of the ${t} input dedup list, pending block time ${pt}, block shard name: main",
            ("n", num_removed)("t", total)("pt", now));
+      //Look for expired transactions in the deduplication list in sub shard, and remove them.
+      for( auto& sdb : dbm.shard_dbs() ) {
+         auto sname = sdb.first;
+         auto& db = dbm.shard_db( sname );
+         auto& transaction_idx = db.get_mutable_index<transaction_multi_index>();
+         const auto& dedupe_index = transaction_idx.indices().get<by_expiration>();
+         auto now = self.is_building_block() ? self.pending_block_time() : self.head_block_time();
+         const auto total = dedupe_index.size();
+         uint32_t num_removed = 0;
+         while( (!dedupe_index.empty()) && ( now > fc::time_point(dedupe_index.begin()->expiration) ) ) {
+            transaction_idx.remove(*dedupe_index.begin());
+            ++num_removed;
+            if( deadline <= fc::time_point::now() ) {
+               break;
+            }
+         }
+         dlog("removed ${n} expired transactions of the ${t} input dedup list, pending block time ${pt}, block shard name: ${sname}",
+            ("n", num_removed)("t", total)("pt", now)("sname", sname));
+      }
    }
 
    bool sender_avoids_whitelist_blacklist_enforcement( account_name sender )const {
@@ -3931,7 +3950,7 @@ bool controller::is_builtin_activated( builtin_protocol_feature_t f )const {
 
 bool controller::is_known_unexpired_transaction( const transaction_id_type& id, const shard_name sname) const {
    // TODO: shared_db()?
-   auto& db = my->dbm.shard_db(sname);
+   auto& db = sname == "main"_n ? my->dbm.main_db() : my->dbm.shard_db(sname);
    return db.find<transaction_object, by_trx_id>(id);
 }
 
