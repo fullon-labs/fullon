@@ -88,6 +88,7 @@ namespace eosio { namespace chain {
          ,expiration(gto.expiration)
          ,published(gto.published)
          ,packed_trx(gto.packed_trx.begin(), gto.packed_trx.end())
+         ,is_xshard(gto.is_xshard)
          {}
 
          generated_transaction(const generated_transaction& gt) = default;
@@ -117,3 +118,4 @@ namespace eosio { namespace chain {
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::generated_transaction_object, eosio::chain::generated_transaction_multi_index)
 
 FC_REFLECT(eosio::chain::generated_transaction_object, (trx_id)(sender)(sender_id)(payer)(delay_until)(expiration)(published)(packed_trx)(is_xshard))
+FC_REFLECT(eosio::chain::generated_transaction, (trx_id)(sender)(sender_id)(payer)(delay_until)(expiration)(published)(packed_trx)(is_xshard))

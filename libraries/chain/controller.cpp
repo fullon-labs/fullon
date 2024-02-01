@@ -92,6 +92,7 @@ using shared_index_set = index_set<
    protocol_state_multi_index,
    // dynamic_global_property_multi_index,
    // block_summary_multi_index,
+   generated_transaction_multi_index,
    code_index,
    shard_index,
    shared_table_id_multi_index,
@@ -1509,8 +1510,7 @@ struct controller_impl {
                                                      fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                      uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    {
-      auto& db = shard._shared_db;
-      const auto& idx = db.get_index<generated_transaction_multi_index,by_trx_id>();
+      const auto& idx = shard._shared_db.get_index<generated_transaction_multi_index,by_trx_id>();
       auto itr = idx.find( trxid );
       EOS_ASSERT( itr != idx.end(), unknown_transaction_exception, "unknown transaction" );
       return push_scheduled_transaction( shard, *itr, block_deadline, max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
@@ -1538,7 +1538,7 @@ struct controller_impl {
       // IF the transaction FAILs in a subjective way, `undo_session` should expire without being squashed
       // resulting in the GTO being restored and available for a future block to retire.
       int64_t trx_removal_ram_delta = 0;
-      if (!gto.is_xshard) {
+      if (!gtrx.is_xshard) {
          // TODO: run in main shard only
          assert( shard._name == config::main_shard_name );
          EOS_ASSERT( shard._name == config::main_shard_name, transaction_exception,
@@ -1587,7 +1587,6 @@ struct controller_impl {
       uint32_t cpu_time_to_bill_us = billed_cpu_time_us;
 
       transaction_checktime_timer trx_timer( timer );
-      assert(trx->packed_trx()->get_transaction().get_shard_name() == config::main_shard_name);
       transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), shard._db, shard._shared_db );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
@@ -1612,6 +1611,23 @@ struct controller_impl {
       };
 
       try {
+         const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
+         xshard_id_type xsh_id;
+         if (gtrx.is_xshard) {
+            EOS_ASSERT( trn.actions.size() == 1, transaction_exception, "Schedule xshard transaction must have one action");
+            const auto& act = trn.actions[0];
+            EOS_ASSERT( act.account == config::system_account_name && act.name == xshin::get_name(), transaction_exception, "Schedule xshard transaction must have a xshin action");
+
+            xshin xsh_in = act.data_as<xshin>();
+            EOS_ASSERT( shard._xsh_in_set.count(xsh_in.xsh_id) == 0, action_validate_exception, "xshin duplicated" );
+            const auto *xsh = shard._shared_db.find<xshard_object, by_xshard_id>(xsh_in.xsh_id);
+            // TODO: xshard_exception
+            EOS_ASSERT( xsh, action_validate_exception, "xshard object not found in db" );
+            EOS_ASSERT( xsh->owner == xsh_in.owner, action_validate_exception, "owner of xshard mismatch" );
+            EOS_ASSERT( xsh->to_shard == shard._name, action_validate_exception, "to_shard of xshard mismatch" );
+            xsh_id = xsh_in.xsh_id;
+         }
+
          trx_context.init_for_deferred_trx( gtrx.published );
 
          if( trx_context.enforce_whiteblacklist && self.is_speculative_block() ) {
@@ -1635,6 +1651,11 @@ struct controller_impl {
 
          fc::move_append( shard._action_receipt_digests,
                           std::move(trx_context.executed_action_receipt_digests) );
+
+         if (gtrx.is_xshard) {
+            shard._xsh_in_set.insert(xsh_id);
+            shard._xsh_ins.push_back(std::move(xsh_id));
+         }
 
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
@@ -1834,17 +1855,20 @@ struct controller_impl {
 
                xsh_out_act.scheduled_xshin_trx_id = gen_xsh_in_trx.id();
                xsh_out_act.scheduled_xshin_trx_packed = fc::raw::pack( gen_xsh_in_trx );
+
+               xsh_out_actions.push_back(std::move(xsh_out_act));
             }
 
             if (act.account == config::system_account_name && act.name == xshin::get_name() ) {
                // TODO: check delay == 0
                xshin xsh_in = act.data_as<xshin>();
+
+               EOS_ASSERT( shard._xsh_in_set.count(xsh_in.xsh_id) == 0, action_validate_exception, "xshout duplicated" );
                const auto *xsh = shard._shared_db.find<xshard_object, by_xshard_id>(xsh_in.xsh_id);
                // TODO: xshard_exception
-               EOS_ASSERT( xsh, action_validate_exception, "Received message not found" );
-               EOS_ASSERT( xsh->owner == xsh_in.owner, action_validate_exception, "owner of message unmatched" );
+               EOS_ASSERT( xsh, action_validate_exception, "xshard object not found" );
+               EOS_ASSERT( xsh->owner == xsh_in.owner, action_validate_exception, "owner of xshard mismatch" );
                EOS_ASSERT( xsh->to_shard == shard._name, action_validate_exception, "to_shard of xshard mismatch" );
-               EOS_ASSERT( shard._xsh_in_set.count(xsh_in.xsh_id) == 0, action_validate_exception, "Received message duplicated" );
                xsh_ins.emplace_back(xsh_in.xsh_id);
             }
          }
@@ -1916,11 +1940,15 @@ struct controller_impl {
                fc::move_append( shard._action_receipt_digests,
                                 std::move(trx_context.executed_action_receipt_digests) );
 
-               for (const auto& xsh_in : xsh_ins) {
-                  shard._xsh_in_set.insert(xsh_in);
+               if (!xsh_ins.empty()) {
+                  for (const auto& xsh_in : xsh_ins) {
+                     shard._xsh_in_set.insert(xsh_in);
+                  }
+                  fc::move_append( shard._xsh_ins, std::move(xsh_ins) );
                }
-               fc::move_append( shard._xsh_ins, std::move(xsh_ins) );
-               fc::move_append( shard._xsh_out_actions, std::move(xsh_out_actions) );
+               if (!xsh_out_actions.empty()) {
+                  fc::move_append( shard._xsh_out_actions, std::move(xsh_out_actions) );
+               }
 
                 if ( !trx->is_dry_run() ) {
                    // call the accept signal but only once for this transaction
@@ -2207,11 +2235,12 @@ struct controller_impl {
                gtx.sender      = xsh_out.owner;
                gtx.sender_id   = new_xsh.id._id;
                gtx.payer       = name();
-               gtx.published   = bb._pending_block_header_state.timestamp;;
-               gtx.delay_until = gtx.published + fc::seconds(config::block_interval_ms);
+               gtx.published   = bb._pending_block_header_state.timestamp;
+               gtx.delay_until = gtx.published + fc::milliseconds(config::block_interval_ms);
                gtx.expiration  = gtx.delay_until + fc::seconds(gpo.configuration.deferred_trx_expiration_window);
 
                gtx.packed_trx.assign(act.scheduled_xshin_trx_packed.data(), act.scheduled_xshin_trx_packed.size());
+               gtx.is_xshard = true;
 
                // TODO: on_send_xshard
                // if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
@@ -2508,7 +2537,7 @@ struct controller_impl {
                      }
                   }
                } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
-                  EOS_ASSERT( shard_name == config::main_shard_name, block_validate_exception, "schedule trx only allowed in main shard" );
+                  // do nothing
                } else {
                   EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
                }
