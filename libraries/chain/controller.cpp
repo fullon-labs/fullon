@@ -2233,7 +2233,7 @@ struct controller_impl {
             dbm.main_db().create<generated_transaction_object>( [&]( auto& gtx ) {
                gtx.trx_id      = act.scheduled_xshin_trx_id;
                gtx.sender      = xsh_out.owner;
-               gtx.sender_id   = new_xsh.id._id;
+               gtx.sender_id   = new_xsh.get_sender_id();
                gtx.payer       = name();
                gtx.published   = bb._pending_block_header_state.timestamp;
                gtx.delay_until = gtx.published + fc::milliseconds(config::block_interval_ms);

@@ -45,6 +45,10 @@ namespace eosio { namespace chain {
          fc::raw::pack( enc, trx_action_sequence  );
          return enc.result();
       }
+
+      inline uint128_t get_sender_id() const {
+         return (uint128_t(("xshard"_n).to_uint64_t()) << 64) || (uint64_t)id._id;
+      }
    };
 
    struct by_xshard_id;
