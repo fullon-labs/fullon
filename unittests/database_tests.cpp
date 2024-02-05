@@ -365,7 +365,7 @@ BOOST_AUTO_TEST_SUITE(database_tests)
 
    BOOST_AUTO_TEST_CASE(sub_shard_db_test) {
       try {
-         TESTER test;
+         sharding_tester test;
          controller&  control = *test.control;
          const auto&      dbm = control.dbm();
          // TODO: add sub shard 'shard1' by shard_tests contract

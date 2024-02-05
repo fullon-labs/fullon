@@ -32,7 +32,7 @@ class resource_limits_fixture: private database_manager_fixture<1024*1024>, publ
       chainbase::database& get_shared() { return (*database_manager_fixture::_dbm).shared_db();}
 };
 
-class currency_test : public validating_tester {
+class currency_test : public sharding_validating_tester {
    public:
 
       auto push_action(const account_name& signer, const action_name &name, const variant_object &data, shard_name sname = config::main_shard_name ) {
@@ -99,7 +99,7 @@ class currency_test : public validating_tester {
       }
 
       currency_test()
-         :validating_tester(),abi_ser(json::from_string(test_contracts::eosio_token_abi().data()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
+         :sharding_validating_tester(),abi_ser(json::from_string(test_contracts::eosio_token_abi().data()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
       {
          create_account( "gax.token"_n);
          produce_block();
@@ -143,7 +143,7 @@ class currency_test : public validating_tester {
       static constexpr name gax_token = "gax.token"_n;
 };
 
-transaction_trace_ptr create_account_on_subshard( tester& t, account_name a, account_name creator=config::system_account_name, bool multisig = false, bool include_code = true ){
+transaction_trace_ptr create_account_on_subshard( sharding_tester& t, account_name a, account_name creator=config::system_account_name, bool multisig = false, bool include_code = true ){
       signed_transaction trx;
       trx.set_shard_name("shard1"_n);
       t.set_transaction_headers(trx);
@@ -193,7 +193,7 @@ transaction_trace_ptr create_account_on_subshard( tester& t, account_name a, acc
 BOOST_AUTO_TEST_SUITE(shard_state_tests)
 
 BOOST_AUTO_TEST_CASE(query_account_object_from_share_db_test){
-    tester t;
+    sharding_tester t;
     //system account create account test on main.
     BOOST_CHECK_NO_THROW(t.create_account("test"_n));
     t.produce_block();

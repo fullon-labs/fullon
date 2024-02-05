@@ -120,6 +120,7 @@ namespace eosio { namespace chain {
       private:
          eosio::chain::database_manager&     _dbm;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
+         void  check_creation_on_shard( const account_name& name, chainbase::database& db ) const;
    };
 } } } /// eosio::chain
 

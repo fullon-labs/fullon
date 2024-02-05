@@ -738,17 +738,19 @@ int apply_context::get_context_free_data( uint32_t index, char* buffer, size_t b
 }
 
 uint64_t apply_context::next_global_sequence() {
-   const dynamic_global_property_object* p = nullptr;
-   p = db.find<dynamic_global_property_object>();
-   if( p == nullptr ) {
-      p = &db.create<dynamic_global_property_object>([&](auto& d) {
-   
-      });
-   }
    if ( trx_context.is_read_only() ) {
       // To avoid confusion of duplicated global sequence number, hard code to be 0.
       return 0;
    } else {
+      const dynamic_global_property_object* p = nullptr;
+      p = db.find<dynamic_global_property_object>();
+      //The object here may not have been created yet.
+      if( p == nullptr ) {
+         p = &db.create<dynamic_global_property_object>([&](auto& d) {
+      
+         });
+      }
+      
       db.modify( *p, [&]( auto& dgp ) {
          ++dgp.global_action_sequence;
       });
@@ -761,6 +763,8 @@ uint64_t apply_context::next_recv_sequence( const account_metadata_object& recei
       // To avoid confusion of duplicated receive sequence number, hard code to be 0.
       return 0;
    } else {
+      //Even if account_metadata_object doesn't exist, it will be created in logic before
+      //in exec_one().
       db.modify( receiver_account, [&]( auto& ra ) {
          ++ra.recv_sequence;
       });
@@ -768,6 +772,8 @@ uint64_t apply_context::next_recv_sequence( const account_metadata_object& recei
    }
 }
 uint64_t apply_context::next_auth_sequence( account_name actor ) {
+   //Even if account_metadata_object doesn't exist, it will be created in logic before
+   //in exec_one().
    const auto& amo = db.get<account_metadata_object,by_name>( actor );
    db.modify( amo, [&](auto& am ){
       ++am.auth_sequence;
