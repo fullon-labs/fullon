@@ -13,7 +13,7 @@
 #include <eosio/chain/permission_object.hpp>
 #include <eosio/chain/permission_link_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
-#include <eosio/chain/shard_message_object.hpp>
+#include <eosio/chain/xshard_object.hpp>
 #include <eosio/chain/contract_types.hpp>
 
 #include <eosio/chain/wasm_interface.hpp>
@@ -467,26 +467,30 @@ void apply_gax_canceldelay(apply_context& context) {
    context.cancel_deferred_transaction(transaction_id_to_sender_id(trx_id), account_name());
 }
 
-void apply_gax_postmsg(apply_context& context) {
-   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "postmsg ot allowed in read-only transaction" );
+void apply_gax_xshout(apply_context& context) {
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "xshout ot allowed in read-only transaction" );
    // auto& shared_db  = context.shared_db;
-   auto  msg = context.get_action().data_as<postmsg>();
+   auto  xsh_out = context.get_action().data_as<xshout>();
 
-   EOS_ASSERT( msg.to_shard != context.shard_name, action_validate_exception, "can not post message to current shard");
-   context.require_authorization(msg.owner);
+   EOS_ASSERT( xsh_out.to_shard != context.shard_name, action_validate_exception, "can not send xshout to current shard");
+
+   // TODO: to_shard is valid
+
+   // context.require_authorization(xsh_out.owner);
+
    // TODO: context.add_ram_usage
 }
 
-void apply_gax_recvmsg(apply_context& context) {
-   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "recvmsg ot allowed in read-only transaction" );
-   auto  msg = context.get_action().data_as<recvmsg>();
+void apply_gax_xshin(apply_context& context) {
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "xshin not allowed in read-only transaction" );
+   auto  msg = context.get_action().data_as<xshin>();
 
-   context.require_authorization(msg.owner);
-   const auto *msg_obj = context.shared_db.find<shard_message_object, by_msg_id>(msg.msg_id);
+   // context.require_authorization(msg.owner);
+   const auto *msg_obj = context.shared_db.find<xshard_object, by_xshard_id>(msg.xsh_id);
    // TODO: shard_msg_exception
-   EOS_ASSERT( msg_obj, action_validate_exception, "message not found by msg_id" );
-   EOS_ASSERT( msg_obj->owner == msg.owner, action_validate_exception, "message owner unmatched" );
-   EOS_ASSERT( msg_obj->to_shard == context.shard_name, action_validate_exception, "to shard unmatched" );
+   EOS_ASSERT( msg_obj, action_validate_exception, "xshard not found by xsh_id" );
+   EOS_ASSERT( msg_obj->owner == msg.owner, action_validate_exception, "owner of xshard mismatch" );
+   EOS_ASSERT( msg_obj->to_shard == context.shard_name, action_validate_exception, "to_shard of xshard mismatch" );
 }
 
 

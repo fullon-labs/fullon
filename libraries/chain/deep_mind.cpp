@@ -229,6 +229,7 @@ namespace eosio::chain {
          ("expiration", gto.expiration)
          ("trx_id", gto.trx_id)
          ("trx", fc::to_hex(gto.packed_trx.data(), gto.packed_trx.size()))
+         ("is_xshard", gto.is_xshard)
       );
    }
    void deep_mind_handler::on_send_deferred(operation_qualifier qual, const generated_transaction_object& gto)
@@ -244,6 +245,7 @@ namespace eosio::chain {
          ("expiration", gto.expiration)
          ("trx_id", gto.trx_id)
          ("trx", fc::to_hex(gto.packed_trx.data(), gto.packed_trx.size()))
+         ("is_xshard", gto.is_xshard)
       );
    }
    void deep_mind_handler::on_create_deferred(operation_qualifier qual, const generated_transaction_object& gto, const packed_transaction& packed_trx)
@@ -261,6 +263,7 @@ namespace eosio::chain {
          ("expiration", gto.expiration)
          ("trx_id", gto.trx_id)
          ("trx", fc::to_hex(packed_signed_trx.data(), packed_signed_trx.size()))
+         ("is_xshard", gto.is_xshard)
       );
    }
    void deep_mind_handler::on_fail_deferred()

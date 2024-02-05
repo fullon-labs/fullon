@@ -122,6 +122,8 @@ class apply_context {
       bool is_builtin_activated( builtin_protocol_feature_t f ) const;
       bool is_speculative_block() const;
 
+   protected:
+      const account_metadata_object& get_account_metadata(const name& account);
    /// Fields:
    public:
       controller&                   control;

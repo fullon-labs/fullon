@@ -115,6 +115,7 @@ install_boost() {
         try tar --transform="s:^boost_${BOOST_VER//\./_}:boost_${BOOST_VER//\./_}patched:" -xvzf "boost_${BOOST_VER//\./_}.tar.gz" -C "${DEP_DIR}"
         pushdir "${BOOST_DIR}"
         patch -p1 < "${SCRIPT_DIR}/0001-beast-fix-moved-from-executor.patch"
+        patch -p1 < "${SCRIPT_DIR}/0002-hana-fix-compile-warning-of-config.patch"
         try ./bootstrap.sh -with-toolset=clang --prefix="${BOOST_DIR}/boost_root"
         ./b2 toolset=clang cxxflags="-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I\${CLANG_DIR}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE" linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -q -j "${JOBS}" install
         popdir "${DEP_DIR}"

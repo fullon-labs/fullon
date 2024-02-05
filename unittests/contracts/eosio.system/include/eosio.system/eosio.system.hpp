@@ -95,9 +95,9 @@ namespace eosiosystem {
 
   /**
    * The `eosio.system` smart contract is provided by `block.one` as a sample system contract, and it defines the structures and actions needed for blockchain's core functionality.
-   * 
+   *
    * Just like in the `eosio.bios` sample contract implementation, there are a few actions which are not implemented at the contract level (`newaccount`, `updateauth`, `deleteauth`, `linkauth`, `unlinkauth`, `canceldelay`, `onerror`, `setabi`, `setcode`), they are just declared in the contract so they will show in the contract's ABI and users will be able to push those actions to the chain via the account holding the `eosio.system` contract, but the implementation is at the EOSIO core level. They are referred to as EOSIO native actions.
-   * 
+   *
    * - Users can stake tokens for CPU and Network bandwidth, and then vote for producers or
    *    delegate their vote to a proxy.
    * - Producers register in order to be voted for, and can claim per-block and per-vote rewards.
@@ -106,7 +106,7 @@ namespace eosiosystem {
    * - A resource exchange system (REX) allows token holders to lend their tokens,
    *    and users to rent CPU and Network resources in return for a market-determined fee.
    */
-  
+
    // A name bid, which consists of:
    // - a `newname` name that the bid is for
    // - a `high_bidder` account name that is the one with the highest bid so far
@@ -1217,10 +1217,10 @@ namespace eosiosystem {
 
          /**
           * Update the vote weight for the producers or proxy `voter_name` currently votes for. This will also
-          * update the `staked` value for the `voter_name` by checking `rexbal` and all delegated NET and CPU. 
-          * 
+          * update the `staked` value for the `voter_name` by checking `rexbal` and all delegated NET and CPU.
+          *
           * @param voter_name - the account to update the votes for,
-          * 
+          *
           * @post the voter.staked will be updated
           * @post previously voted for producers vote weight will be updated with new weight
           * @post previously voted for proxy vote weight will be updated with new weight
@@ -1389,6 +1389,9 @@ namespace eosiosystem {
          [[eosio::action]]
          void limitauthchg( const name& account, const std::vector<name>& allow_perms, const std::vector<name>& disallow_perms );
 
+         [[eosio::action]]
+         void regshard( const eosio::name& name, const eosio::name& owner, bool enabled );
+
          using init_action = eosio::action_wrapper<"init"_n, &system_contract::init>;
          using setacctram_action = eosio::action_wrapper<"setacctram"_n, &system_contract::setacctram>;
          using setacctnet_action = eosio::action_wrapper<"setacctnet"_n, &system_contract::setacctnet>;
@@ -1439,6 +1442,7 @@ namespace eosiosystem {
          using cfgpowerup_action = eosio::action_wrapper<"cfgpowerup"_n, &system_contract::cfgpowerup>;
          using powerupexec_action = eosio::action_wrapper<"powerupexec"_n, &system_contract::powerupexec>;
          using powerup_action = eosio::action_wrapper<"powerup"_n, &system_contract::powerup>;
+         using regshard_action = eosio::action_wrapper<"regshard"_n, &system_contract::regshard>;
 
       private:
          // Implementation details:

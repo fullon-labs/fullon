@@ -392,12 +392,14 @@ namespace eosio { namespace testing {
             itr = unapplied_transactions.erase( itr );
          }
 
-         vector<transaction_id_type> scheduled_trxs;
-
-         while ((scheduled_trxs = get_scheduled_transactions()).size() > 0 ) {
+         vector<transaction_id_type> scheduled_trxs = get_scheduled_transactions();
+         if ( scheduled_trxs.size() > 0 ) {
             for( const auto& trx : scheduled_trxs ) {
                auto trace = push_scheduled_transaction( trx, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true );
                traces.emplace_back( trace );
+               if (trace->except) {
+                  idump((trace->except));
+               }
                if( !no_throw && trace->except ) {
                   // this always throws an fc::exception, since the original exception is copied into an fc::exception
                   trace->except->dynamic_rethrow_exception();
@@ -493,7 +495,8 @@ namespace eosio { namespace testing {
    }
 
    vector<transaction_id_type> base_tester::get_scheduled_transactions() const {
-      const auto& idx = control->db().get_index<generated_transaction_multi_index,by_delay>();
+      const auto& shared_db = control->dbm().shared_db();
+      const auto& idx = shared_db.get_index<generated_transaction_multi_index,by_delay>();
 
       vector<transaction_id_type> result;
 
@@ -538,14 +541,14 @@ namespace eosio { namespace testing {
 
 
   void base_tester::set_transaction_headers( transaction& trx, uint32_t expiration, uint32_t delay_sec ) const {
-     if (!trx.shard_name)
-       trx.shard_name = config::main_shard_name;
-     trx.expiration = control->head_block_time() + fc::seconds(expiration);
-     trx.set_reference_block( control->head_block_id() );
 
-     trx.max_net_usage_words = 0; // No limit
-     trx.max_cpu_usage_ms = 0; // No limit
-     trx.delay_sec = delay_sec;
+      trx.shard_name = trx_shard_name;
+      trx.expiration = control->head_block_time() + fc::seconds(expiration);
+      trx.set_reference_block( control->head_block_id() );
+
+      trx.max_net_usage_words = 0; // No limit
+      trx.max_cpu_usage_ms = 0; // No limit
+      trx.delay_sec = delay_sec;
   }
 
 
@@ -655,7 +658,7 @@ namespace eosio { namespace testing {
    transaction_trace_ptr base_tester::push_scheduled_transaction( const transaction_id_type& scheduled,
                                        fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                        uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time ) {
-      auto& building_shard = control->init_building_shard(config::main_shard_name);
+      auto& building_shard = control->init_building_shard(trx_shard_name);
       return control->push_scheduled_transaction( building_shard, scheduled, block_deadline,
           max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
    }

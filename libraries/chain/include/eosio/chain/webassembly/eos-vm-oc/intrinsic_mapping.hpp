@@ -272,6 +272,7 @@ inline constexpr auto get_intrinsic_table() {
       // shard relacted interfaces
       "env.get_shard_name",
       "register_shard_packed"
+      "get_xshard_packed"
       "env.shared_db_store_i64",
       "env.shared_db_update_i64",
       "env.shared_db_remove_i64",

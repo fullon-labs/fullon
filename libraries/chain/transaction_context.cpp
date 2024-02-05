@@ -338,6 +338,8 @@ namespace eosio { namespace chain {
             for( const auto& act : trx.actions ) {
                schedule_action( act, act.account, false, 0, 0 );
             }
+         } else {
+            EOS_ASSERT( shard_name == config::main_shard_name, transaction_exception, "Delayed transaction is only allowed on the main shard" );
          }
       } else {
          EOS_ASSERT( false, transaction_exception, "unsupported shard type:${st}", ("st", (uint8_t)trx.get_shard_type()) );

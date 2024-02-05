@@ -75,13 +75,9 @@ void apply_context::exec_one()
       try {
          action_return_value.clear();
          receiver_account  = &shared_db.get<account_object,by_name>( receiver );
-         //on subshard return value may be null, especialy newaccount is called.
-         receiver_metadata = db.find<account_metadata_object,by_name>( receiver );
-         if( receiver_metadata == nullptr ) {
-            receiver_metadata = &db.create<account_metadata_object>([&](auto& a) {
-               a.name = receiver;
-            });
-         }
+
+         receiver_metadata = &get_account_metadata( receiver );
+
          if( !(context_free && control.skip_trx_checks()) ) {
             privileged = receiver_account->is_privileged();
             auto native = control.find_apply_handler( receiver, act->account, act->name );
@@ -772,9 +768,7 @@ uint64_t apply_context::next_recv_sequence( const account_metadata_object& recei
    }
 }
 uint64_t apply_context::next_auth_sequence( account_name actor ) {
-   //Even if account_metadata_object doesn't exist, it will be created in logic before
-   //in exec_one().
-   const auto& amo = db.get<account_metadata_object,by_name>( actor );
+   const auto& amo = get_account_metadata( actor );
    db.modify( amo, [&](auto& am ){
       ++am.auth_sequence;
    });
@@ -813,6 +807,17 @@ bool apply_context::is_builtin_activated( builtin_protocol_feature_t f ) const {
 
 bool apply_context::is_speculative_block() const {
    return control.is_speculative_block();
+}
+
+
+const account_metadata_object& apply_context::get_account_metadata(const name& account) {
+   auto ret = db.find<account_metadata_object, by_name>( account );
+   if( ret != nullptr )
+      return *ret;
+   // account_metadata_object may not be initialized in sub-shard when account first access
+   return db.create<account_metadata_object>([&](auto& a) {
+      a.name = account;
+   });
 }
 
 } } /// eosio::chain
