@@ -613,6 +613,17 @@ namespace eosio { namespace testing {
       }
 
       bool validate() { return true; } 
+      
+      void set_transaction_headers( transaction& trx, uint32_t expiration = DEFAULT_EXPIRATION_DELTA, uint32_t delay_sec = 0 ) const {
+         if (!trx.shard_name)
+            trx.shard_name = config::main_shard_name;
+         trx.expiration = control->head_block_time() + fc::seconds(expiration);
+         trx.set_reference_block( control->head_block_id() );
+
+         trx.max_net_usage_words = 0; // No limit
+         trx.max_cpu_usage_ms = 0; // No limit
+         trx.delay_sec = delay_sec;
+      }
    };
    
    class validating_tester : public base_tester {
@@ -801,6 +812,17 @@ namespace eosio { namespace testing {
          sharding_validating_tester(const fc::temp_directory& tempdir, Lambda conf_edit, bool use_genesis)
          :validating_tester(tempdir, conf_edit, use_genesis)
          {}
+         
+         void set_transaction_headers( transaction& trx, uint32_t expiration = DEFAULT_EXPIRATION_DELTA, uint32_t delay_sec = 0 ) const {
+            if (!trx.shard_name)
+               trx.shard_name = config::main_shard_name;
+            trx.expiration = control->head_block_time() + fc::seconds(expiration);
+            trx.set_reference_block( control->head_block_id() );
+
+            trx.max_net_usage_words = 0; // No limit
+            trx.max_cpu_usage_ms = 0; // No limit
+            trx.delay_sec = delay_sec;
+         }
    };
    
    /**
