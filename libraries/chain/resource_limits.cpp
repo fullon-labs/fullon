@@ -482,26 +482,33 @@ uint64_t resource_limits_manager::get_block_net_limit(const chainbase::database&
    return config.net_limit_parameters.max - state.pending_net_usage;
 }
 
-void  resource_limits_manager::check_creation_on_shard( const account_name& name, chainbase::database& db ) const {
+std::pair<int64_t, bool> resource_limits_manager::get_account_cpu_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit ) const {
+   auto [arl, greylisted] = get_account_cpu_limit_ex_writable(name, db, shared_db, greylist_limit);
+   return {arl.available, greylisted};
+}
+
+std::pair<account_resource_limit, bool>
+resource_limits_manager::get_account_cpu_limit_ex_readonly( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time ) const{
+   const auto* usage  = db.find<resource_usage_object,by_owner>( name );
+   EOS_ASSERT( usage, eosio::chain::database_exception, "resource_usage_object not found in db" );
+   return get_account_cpu_limit_ex( name, usage, shared_db, greylist_limit, current_time);
+}
+
+std::pair<account_resource_limit, bool>
+resource_limits_manager::get_account_cpu_limit_ex_writable( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time ) const{
    const auto* usage  = db.find<resource_usage_object,by_owner>( name );
    if( usage == nullptr ) {
       usage = &db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
          bu.owner = name;
       });
    }
-}
-
-std::pair<int64_t, bool> resource_limits_manager::get_account_cpu_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit ) const {
-   check_creation_on_shard(name, db);
-   auto [arl, greylisted] = get_account_cpu_limit_ex(name, db, shared_db, greylist_limit);
-   return {arl.available, greylisted};
+   return get_account_cpu_limit_ex( name, usage, shared_db, greylist_limit, current_time);
 }
 
 std::pair<account_resource_limit, bool>
-resource_limits_manager::get_account_cpu_limit_ex( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time) const {
+resource_limits_manager::get_account_cpu_limit_ex( const account_name& name, const resource_usage_object* usage, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time) const {
 
    const auto& state = shared_db.get<resource_limits_state_object>();
-   const auto* usage  = db.find<resource_usage_object,by_owner>( name );
    EOS_ASSERT(usage,eosio::chain::shard_exception, "resource_usage_object not found on shard");
    const auto& config = shared_db.get<resource_limits_config_object>();
 
@@ -556,16 +563,32 @@ resource_limits_manager::get_account_cpu_limit_ex( const account_name& name, cha
 }
 
 std::pair<int64_t, bool> resource_limits_manager::get_account_net_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit ) const {
-   check_creation_on_shard(name, db);
-   auto [arl, greylisted] = get_account_net_limit_ex(name, db, shared_db, greylist_limit);
+   auto [arl, greylisted] = get_account_net_limit_ex_writable(name, db, shared_db, greylist_limit);
    return {arl.available, greylisted};
 }
 
 std::pair<account_resource_limit, bool>
-resource_limits_manager::get_account_net_limit_ex( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time) const {
+resource_limits_manager::get_account_net_limit_ex_readonly( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time ) const{
+   const auto* usage  = db.find<resource_usage_object,by_owner>( name );
+   EOS_ASSERT( usage, eosio::chain::database_exception, "resource_usage_object not found in db" );
+   return get_account_net_limit_ex( name, usage, shared_db, greylist_limit, current_time);
+}
+
+std::pair<account_resource_limit, bool>
+resource_limits_manager::get_account_net_limit_ex_writable( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time ) const{
+   const auto* usage  = db.find<resource_usage_object,by_owner>( name );
+   if( usage == nullptr ) {
+      usage = &db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
+         bu.owner = name;
+      });
+   }
+   return get_account_net_limit_ex( name, usage, shared_db, greylist_limit, current_time);
+}
+         
+std::pair<account_resource_limit, bool>
+resource_limits_manager::get_account_net_limit_ex( const account_name& name, const resource_usage_object* usage, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time) const {
    const auto& config = shared_db.get<resource_limits_config_object>();
    const auto& state  = shared_db.get<resource_limits_state_object>();
-   const auto* usage  = db.find<resource_usage_object,by_owner>( name );
    EOS_ASSERT(usage,eosio::chain::shard_exception, "resource_usage_object not found on shard");
    int64_t net_weight, x, y;
    get_account_limits( name, x, net_weight, y, shared_db );

@@ -33,20 +33,8 @@ namespace eosio{ namespace chain {
          const database& main_db() const { return _main_db; }
          database& main_db() { return _main_db; }
 
-         const database& shard_db(db_name shard_name)  const {
-            if( _shard_db_map.find(shard_name) == _shard_db_map.end() ){
-               string err = string("shard db ")+ shard_name.to_string() + string(" not found");
-               BOOST_THROW_EXCEPTION( std::logic_error( err.c_str() ) );
-            }
-            return _shard_db_map.at(shard_name);
-         }
-         database& shard_db( db_name shard_name) {
-            if( _shard_db_map.find(shard_name) == _shard_db_map.end() ){
-               string err = string("shard db ")+ shard_name.to_string() + string(" not found");
-               BOOST_THROW_EXCEPTION( std::logic_error( err.c_str() ) );
-            }
-            return _shard_db_map.at(shard_name);
-         }
+         const database& shard_db(db_name shard_name)  const;
+         database& shard_db( db_name shard_name);
 
          database* find_shard_db(const shard_name& name);
          const database* find_shard_db(const shard_name& name) const;

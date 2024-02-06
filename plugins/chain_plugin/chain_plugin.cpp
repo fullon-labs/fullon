@@ -2395,11 +2395,11 @@ read_only::get_account_results read_only::get_account( const get_account_params&
 
    uint32_t greylist_limit = db.is_resource_greylisted(result.account_name) ? 1 : config::maximum_elastic_resource_multiplier;
    const block_timestamp_type current_usage_time (db.head_block_time());
-   result.net_limit.set( rm.get_account_net_limit_ex( result.account_name, main_db, main_db, greylist_limit, current_usage_time).first );
+   result.net_limit.set( rm.get_account_net_limit_ex_readonly( result.account_name, main_db, main_db, greylist_limit, current_usage_time).first );
    if ( result.net_limit.last_usage_update_time && (result.net_limit.last_usage_update_time->slot == 0) ) {   // account has no action yet
       result.net_limit.last_usage_update_time = accnt_obj.creation_date;
    }
-   result.cpu_limit.set( rm.get_account_cpu_limit_ex( result.account_name, main_db, main_db, greylist_limit, current_usage_time).first );
+   result.cpu_limit.set( rm.get_account_cpu_limit_ex_readonly( result.account_name, main_db, main_db, greylist_limit, current_usage_time).first );
    if ( result.cpu_limit.last_usage_update_time && (result.cpu_limit.last_usage_update_time->slot == 0) ) {   // account has no action yet
       result.cpu_limit.last_usage_update_time = accnt_obj.creation_date;
    }

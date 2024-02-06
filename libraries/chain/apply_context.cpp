@@ -759,8 +759,6 @@ uint64_t apply_context::next_recv_sequence( const account_metadata_object& recei
       // To avoid confusion of duplicated receive sequence number, hard code to be 0.
       return 0;
    } else {
-      //Even if account_metadata_object doesn't exist, it will be created in logic before
-      //in exec_one().
       db.modify( receiver_account, [&]( auto& ra ) {
          ++ra.recv_sequence;
       });

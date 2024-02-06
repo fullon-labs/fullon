@@ -14,6 +14,7 @@ namespace eosio { namespace chain {
    class deep_mind_handler;
 
    namespace resource_limits {
+   struct resource_usage_object;
    namespace impl {
       template<typename T>
       struct ratio {
@@ -111,16 +112,24 @@ namespace eosio { namespace chain {
          std::pair<int64_t, bool> get_account_net_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
 
          std::pair<account_resource_limit, bool>
-         get_account_cpu_limit_ex( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         get_account_cpu_limit_ex_readonly( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
          std::pair<account_resource_limit, bool>
-         get_account_net_limit_ex( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         get_account_cpu_limit_ex_writable( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         std::pair<account_resource_limit, bool>
+         get_account_cpu_limit_ex( const account_name& name, const resource_usage_object* usage, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         
+         std::pair<account_resource_limit, bool>
+         get_account_net_limit_ex_readonly( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         std::pair<account_resource_limit, bool>
+         get_account_net_limit_ex_writable( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+         std::pair<account_resource_limit, bool>
+         get_account_net_limit_ex( const account_name& name, const resource_usage_object* usage, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
 
          int64_t get_account_ram_usage( const account_name& name , chainbase::database& db) const;
 
       private:
          eosio::chain::database_manager&     _dbm;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
-         void  check_creation_on_shard( const account_name& name, chainbase::database& db ) const;
    };
 } } } /// eosio::chain
 

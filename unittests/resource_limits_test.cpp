@@ -452,8 +452,8 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
             BOOST_CHECK_EQUAL(ret_limited_with_earlier_time_stamp.first.last_usage_update_time.slot, update_slot);
          }
       };
-      test_get_account_limit_ex(net_test_account, net_window, &resource_limits_manager::get_account_net_limit_ex);
-      test_get_account_limit_ex(cpu_test_account, cpu_window, &resource_limits_manager::get_account_cpu_limit_ex);
+      test_get_account_limit_ex(net_test_account, net_window, &resource_limits_manager::get_account_net_limit_ex_readonly);
+      test_get_account_limit_ex(cpu_test_account, cpu_window, &resource_limits_manager::get_account_cpu_limit_ex_readonly);
 
    } FC_LOG_AND_RETHROW()
 
