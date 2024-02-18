@@ -314,7 +314,6 @@ struct processing_shard {
    typedef generated_transaction_object::id_type generated_trx_id_type;
 
    unapplied_transaction_queue   unapplied_transactions;
-   uint64_t                      block_seq                     = 0;
    uint64_t                      trx_seq                       = 0;
    std::future<bool>             trx_task_fut;
    time_point                    last_processed_time;
@@ -499,6 +498,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       named_thread_pool<struct shard>  _shard_thread_pool;
       processing_shard_map             _shards;
+      uint64_t                         _block_seq{ 0 };
 
       processing_shard_map::iterator get_shard_itr(const eosio::chain::shard_name& sname) {
          auto itr = _shards.find(sname);
@@ -2044,10 +2044,10 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
       abort_block();
 
+      _block_seq++;
       // init trxs
       for ( auto& item : _shards) {
          auto& trx                           = item.second;
-         trx.block_seq++;
          trx.trx_seq = 0;
          trx.num_schedule_trx_processed      = 0;
          trx.num_schedule_trx_failed         = 0;
@@ -2369,7 +2369,7 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
       ("t", trx_enum_type_dump(unapplied_trx.trx_type))
       ("s", shard.unapplied_transactions.size())
       ("ins", shard.unapplied_transactions.incoming_size())
-      ("bsq", shard.block_seq)
+      ("bsq", _block_seq)
       ("tsq", shard.trx_seq)
       ("it", shard.last_processed_time.time_since_epoch().count() ? (start - shard.last_processed_time).count() : 0) );
 
@@ -2418,7 +2418,7 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
    // TODO: params should use reference &?
    shard.trx_task_fut = post_async_task( _shard_thread_pool.get_executor(), [
                                  self = this, shard_itr{std::move(shard_itr)}, &building_shard,
-                                 block_seq{shard.block_seq}, trx_seq{shard.trx_seq},
+                                 block_seq{_block_seq}, trx_seq{shard.trx_seq},
                                  unapplied_trx{std::move(unapplied_trx)}, block_deadline,
                                  start, disable_subjective_enforcement, first_auth, max_trx_time,
                                  prev_billed_cpu_time_us, sub_bill] () {
@@ -2426,7 +2426,7 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
             chain::controller& chain = self->chain_plug->chain();
 
             // check block seq to ensure that current thead is running in expected block producing.
-            EOS_ASSERT(shard_itr->second.block_seq == block_seq, producer_exception, "Building block sequence error");
+            EOS_ASSERT(self->_block_seq == block_seq, producer_exception, "Building block sequence error");
 
             auto trace = chain.push_transaction( building_shard, unapplied_trx.trx_meta, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
 
@@ -2442,7 +2442,7 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
                   ("t", trx_enum_type_dump(unapplied_trx.trx_type))
                   ("s", shard.unapplied_transactions.size())
                   ("ins", shard.unapplied_transactions.incoming_size())
-                  ("bsq", shard.block_seq)
+                  ("bsq", self->_block_seq)
                   ("tsq", shard.trx_seq)
                   ("st", (fc::time_point::now() - start).count()) );
 
@@ -2456,11 +2456,11 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
 
 
                // auto ret = self->read_only_execution_task(pending_block_num);
-               if (shard.block_seq == block_seq && shard.trx_seq == trx_seq) {
+               if (self->_block_seq == block_seq && shard.trx_seq == trx_seq) {
                   shard.trx_task_fut = std::future<bool>();
                } else {
                   fc_dlog( _log, "Processed transaction sequence diff, expected{ block_seq=${ebsq}, trx_seq=${etsq} }, actual{ block_seq=${absq}, trx_seq=${atsq} }",
-                     ("ebsq", shard.block_seq)
+                     ("ebsq", self->_block_seq)
                      ("etsq", shard.trx_seq)
                      ("absq", block_seq)
                      ("atsq", trx_seq) );
@@ -2587,7 +2587,8 @@ bool producer_plugin_impl::process_unapplied_trx_one( const fc::time_point& dead
 void producer_plugin_impl::process_scheduled_trxs( const fc::time_point& deadline, processing_shard_map::iterator shard_itr )
 {
    assert(shard_itr != _shards.end());
-   assert(shard_itr->first == config::main_shard_name);
+   const auto& shard_name = shard_itr->first;
+   // assert(shard_name == config::main_shard_name);
    auto& shard = shard_itr->second;
 
    bool exhausted = false;
@@ -2610,11 +2611,11 @@ void producer_plugin_impl::process_scheduled_trxs( const fc::time_point& deadlin
       return; // and then will pushing incoming trx
    }
 
-   const auto& sch_idx = chain.db().get_index<generated_transaction_multi_index,by_delay>();
+   const auto& sch_idx = chain.db().get_index<generated_transaction_multi_index,by_shard_delay>();
 
-   auto sch_itr = sch_idx.lower_bound( boost::make_tuple( shard.next_schedule_trx_delay_until, shard.next_schedule_trx_id ) );
+   auto sch_itr = sch_idx.lower_bound( boost::make_tuple( shard_name, shard.next_schedule_trx_delay_until, shard.next_schedule_trx_id ) );
    bool found = false;
-   while( sch_itr != sch_idx.end() ) {
+   while( sch_itr != sch_idx.end() && sch_itr->shard_name == shard_name ) {
       shard.schedule_trx_id = sch_itr->trx_id;
       if( sch_itr->delay_until > pending_block_time) {
          break;    // not scheduled yet
@@ -2660,13 +2661,13 @@ void producer_plugin_impl::process_scheduled_trxs( const fc::time_point& deadlin
       auto& building_shard = chain.init_building_shard(shard_itr->first);
       shard.trx_task_fut = post_async_task( _shard_thread_pool.get_executor(), [
                                  self = this, shard_itr{std::move(shard_itr)},
-                                 &building_shard, block_seq{shard.block_seq},
+                                 &building_shard, block_seq{_block_seq},
                                  trx_seq{shard.trx_seq}, trx_id{sch_itr->trx_id}, deadline,
                                  start, max_trx_time, sch_expiration] () {
          try {
             chain::controller& chain = self->chain_plug->chain();
             // check block seq to ensure that current thead is running in expected block producing.
-            EOS_ASSERT(shard_itr->second.block_seq == block_seq, producer_exception, "Building block sequence error");
+            EOS_ASSERT(self->_block_seq == block_seq, producer_exception, "Building block sequence error");
             auto trace = chain.push_scheduled_transaction(building_shard, trx_id, deadline, max_trx_time, 0, false);
 
             app().executor().post( priority::low, exec_queue::read_write, [self, shard_itr{std::move(shard_itr)}, block_seq, trx_seq, deadline, start, trace{std::move(trace)}, trx_id{std::move(trx_id)}, sch_expiration]() mutable {
@@ -2682,11 +2683,11 @@ void producer_plugin_impl::process_scheduled_trxs( const fc::time_point& deadlin
 
                auto& shard = shard_itr->second;
 
-               if (shard.block_seq == block_seq && shard.trx_seq == trx_seq) {
+               if (self->_block_seq == block_seq && shard.trx_seq == trx_seq) {
                   shard.trx_task_fut = std::future<bool>();
                } else {
                   fc_dlog( _log, "Processed transaction sequence diff, expected{ block_seq=${ebsq}, trx_seq=${etsq} }, actual{ block_seq=${absq}, trx_seq=${atsq} }",
-                     ("ebsq", shard.block_seq)
+                     ("ebsq", self->_block_seq)
                      ("etsq", shard.trx_seq)
                      ("absq", block_seq)
                      ("atsq", trx_seq) );
@@ -2765,7 +2766,7 @@ bool producer_plugin_impl::process_trx_one( const fc::time_point& deadline, proc
 {
    assert(shard_itr != _shards.end());
    auto& shard = shard_itr->second;
-   const auto& shard_name = shard_itr->first;
+   // const auto& shard_name = shard_itr->first;
    try {
       const chain::controller& chain = chain_plug->chain();
       if ( !chain.is_building_block() ) {
@@ -2782,7 +2783,7 @@ bool producer_plugin_impl::process_trx_one( const fc::time_point& deadline, proc
 
       process_unapplied_trx_one(deadline, shard_itr);
 
-      if (shard_name == config::main_shard_name && !shard.trx_task_fut.valid()) {
+      if ( !shard.trx_task_fut.valid() ) {
          // scheduled trx can only be in main shard
          process_scheduled_trxs(deadline, shard_itr);
       }
