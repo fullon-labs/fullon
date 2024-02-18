@@ -435,6 +435,7 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
    EOS_ASSERT( !trx_context.is_read_only(), transaction_exception, "cannot schedule a deferred transaction from within a readonly transaction" );
    EOS_ASSERT( trx.context_free_actions.size() == 0, cfa_inside_generated_tx, "context free actions are not currently allowed in generated transactions" );
 
+   assert(shard_name == config::main_shard_name);
    bool enforce_actor_whitelist_blacklist = trx_context.enforce_whiteblacklist && control.is_speculative_block()
                                              && !control.sender_avoids_whitelist_blacklist_enforcement( receiver );
    trx_context.validate_referenced_accounts( trx, enforce_actor_whitelist_blacklist );
@@ -598,6 +599,7 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
          gtx.expiration  = gtx.delay_until + fc::seconds(control.get_global_properties().configuration.deferred_trx_expiration_window);
 
          trx_size = gtx.set( trx );
+         gtx.shard_name = shard_name;
 
          if (auto dm_logger = control.get_deep_mind_logger(trx_context.is_transient())) {
             dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::modify, gtx);
@@ -615,6 +617,7 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
          gtx.expiration  = gtx.delay_until + fc::seconds(control.get_global_properties().configuration.deferred_trx_expiration_window);
 
          trx_size = gtx.set( trx );
+         gtx.shard_name = shard_name;
 
          if (auto dm_logger = control.get_deep_mind_logger(trx_context.is_transient())) {
             dm_logger->on_send_deferred(deep_mind_handler::operation_qualifier::none, gtx);

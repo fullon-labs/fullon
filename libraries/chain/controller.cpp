@@ -2213,6 +2213,7 @@ struct controller_impl {
       // process xshard
       for (auto& shard : bb._shards) {
          // xshout
+         const auto& shard_name = shard.first;
          for (const auto& act : shard.second._xsh_out_actions) {
             const auto& xsh_out = act.xsh_out;
             // TODO: generate in trx exection
@@ -2240,6 +2241,7 @@ struct controller_impl {
                gtx.expiration  = gtx.delay_until + fc::seconds(gpo.configuration.deferred_trx_expiration_window);
 
                gtx.packed_trx.assign(act.scheduled_xshin_trx_packed.data(), act.scheduled_xshin_trx_packed.size());
+               gtx.shard_name = shard_name;
                gtx.is_xshard = true;
 
                // TODO: on_send_xshard

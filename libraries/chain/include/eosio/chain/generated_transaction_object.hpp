@@ -32,6 +32,7 @@ namespace eosio { namespace chain {
          time_point                    expiration; /// this generated transaction will not be applied after this time
          time_point                    published;
          shared_blob                   packed_trx;
+         chain::shard_name             shard_name;
          bool                          is_xshard = false;
 
          uint32_t set( const transaction& trx ) {
@@ -47,6 +48,7 @@ namespace eosio { namespace chain {
    struct by_trx_id;
    struct by_expiration;
    struct by_delay;
+   struct by_shard_delay;
    struct by_status;
    struct by_sender_id;
 
@@ -72,6 +74,13 @@ namespace eosio { namespace chain {
                BOOST_MULTI_INDEX_MEMBER( generated_transaction_object, account_name, sender),
                BOOST_MULTI_INDEX_MEMBER( generated_transaction_object, uint128_t, sender_id)
             >
+         >,
+         ordered_unique< tag<by_shard_delay>,
+            composite_key< generated_transaction_object,
+               BOOST_MULTI_INDEX_MEMBER( generated_transaction_object, chain::shard_name, shard_name),
+               BOOST_MULTI_INDEX_MEMBER( generated_transaction_object, time_point, delay_until),
+               BOOST_MULTI_INDEX_MEMBER( generated_transaction_object, generated_transaction_object::id_type, id)
+            >
          >
       >
    >;
@@ -88,6 +97,7 @@ namespace eosio { namespace chain {
          ,expiration(gto.expiration)
          ,published(gto.published)
          ,packed_trx(gto.packed_trx.begin(), gto.packed_trx.end())
+         ,shard_name(gto.shard_name)
          ,is_xshard(gto.is_xshard)
          {}
 
@@ -102,6 +112,7 @@ namespace eosio { namespace chain {
          time_point                    expiration; /// this generated transaction will not be applied after this time
          time_point                    published;
          vector<char>                  packed_trx;
+         chain::shard_name             shard_name;
          bool                          is_xshard = false;
 
    };
@@ -117,5 +128,5 @@ namespace eosio { namespace chain {
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::generated_transaction_object, eosio::chain::generated_transaction_multi_index)
 
-FC_REFLECT(eosio::chain::generated_transaction_object, (trx_id)(sender)(sender_id)(payer)(delay_until)(expiration)(published)(packed_trx)(is_xshard))
-FC_REFLECT(eosio::chain::generated_transaction, (trx_id)(sender)(sender_id)(payer)(delay_until)(expiration)(published)(packed_trx)(is_xshard))
+FC_REFLECT(eosio::chain::generated_transaction_object, (trx_id)(sender)(sender_id)(payer)(delay_until)(expiration)(published)(packed_trx)(shard_name)(is_xshard))
+FC_REFLECT(eosio::chain::generated_transaction, (trx_id)(sender)(sender_id)(payer)(delay_until)(expiration)(published)(packed_trx)(shard_name)(is_xshard))
