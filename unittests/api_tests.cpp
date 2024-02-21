@@ -1812,7 +1812,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
 
       CALL_TEST_FUNCTION(*this, "test_transaction", "repeat_deferred_transaction", fc::raw::pack( (uint32_t)5 ) );
 
-      produce_block();
+      produce_blocks(4);
 
       c.disconnect();
 

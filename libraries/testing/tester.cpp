@@ -497,8 +497,8 @@ namespace eosio { namespace testing {
    }
 
    vector<transaction_id_type> base_tester::get_scheduled_transactions() const {
-      const auto& shared_db = control->dbm().shared_db();
-      const auto& idx = shared_db.get_index<generated_transaction_multi_index,by_delay>();
+      const auto& main_db = control->dbm().main_db();
+      const auto& idx = main_db.get_index<generated_transaction_multi_index,by_delay>();
 
       vector<transaction_id_type> result;
 
