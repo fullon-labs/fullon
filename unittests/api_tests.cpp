@@ -1473,27 +1473,27 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
          if (t && t->receipt && t->receipt->status != transaction_receipt::executed) { trace = t; }
       } );
       block_state_ptr bsp;
-      auto c2 = control->accepted_block.connect([&](const block_state_ptr& b) { bsp = b; });
+      std::set<transaction_id_type> block_ids;
+      auto c2 = control->accepted_block.connect([&](const block_state_ptr& b) {
+         for( const auto& receipts : b->block->transactions ) {
+            for( const auto& receipt : receipts.second ) {
+               transaction_id_type id;
+               if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+                  const auto& pt = std::get<packed_transaction>(receipt.trx);
+                  id = pt.id();
+               } else {
+                  id = std::get<transaction_id_type>(receipt.trx);
+               }
+               block_ids.insert( id );
+            }
+         }
+      });
 
       // test error handling on deferred transaction failure
       auto test_trace = CALL_TEST_FUNCTION(*this, "test_transaction", "send_transaction_trigger_error_handler", {});
-
+      produce_blocks(1);
       BOOST_REQUIRE(trace);
       BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::soft_fail);
-
-      std::set<transaction_id_type> block_ids;
-      for( const auto& receipts : bsp->block->transactions ) {
-         for( const auto& receipt : receipts.second ) {
-            transaction_id_type id;
-            if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-               const auto& pt = std::get<packed_transaction>(receipt.trx);
-               id = pt.id();
-            } else {
-               id = std::get<transaction_id_type>(receipt.trx);
-            }
-            block_ids.insert( id );
-         }
-      }
 
       BOOST_CHECK_EQUAL(2, block_ids.size() ); // originating trx and deferred
       BOOST_CHECK_EQUAL(1, block_ids.count( test_trace->id ) ); // originating

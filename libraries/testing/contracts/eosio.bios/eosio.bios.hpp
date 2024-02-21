@@ -138,6 +138,18 @@ namespace eosiobios {
       public:
          using contract::contract;
          /**
+          * On block action. This special action is triggered when a block is applied by the given producer
+          * and cannot be generated from any other source. It is used to pay producers and calculate
+          * missed blocks of other producers. Producer pay is deposited into the producer's stake
+          * balance and can be withdrawn over time. Once a minute, it may update the active producer config from the
+          * producer votes. The action also populates the blockinfo table.
+          *
+          * @param header - the block header produced.
+          */
+         [[eosio::action]]
+         void onblock( ignore<block_header> header ){}
+
+         /**
           * @{
           * These actions map one-on-one with the ones defined in
           * [Native Action Handlers](@ref native_action_handlers) section.
