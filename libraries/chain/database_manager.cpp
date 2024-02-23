@@ -112,6 +112,19 @@ namespace eosio { namespace chain {
       }
       return &itr->second;
    }
+   
+   const database_manager::database& database_manager::shard_db(db_name shard_name) const {
+      auto itr = _shard_db_map.find(shard_name);
+      EOS_ASSERT(itr != _shard_db_map.end(), eosio::chain::database_exception,"${sname} db not found",("sname", shard_name));
+      return itr->second;
+   }
+         
+   database_manager::database& database_manager::shard_db( db_name shard_name) {
+      auto itr = _shard_db_map.find(shard_name);
+      EOS_ASSERT(itr != _shard_db_map.end(), eosio::chain::database_exception,"${sname} db not found",("sname", shard_name));
+      return itr->second;
+   }
+
    database_manager::database* database_manager::find_shard_db(const shard_name& name) {
       if (name == config::main_shard_name) {
          return &_main_db;

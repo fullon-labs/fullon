@@ -33,8 +33,8 @@ namespace eosio{ namespace chain {
          const database& main_db() const { return _main_db; }
          database& main_db() { return _main_db; }
 
-         const database& shard_db(db_name shard_name)  const { return _shard_db_map.at(shard_name);}
-         database& shard_db( db_name shard_name) { return _shard_db_map.at(shard_name);}
+         const database& shard_db(db_name shard_name)  const;
+         database& shard_db( db_name shard_name);
 
          database* find_shard_db(const shard_name& name);
          const database* find_shard_db(const shard_name& name) const;
