@@ -465,17 +465,19 @@ try:
         raise
 
     myTrans=None
-    for trans in transactions:
-        assert(trans)
-        try:
-            myTransId=trans["trx"]["id"]
-            if transId == myTransId:
-                myTrans=trans["trx"]["transaction"]
-                assert(myTrans)
-                break
-        except (AssertionError, TypeError, KeyError) as _:
-            Print("FAILURE - Failed to parse block transactions. %s" % (trans))
-            raise
+    for shard in transactions.values():
+        assert(shard)
+        for trans in shard:
+            assert(trans)
+            try:
+                myTransId=trans["trx"]["id"]
+                if transId == myTransId:
+                    myTrans=trans["trx"]["transaction"]
+                    assert(myTrans)
+                    break
+            except (AssertionError, TypeError, KeyError) as _:
+                Print("FAILURE - Failed to parse block transactions. %s" % (trans))
+                raise
 
     assert(myTrans)
     try:

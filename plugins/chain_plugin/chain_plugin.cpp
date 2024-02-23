@@ -2464,7 +2464,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
       abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
 
-      const auto token_code = "eosio.token"_n;
+      const auto token_code = "gax.token"_n; // TODO: get token_code from config::system_token
 
       auto core_symbol = extract_core_symbol();
 
