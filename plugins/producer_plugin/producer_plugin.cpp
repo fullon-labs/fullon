@@ -840,6 +840,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             auto shard_itr = get_shard_itr(trx->get_shard_name());
             shard_itr->second.unapplied_transactions.add_incoming( trx, api_trx, return_failure_trace, next );
             if( chain.is_building_block()) {
+               if (shard_itr->second.trx_task_fut.valid()) {
+                  fc_dlog( _log, "There is a processing trx, cur_trx=${cur_trx}", ("cur_trx", id));
+               }
                const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
                process_trx_one(block_deadline, shard_itr);
             }

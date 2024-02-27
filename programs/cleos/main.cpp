@@ -177,6 +177,7 @@ uint16_t tx_retry_num_blocks = 0;
 bool   tx_use_old_rpc = false;
 bool   tx_use_old_send_rpc = false;
 string tx_json_save_file;
+name   tx_shard_name = config::main_shard_name;
 eosio::client::http::config_t http_config;
 bool   no_auto_keosd = false;
 bool   verbose = false;
@@ -289,6 +290,11 @@ signing_keys_option signing_keys_opt;
 void add_standard_transaction_options_plus_signing(CLI::App* cmd, string default_permission = "") {
    add_standard_transaction_options(cmd, default_permission);
    signing_keys_opt.add_option(cmd);
+}
+
+
+void add_transaction_shard_options(CLI::App* cmd) {
+   cmd->add_option("--shard", tx_shard_name, localized("Set the shard name of the transaction, defaults to \"main\""));
 }
 
 vector<chain::permission_level> get_account_permissions(const vector<string>& permissions) {
@@ -415,6 +421,9 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
 
    if (trx.signatures.size() == 0) { // #5445 can't change txn content if already signed
       trx.expiration = info.head_block_time + tx_expiration;
+
+      EOSC_ASSERT( !tx_shard_name.empty(), "ERROR: --shard can not be empty" );
+      trx.shard_name = tx_shard_name;
 
       // Set tapos, default to last irreversible block if it's not specified by the user
       block_id_type ref_block_id = info.last_irreversible_block_id;
@@ -3923,6 +3932,7 @@ int main( int argc, char** argv ) {
                                  localized("A JSON string or filename defining the action to execute on the contract"))->required()->capture_default_str();
    actionsSubcommand->add_option("data", data, localized("The arguments to the contract"))->required();
    actionsSubcommand->add_flag("--read", tx_read, localized("Specify an action is read-only"));
+   add_transaction_shard_options(actionsSubcommand);
 
    add_standard_transaction_options_plus_signing(actionsSubcommand);
    actionsSubcommand->callback([&] {
