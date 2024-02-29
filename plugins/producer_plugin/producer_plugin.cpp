@@ -830,6 +830,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                return true;
             }
 
+            chain.check_shard_available(trx->get_shard_name());
+
             if( chain.is_known_unexpired_transaction( id, trx->get_shard_name() )) {
                auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
                      FC_LOG_MESSAGE( error, "duplicate transaction ${id}", ("id", id))));
@@ -2756,7 +2758,7 @@ bool producer_plugin_impl::process_scheduled_trxs( const fc::time_point& deadlin
          return true;
       }) ;
    }
-
+   return true;
 }
 
 bool producer_plugin_impl::process_incoming_trx_one( const fc::time_point& deadline, processing_shard_map::iterator shard_itr )

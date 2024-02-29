@@ -960,10 +960,10 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
       auto itr = bb._shards.find(name);
       if ( itr == bb._shards.end() ) {
-         // TODO: check shard exist in shard table of shared_db
+         check_shard_available( name );
          auto db_ptr = dbm.find_shard_db(name);
          EOS_ASSERT( db_ptr, unavailable_shard_exception, "shard db not found" );
-         auto& shared_db = name == config::main_shard_name ? *db_ptr : dbm.shared_db();
+         auto& shared_db = (name == config::main_shard_name) ? dbm.main_db() : dbm.shared_db();
          auto new_ret = bb._shards.emplace( std::piecewise_construct,
                                         std::forward_as_tuple( name ),
                                         std::forward_as_tuple( name, *db_ptr, shared_db ) );
@@ -2960,10 +2960,10 @@ struct controller_impl {
          dlog("removed ${n} expired transactions of the ${t} input dedup list, pending block time ${pt}, block shard name: ${sname}",
             ("n", num_removed)("t", total)("pt", now)("sname", sname));
       };
-      
+
       auto& db = dbm.main_db();
       remove_from_shard( db , "main"_n );
-      
+
       //Look for expired transactions in the deduplication list in sub shard, and remove them.
       for( auto& sdb : dbm.shard_dbs() ) {
          auto sname = sdb.first;
@@ -3101,6 +3101,11 @@ struct controller_impl {
       }
    }
 
+   void check_shard_available( const shard_name name) const {
+         const auto* sp = dbm.shared_db().find<shard_object, by_name>( name );
+         EOS_ASSERT( sp, unavailable_shard_exception, "shard not found" );
+         EOS_ASSERT( sp->enabled, unavailable_shard_exception, "shard is disabled" );
+   }
    /*
    bool should_check_tapos()const { return true; }
 
@@ -3953,6 +3958,11 @@ void controller::check_action_list( account_name code, action_name action )const
 
 void controller::check_key_list( const public_key_type& key )const {
    my->check_key_list( key );
+}
+
+
+void controller::check_shard_available( const shard_name name) const {
+   my->check_shard_available( name );
 }
 
 bool controller::is_building_block()const {
