@@ -1,8 +1,8 @@
-# Galaxy Chain
-Galaxy Chain is a C++ implementation of the [Galaxy-Chain](https://github.com/galaxychain-labs) protocol. It contains blockchain node software and supporting tools for developers and node operators.
+# FullOn Chain
+FullOn Chain is a C++ implementation of the [FullOn-Chain](https://github.com/fullon-labs) protocol. It contains blockchain node software and supporting tools for developers and node operators.
 
 ## Branches
-The `main` branch is the development branch; do not use it for production. Refer to the [release page](https://github.com/galaxychain-labs/galaxy/releases) for current information on releases, pre-releases, and obsolete releases, as well as the corresponding tags for those releases.
+The `main` branch is the development branch; do not use it for production. Refer to the [release page](https://github.com/fullon-labs/fullon/releases) for current information on releases, pre-releases, and obsolete releases, as well as the corresponding tags for those releases.
 
 ## Supported Operating Systems
 We currently support the following operating systems.
@@ -19,7 +19,7 @@ cat /etc/upstream-release/lsb-release
 Your best bet is to follow the instructions for your Ubuntu base, but we make no guarantees.
 
 ## Binary Installation
-This is the fastest way to get started. From the [latest release](https://github.com/galaxychain-labs/galaxy/releases/latest) page, download a binary for one of our [supported operating systems](#supported-operating-systems), or visit the [release tags](https://github.com/galaxychain-labs/galaxy/releases) page to download a binary for a specific version of Leap.
+This is the fastest way to get started. From the [latest release](https://github.com/fullon-labs/fullon/releases/latest) page, download a binary for one of our [supported operating systems](#supported-operating-systems), or visit the [release tags](https://github.com/fullon-labs/fullon/releases) page to download a binary for a specific version of Leap.
 
 Once you have a `*.deb` file downloaded for your version of Ubuntu, you can install it as follows:
 ```bash
@@ -30,7 +30,7 @@ Your download path may vary. If you are in an Ubuntu docker container, omit `sud
 
 Finally, verify Leap was installed correctly:
 ```bash
-nodeos --full-version
+fonode --full-version
 ```
 You should see a [semantic version](https://semver.org) string followed by a `git` commit hash with no errors. For example:
 ```
@@ -65,11 +65,11 @@ cd ~/Downloads
 ```
 Clone Leap using either HTTPS...
 ```bash
-git clone --recursive https://github.com/galaxychain-labs/galaxy.git
+git clone --recursive https://github.com/fullon-labs/fullon.git
 ```
 ...or SSH:
 ```bash
-git clone --recursive git@github.com:galaxychain-labs/galaxy.git
+git clone --recursive git@github.com:fullon-labs/fullon.git
 ```
 
 > ℹ️ **HTTPS vs. SSH Clone** ℹ️
@@ -81,7 +81,7 @@ cd leap
 ```
 
 ### Step 2 - Checkout Release Tag or Branch
-Choose which [release](https://github.com/galaxychain-labs/galaxy/releases) or [branch](#branches) you would like to build, then check it out. If you are not sure, use the [latest release](https://github.com/galaxychain-labs/galaxy/releases/latest). For example, if you want to build release 3.1.2 then you would check it out using its tag, `v3.1.2`. In the example below, replace `v0.0.0` with your selected release tag accordingly:
+Choose which [release](https://github.com/fullon-labs/fullon/releases) or [branch](#branches) you would like to build, then check it out. If you are not sure, use the [latest release](https://github.com/FullOnchain-labs/FullOn/releases/latest). For example, if you want to build release 3.1.2 then you would check it out using its tag, `v3.1.2`. In the example below, replace `v0.0.0` with your selected release tag accordingly:
 ```bash
 git fetch --all --tags
 git checkout v0.0.0
@@ -230,7 +230,7 @@ ctest -j "$(nproc)" -L wasm_spec_tests
 We have observed severe performance issues when multiple virtual machines are running this test suite on the same physical host at the same time, for example in a CICD system. This can be resolved by disabling hyperthreading on the host.
 
 #### Serial Tests
-The serial test suite consists of [medium](https://testing.googleblog.com/2010/12/test-sizes.html) component or integration tests that use specific paths, ports, rely on process names, or similar, and cannot be run concurrently with other tests. Serial tests can be sensitive to other software running on the same host and they may `SIGKILL` other `nodeos` processes. These tests take a moderate amount of time to complete, but we recommend running them.
+The serial test suite consists of [medium](https://testing.googleblog.com/2010/12/test-sizes.html) component or integration tests that use specific paths, ports, rely on process names, or similar, and cannot be run concurrently with other tests. Serial tests can be sensitive to other software running on the same host and they may `SIGKILL` other `fonode` processes. These tests take a moderate amount of time to complete, but we recommend running them.
 
 You can invoke them by running `ctest` from a terminal in your Leap build directory and specifying the following arguments:
 ```bash
