@@ -345,8 +345,8 @@ class Transactions(NodeosQueries):
             for digest in group:
                 Utils.Print("push activate action with digest {}".format(digest))
                 data="{{\"feature_digest\":{}}}".format(digest)
-                opts="--permission gax@active"
-                success, trans=self.pushMessage("gax", "activate", data, opts)
+                opts="--permission flon@active"
+                success, trans=self.pushMessage("flon", "activate", data, opts)
                 if not success:
                     Utils.Print("ERROR: Failed to preactive digest {}".format(digest))
                     return None

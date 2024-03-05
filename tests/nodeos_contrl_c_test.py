@@ -79,7 +79,7 @@ try:
     Print("Creating wallet \"%s\"." % (testWalletName))
     testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1]])
 
-    # create accounts via gax as otherwise a bid is needed
+    # create accounts via flon as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
         trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=True, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)

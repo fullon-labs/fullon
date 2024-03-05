@@ -59,7 +59,7 @@ cluster=Cluster(walletd=True,unshared=args.unshared)
 
 walletMgr=WalletMgr(True)
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "FO6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 contractDir='unittests/test-contracts/nested_container_multi_index'
 wasmFile='nested_container_multi_index.wasm'
 abiFile='nested_container_multi_index.abi'
@@ -111,7 +111,7 @@ try:
     node = cluster.getNode()
 
     Print("Setting account privilege")
-    node.pushMessage(cluster.eosioAccount.name, 'setpriv', '["nestcontnmi", 1]', '-p gax@active')
+    node.pushMessage(cluster.eosioAccount.name, 'setpriv', '["nestcontnmi", 1]', '-p flon@active')
 
     Print("Loading nested container contract")
     node.publishContract(MIacct, contractDir, wasmFile, abiFile, waitForTransBlock=True)

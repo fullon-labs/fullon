@@ -179,7 +179,7 @@ class launcher(object):
         parser.add_argument('--bounce', type=comma_separated, help='comma-separated list of node numbers that will be restarted', default=[])
         parser.add_argument('--roll', type=comma_separated, help='comma-separated list of host names where the nodes will be rolled to a new version')
         parser.add_argument('-b', '--base_dir', type=Path, help='base directory where configuration and data files will be written', default=Path('.'))
-        parser.add_argument('--config-dir', type=Path, help='directory containing configuration files such as config.ini', default=Path('etc') / 'gax')
+        parser.add_argument('--config-dir', type=Path, help='directory containing configuration files such as config.ini', default=Path('etc') / 'flon')
         parser.add_argument('--data-dir', type=Path, help='name of subdirectory under base-dir where node data will be written', default=Path('var') / 'lib')
         parser.add_argument('-c', '--config', type=Path, help='configuration file name relative to config-dir', default='config.ini')
         parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
@@ -298,9 +298,9 @@ class launcher(object):
         for account, node in zip(accounts, self.network.nodes.values()):
             is_bios = node.name == 'bios'
             if is_bios:
-                node.keys.append(KeyStrings('GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV',
+                node.keys.append(KeyStrings('FO6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV',
                                             '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'))
-                node.producers.append('gax')
+                node.producers.append('flon')
             else:
                 node.keys.append(KeyStrings(account.ownerPublicKey, account.ownerPrivateKey))
                 if i < non_bios:

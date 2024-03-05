@@ -737,11 +737,11 @@ BOOST_AUTO_TEST_CASE( fix_linkauth_restriction ) { try {
       );
    };
 
-   validate_disallow("gax", "linkauth");
-   validate_disallow("gax", "unlinkauth");
-   validate_disallow("gax", "deleteauth");
-   validate_disallow("gax", "updateauth");
-   validate_disallow("gax", "canceldelay");
+   validate_disallow("flon", "linkauth");
+   validate_disallow("flon", "unlinkauth");
+   validate_disallow("flon", "deleteauth");
+   validate_disallow("flon", "updateauth");
+   validate_disallow("flon", "canceldelay");
 
    validate_disallow("currency", "linkauth");
    validate_disallow("currency", "unlinkauth");
@@ -764,11 +764,11 @@ BOOST_AUTO_TEST_CASE( fix_linkauth_restriction ) { try {
             ("requirement", "first"));
    };
 
-   validate_disallow("gax", "linkauth");
-   validate_disallow("gax", "unlinkauth");
-   validate_disallow("gax", "deleteauth");
-   validate_disallow("gax", "updateauth");
-   validate_disallow("gax", "canceldelay");
+   validate_disallow("flon", "linkauth");
+   validate_disallow("flon", "unlinkauth");
+   validate_disallow("flon", "deleteauth");
+   validate_disallow("flon", "updateauth");
+   validate_disallow("flon", "canceldelay");
 
    validate_allowed("currency", "linkauth");
    validate_allowed("currency", "unlinkauth");
@@ -1630,7 +1630,7 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
       // re-sign the bad block
       auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
       auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
-      bad_block->producer_signature = remote.get_private_key("gax"_n, "active").sign(sig_digest);
+      bad_block->producer_signature = remote.get_private_key("flon"_n, "active").sign(sig_digest);
 
       // ensure it is rejected as an unknown extension
       BOOST_REQUIRE_EXCEPTION(
@@ -1649,7 +1649,7 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
       // re-sign the bad block
       auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
       auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
-      bad_block->producer_signature = remote.get_private_key("gax"_n, "active").sign(sig_digest);
+      bad_block->producer_signature = remote.get_private_key("flon"_n, "active").sign(sig_digest);
 
       // ensure it is accepted (but rejected because it doesn't match expected state)
       BOOST_REQUIRE_EXCEPTION(
@@ -1677,7 +1677,7 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
       // re-sign the bad block
       auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
       auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
-      bad_block->producer_signature = remote.get_private_key("gax"_n, "active").sign(sig_digest);
+      bad_block->producer_signature = remote.get_private_key("flon"_n, "active").sign(sig_digest);
 
       // ensure it is rejected because it doesn't match expected state (but the extention was accepted)
       BOOST_REQUIRE_EXCEPTION(
@@ -1696,7 +1696,7 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
       // re-sign the bad block
       auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
       auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
-      bad_block->producer_signature = remote.get_private_key("gax"_n, "active").sign(sig_digest);
+      bad_block->producer_signature = remote.get_private_key("flon"_n, "active").sign(sig_digest);
 
       // ensure it is rejected because the new_producers field is not null
       BOOST_REQUIRE_EXCEPTION(
@@ -1720,7 +1720,7 @@ BOOST_AUTO_TEST_CASE( wtmsig_block_signing_inflight_legacy_test ) { try {
 
    // activate the feature, and start an in-flight producer schedule change with the legacy format
    c.preactivate_protocol_features( {*d} );
-   vector<legacy::producer_key> sched = {{"gax"_n, c.get_public_key("gax"_n, "bsk")}};
+   vector<legacy::producer_key> sched = {{"flon"_n, c.get_public_key("flon"_n, "bsk")}};
    c.push_action(config::system_account_name, "setprods"_n, config::system_account_name, fc::mutable_variant_object()("schedule", sched));
    c.produce_block();
 
@@ -1735,7 +1735,7 @@ BOOST_AUTO_TEST_CASE( wtmsig_block_signing_inflight_legacy_test ) { try {
    BOOST_REQUIRE_EXCEPTION( c.produce_block(), no_block_signatures, fc_exception_message_is( "Signer returned no signatures" ));
    c.control->abort_block();
 
-   c.block_signing_private_keys.emplace(get_public_key("gax"_n, "bsk"), get_private_key("gax"_n, "bsk"));
+   c.block_signing_private_keys.emplace(get_public_key("flon"_n, "bsk"), get_private_key("flon"_n, "bsk"));
    c.produce_block();
 
 } FC_LOG_AND_RETHROW() }
@@ -1754,7 +1754,7 @@ BOOST_AUTO_TEST_CASE( wtmsig_block_signing_inflight_extension_test ) { try {
    c.produce_block();
 
    // start an in-flight producer schedule change before the activation is availble to header only validators
-   vector<legacy::producer_key> sched = {{"gax"_n, c.get_public_key("gax"_n, "bsk")}};
+   vector<legacy::producer_key> sched = {{"flon"_n, c.get_public_key("flon"_n, "bsk")}};
    c.push_action(config::system_account_name, "setprods"_n, config::system_account_name, fc::mutable_variant_object()("schedule", sched));
    c.produce_block();
 
@@ -1771,7 +1771,7 @@ BOOST_AUTO_TEST_CASE( wtmsig_block_signing_inflight_extension_test ) { try {
    BOOST_REQUIRE_EXCEPTION( c.produce_block(), no_block_signatures, fc_exception_message_is( "Signer returned no signatures" ));
    c.control->abort_block();
 
-   c.block_signing_private_keys.emplace(get_public_key("gax"_n, "bsk"), get_private_key("gax"_n, "bsk"));
+   c.block_signing_private_keys.emplace(get_public_key("flon"_n, "bsk"), get_private_key("flon"_n, "bsk"));
    c.produce_block();
 
 } FC_LOG_AND_RETHROW() }

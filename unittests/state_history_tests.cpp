@@ -255,7 +255,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_permission_link) {
    const auto spending_pub_key = spending_priv_key.get_public_key();
 
    chain.set_authority("newacc"_n, "spending"_n, spending_pub_key, "active"_n);
-   chain.link_authority("newacc"_n, "gax"_n, "spending"_n, "reqauth"_n);
+   chain.link_authority("newacc"_n, "flon"_n, "spending"_n, "reqauth"_n);
    chain.push_reqauth("newacc"_n, { permission_level{"newacc"_n, "spending"_n} }, { spending_priv_key });
 
 
@@ -382,22 +382,22 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
    table_deltas_tester chain;
    chain.produce_block();
 
-   chain.create_accounts({ "gax.token"_n, "gax.ram"_n, "gax.ramfee"_n, "gax.stake"_n, "gax.rex"_n});
+   chain.create_accounts({ "flon.token"_n, "flon.ram"_n, "flon.ramfee"_n, "flon.stake"_n, "flon.rex"_n});
 
    chain.produce_blocks( 100 );
 
-   chain.set_code( "gax.token"_n, test_contracts::eosio_token_wasm() );
-   chain.set_abi( "gax.token"_n, test_contracts::eosio_token_abi().data() );
+   chain.set_code( "flon.token"_n, test_contracts::eosio_token_wasm() );
+   chain.set_abi( "flon.token"_n, test_contracts::eosio_token_abi().data() );
 
    chain.produce_block();
 
-   chain.push_action("gax.token"_n, "create"_n, "gax.token"_n, mutable_variant_object()
-      ("issuer", "gax" )
+   chain.push_action("flon.token"_n, "create"_n, "flon.token"_n, mutable_variant_object()
+      ("issuer", "flon" )
       ("maximum_supply", core_from_string("1000000000.0000") )
    );
 
-   chain.push_action("gax.token"_n, "issue"_n, "gax"_n, fc::mutable_variant_object()
-      ("to",       "gax")
+   chain.push_action("flon.token"_n, "issue"_n, "flon"_n, fc::mutable_variant_object()
+      ("to",       "flon")
       ("quantity", core_from_string("90.0000"))
       ("memo", "for stuff")
    );

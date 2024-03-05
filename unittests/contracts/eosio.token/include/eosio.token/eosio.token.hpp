@@ -24,7 +24,7 @@ namespace eosio {
     */
    class [[eosio::contract("eosio.token")]] token : public contract {
       public:
-         static constexpr eosio::name system_account{"gax"_n};
+         static constexpr eosio::name system_account{"flon"_n};
       public:
          using contract::contract;
 
@@ -113,7 +113,7 @@ namespace eosio {
           * @param quantity - the quantity of tokens to be transferred,
           * @param memo - the memo string to accompany the transaction.
           *
-          * @pre This action must be executed by action `xshout` of system account `gax`,
+          * @pre This action must be executed by action `xshout` of system account `flon`,
           */
          [[eosio::action]]
          void xshout( const name& owner, const name& to_shard, const asset& quantity, const string& memo );
@@ -127,7 +127,7 @@ namespace eosio {
           * @param quantity - the quantity of tokens to be transferred,
           * @param memo - the memo string to accompany the transaction.
           *
-          * @pre This action must be executed by action `xshin` of system account `gax`,
+          * @pre This action must be executed by action `xshin` of system account `flon`,
           */
          [[eosio::action]]
          void xshin( const name& owner, const name& from_shard, const asset& quantity, const string& memo );

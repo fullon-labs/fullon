@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
    auto generic_subcommand = std::make_shared<generic_actions>();
    generic_subcommand->setup(app);
 
-   // blocklog sc tree from gax-blocklog
+   // blocklog sc tree from flon-blocklog
    auto blocklog_subcommand = std::make_shared<blocklog_actions>();
    blocklog_subcommand->setup(app);
 

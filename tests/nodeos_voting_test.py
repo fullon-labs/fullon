@@ -201,7 +201,7 @@ try:
     node3=cluster.getNode(3)
 
     node=node0
-    # create accounts via gax as otherwise a bid is needed
+    # create accounts via flon as otherwise a bid is needed
     transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))

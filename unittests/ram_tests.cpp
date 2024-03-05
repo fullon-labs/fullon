@@ -27,7 +27,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
    const auto increment_contract_bytes = 10000;
    const auto table_allocation_bytes = 12000;
    BOOST_REQUIRE_MESSAGE(table_allocation_bytes > increment_contract_bytes, "increment_contract_bytes must be less than table_allocation_bytes for this test setup to work");
-   //1. gax have ram 70000
+   //1. flon have ram 70000
    buyrambytes(config::system_account_name, config::system_account_name, 70000);
    produce_blocks(10);
    //2. testram11111 have ram 80000 + 7110 + 40 = 87150
@@ -36,7 +36,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
    create_account_with_resources("testram22222"_n,config::system_account_name, init_request_bytes + 1190);
    produce_blocks(10);
    //4. stake CPU and net for testram11111
-   BOOST_REQUIRE_EQUAL( success(), stake( name("gax.stake"), name("testram11111"), core_from_string("10.0000"), core_from_string("5.0000") ) );
+   BOOST_REQUIRE_EQUAL( success(), stake( name("flon.stake"), name("testram11111"), core_from_string("10.0000"), core_from_string("5.0000") ) );
    produce_blocks(10);
    //5.deploy ram_limit contract code to testram11111 if fail because of insufficient RAM, buy more RAM 
    //at most 87110 + 10*10000

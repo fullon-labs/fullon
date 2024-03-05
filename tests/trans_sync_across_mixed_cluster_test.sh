@@ -66,12 +66,12 @@ verifyErrorCode()
 
 killAll()
 {
-  programs/gax-launcher/gax-launcher -k 15
+  programs/flon-launcher/flon-launcher -k 15
 }
 
 cleanup()
 {
-    rm -rf etc/gax/node_*
+    rm -rf etc/flon/node_*
     rm -rf var/lib/node_*
 }
 
@@ -114,7 +114,7 @@ cleanup
 # stand up gaxnod cluster
 launcherOpts="-p $pnodes -n $total_nodes -s $topo -d $delay"
 echo Launcher options: --gaxnod \"--plugin eosio::wallet_api_plugin\" $launcherOpts
-programs/gax-launcher/gax-launcher --gaxnod "--plugin eosio::wallet_api_plugin" $launcherOpts
+programs/flon-launcher/flon-launcher --gaxnod "--plugin eosio::wallet_api_plugin" $launcherOpts
 sleep 7
 
 startPort=8888

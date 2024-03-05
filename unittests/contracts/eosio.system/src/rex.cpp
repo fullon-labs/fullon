@@ -231,7 +231,7 @@ namespace eosiosystem {
 
    void system_contract::setrex( const asset& balance )
    {
-      require_auth( "gax"_n );
+      require_auth( "flon"_n );
 
       check( balance.amount > 0, "balance must be set to have a positive amount" );
       check( balance.symbol == core_symbol(), "balance symbol must be core symbol" );
@@ -930,7 +930,7 @@ namespace eosiosystem {
          // inline transfer to rex_account
          token::transfer_action transfer_act{ token_account, { from, active_permission } };
          transfer_act.send( from, rex_account, amount,
-                            std::string("transfer from ") + from.to_string() + " to gax.rex" );
+                            std::string("transfer from ") + from.to_string() + " to flon.rex" );
          return;
       }
 #endif

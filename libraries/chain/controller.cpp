@@ -492,20 +492,20 @@ struct controller_impl {
    set_apply_handler( account_name(#receiver), account_name(#contract), action_name(#action), \
                       &BOOST_PP_CAT(apply_, BOOST_PP_CAT(contract, BOOST_PP_CAT(_,action) ) ) )
 
-   SET_APP_HANDLER( gax, gax, newaccount );
-   SET_APP_HANDLER( gax, gax, setcode );
-   SET_APP_HANDLER( gax, gax, setabi );
-   SET_APP_HANDLER( gax, gax, updateauth );
-   SET_APP_HANDLER( gax, gax, deleteauth );
-   SET_APP_HANDLER( gax, gax, linkauth );
-   SET_APP_HANDLER( gax, gax, unlinkauth );
+   SET_APP_HANDLER( flon, flon, newaccount );
+   SET_APP_HANDLER( flon, flon, setcode );
+   SET_APP_HANDLER( flon, flon, setabi );
+   SET_APP_HANDLER( flon, flon, updateauth );
+   SET_APP_HANDLER( flon, flon, deleteauth );
+   SET_APP_HANDLER( flon, flon, linkauth );
+   SET_APP_HANDLER( flon, flon, unlinkauth );
 /*
    SET_APP_HANDLER( eosio, eosio, postrecovery );
    SET_APP_HANDLER( eosio, eosio, passrecovery );
    SET_APP_HANDLER( eosio, eosio, vetorecovery );
 */
 
-   SET_APP_HANDLER( gax, gax, canceldelay );
+   SET_APP_HANDLER( flon, flon, canceldelay );
    }
 
    /**
@@ -3102,9 +3102,11 @@ struct controller_impl {
    }
 
    void check_shard_available( const shard_name name) const {
+      if ( name != config::main_shard_name ){
          const auto* sp = dbm.shared_db().find<shard_object, by_name>( name );
          EOS_ASSERT( sp, unavailable_shard_exception, "shard not found" );
          EOS_ASSERT( sp->enabled, unavailable_shard_exception, "shard is disabled" );
+      }
    }
    /*
    bool should_check_tapos()const { return true; }

@@ -892,7 +892,7 @@ BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
    auto conf_genesis = tester::default_config( tempdir );
 
    auto& cfg = conf_genesis.first;
-   cfg.trusted_producers = { "gax"_n }; // light validation
+   cfg.trusted_producers = { "flon"_n }; // light validation
 
    tester other( conf_genesis.first, conf_genesis.second );
    other.execute_setup_policy( setup_policy::full );
@@ -2782,7 +2782,7 @@ BOOST_FIXTURE_TEST_CASE(permission_tests, TESTER) { try {
          .account    = "testapi"_n,
          .permission = "active"_n,
          .pubkeys    = {
-            public_key_type(string("GAX7GfRtyDWWgxV88a5TRaYY59XmHptyfjsFmHHfioGNJtPjpSmGX"))
+            public_key_type(string("FO7GfRtyDWWgxV88a5TRaYY59XmHptyfjsFmHHfioGNJtPjpSmGX"))
          }
       })
    );
@@ -2794,7 +2794,7 @@ BOOST_FIXTURE_TEST_CASE(permission_tests, TESTER) { try {
          .permission = "active"_n,
          .pubkeys    = {
             get_public_key("testapi"_n, "active"),
-            public_key_type(string("GAX7GfRtyDWWgxV88a5TRaYY59XmHptyfjsFmHHfioGNJtPjpSmGX"))
+            public_key_type(string("FO7GfRtyDWWgxV88a5TRaYY59XmHptyfjsFmHHfioGNJtPjpSmGX"))
          }
       })
    );
@@ -2903,7 +2903,7 @@ static const char get_resource_limits_null_cpu_wast[] = R"=====(
 BOOST_FIXTURE_TEST_CASE(resource_limits_tests, TESTER) {
    create_accounts( { "rlimits"_n, "testacnt"_n } );
    set_code("rlimits"_n, resource_limits_wast);
-   push_action( "gax"_n, "setpriv"_n, "gax"_n, mutable_variant_object()("account", "rlimits"_n)("is_priv", 1));
+   push_action( "flon"_n, "setpriv"_n, "flon"_n, mutable_variant_object()("account", "rlimits"_n)("is_priv", 1));
    produce_block();
 
    auto pushit = [&]{
@@ -3038,7 +3038,7 @@ BOOST_FIXTURE_TEST_CASE(permission_usage_tests, TESTER) { try {
 
    push_action(config::system_account_name, linkauth::get_name(), "bob"_n, fc::mutable_variant_object()
            ("account", "bob")
-           ("code", "gax")
+           ("code", "flon")
            ("type", "reqauth")
            ("requirement", "perm1")
    );

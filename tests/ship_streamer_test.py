@@ -129,7 +129,7 @@ try:
                 Print(f"Register producer {prodName}")
                 trans=node.regproducer(cluster.defProducerAccounts[prod], "http://mysite.com", 0, waitForTransBlock=False, exitOnError=True)
 
-    # create accounts via gax as otherwise a bid is needed
+    # create accounts via flon as otherwise a bid is needed
     transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
     for account in accounts:
         Print(f"Create new account {account.name} via {cluster.eosioAccount.name} with private key: {account.activePrivateKey}")

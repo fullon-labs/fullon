@@ -700,17 +700,17 @@ namespace eosiosystem {
 
       public:
          static constexpr eosio::name active_permission{"active"_n};
-         static constexpr eosio::name token_account{"gax.token"_n};
-         static constexpr eosio::name ram_account{"gax.ram"_n};
-         static constexpr eosio::name ramfee_account{"gax.ramfee"_n};
-         static constexpr eosio::name stake_account{"gax.stake"_n};
-         static constexpr eosio::name bpay_account{"gax.bpay"_n};
-         static constexpr eosio::name vpay_account{"gax.vpay"_n};
-         static constexpr eosio::name names_account{"gax.names"_n};
-         static constexpr eosio::name saving_account{"gax.saving"_n};
-         static constexpr eosio::name rex_account{"gax.rex"_n};
-         static constexpr eosio::name reserve_account{"gax.reserv"_n}; // cspell:disable-line
-         static constexpr eosio::name null_account{"gax.null"_n};
+         static constexpr eosio::name token_account{"flon.token"_n};
+         static constexpr eosio::name ram_account{"flon.ram"_n};
+         static constexpr eosio::name ramfee_account{"flon.ramfee"_n};
+         static constexpr eosio::name stake_account{"flon.stake"_n};
+         static constexpr eosio::name bpay_account{"flon.bpay"_n};
+         static constexpr eosio::name vpay_account{"flon.vpay"_n};
+         static constexpr eosio::name names_account{"flon.names"_n};
+         static constexpr eosio::name saving_account{"flon.saving"_n};
+         static constexpr eosio::name rex_account{"flon.rex"_n};
+         static constexpr eosio::name reserve_account{"flon.reserv"_n}; // cspell:disable-line
+         static constexpr eosio::name null_account{"flon.null"_n};
          static constexpr symbol ramcore_symbol = symbol(symbol_code("RAMCORE"), 4);
          static constexpr symbol ram_symbol     = symbol(symbol_code("RAM"), 0);
          static constexpr symbol rex_symbol     = symbol(symbol_code("REX"), 4);
@@ -720,7 +720,7 @@ namespace eosiosystem {
 
           // Returns the core symbol by system account name
           // @param system_account - the system account to get the core symbol for.
-         static symbol get_core_symbol( name system_account = "gax"_n ) {
+         static symbol get_core_symbol( name system_account = "flon"_n ) {
             rammarket rm(system_account, system_account.value);
             const static auto sym = get_core_symbol( rm );
             return sym;

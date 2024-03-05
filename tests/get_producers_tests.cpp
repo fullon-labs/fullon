@@ -24,7 +24,7 @@ BOOST_AUTO_TEST_CASE( get_producers) { try {
       BOOST_REQUIRE_EQUAL(results.rows.size(), 1);
       const auto& row = results.rows[0].get_object();
       BOOST_REQUIRE(row.contains("owner"));
-      BOOST_REQUIRE_EQUAL(row["owner"].as_string(), "gax");
+      BOOST_REQUIRE_EQUAL(row["owner"].as_string(), "flon");
       // check for producer_authority, since it is only set when the producer schedule is used
       BOOST_REQUIRE(row.contains("producer_authority"));
 

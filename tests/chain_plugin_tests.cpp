@@ -239,12 +239,12 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
    }
    BOOST_REQUIRE_EQUAL(0, result.eosio_any_linked_actions.size());
 
-   // test link authority to gax.any
-   link_authority(name("alice"_n), name("bob"_n), name("gax.any"_n), name("foo"_n));
+   // test link authority to flon.any
+   link_authority(name("alice"_n), name("bob"_n), name("flon.any"_n), name("foo"_n));
    produce_block();
    result = plugin.read_only::get_account(p, fc::time_point::maximum());
    check_result_basic(result, name("alice"_n), false);
-   // active permission should no longer have linked auth, as gax.any replaces it
+   // active permission should no longer have linked auth, as flon.any replaces it
    perm = result.permissions[0];
    BOOST_REQUIRE_EQUAL(0, perm.linked_actions->size());
 

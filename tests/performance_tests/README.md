@@ -294,7 +294,7 @@ Performance Test Basic Base:
 * `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
                           Toggles if missing transactions are be printed upon test completion. (default: False)
 * `--account-name ACCOUNT_NAME`
-                          Name of the account to create and assign a contract to (default: gax)
+                          Name of the account to create and assign a contract to (default: flon)
 * `--contract-dir CONTRACT_DIR`
                           Path to contract dir (default: unittests/contracts/eosio.system)
 * `--wasm-file WASM_FILE` WASM file name for contract (default: eosio.system.wasm)
@@ -431,7 +431,7 @@ Performance Test Basic Base:
 * `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
                           Toggles if missing transactions are be printed upon test completion. (default: False)
 * `--account-name ACCOUNT_NAME`
-                          Name of the account to create and assign a contract to (default: gax)
+                          Name of the account to create and assign a contract to (default: flon)
 * `--contract-dir CONTRACT_DIR`
                           Path to contract dir (default: unittests/contracts/eosio.system)
 * `--wasm-file WASM_FILE`
@@ -1187,7 +1187,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "_privateKeyNodeosDefault": null,
         "_privateKeyNodeosArg": "--private-key",
         "signatureProvider": null,
-        "_signatureProviderNodeosDefault": "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+        "_signatureProviderNodeosDefault": "FO6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
         "_signatureProviderNodeosArg": "--signature-provider",
         "greylistAccount": null,
         "_greylistAccountNodeosDefault": null,
@@ -1331,7 +1331,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "contractDir": "unittests/contracts/eosio.system",
       "wasmFile": "eosio.system.wasm",
       "abiFile": "eosio.system.abi",
-      "account": "Name: gax"
+      "account": "Name: flon"
     },
     "useBiosBootFile": false,
     "genesisPath": "tests/performance_tests/genesis.json",
@@ -1771,7 +1771,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "_privateKeyNodeosDefault": null,
         "_privateKeyNodeosArg": "--private-key",
         "signatureProvider": null,
-        "_signatureProviderNodeosDefault": "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+        "_signatureProviderNodeosDefault": "FO6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
         "_signatureProviderNodeosArg": "--signature-provider",
         "greylistAccount": null,
         "_greylistAccountNodeosDefault": null,
@@ -1915,7 +1915,7 @@ The Performance Test Basic generates, by default, a report that details results 
       "contractDir": "unittests/contracts/eosio.system",
       "wasmFile": "eosio.system.wasm",
       "abiFile": "eosio.system.abi",
-      "account": "Name: gax"
+      "account": "Name: flon"
     },
     "useBiosBootFile": false,
     "genesisPath": "tests/performance_tests/genesis.json",

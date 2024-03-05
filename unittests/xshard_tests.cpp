@@ -112,7 +112,7 @@ public:
    }
 
    asset get_balance( const database& db, const account_name& act ) {
-      vector<char> data = get_row_by_account( db, "gax.token"_n, act, "accounts"_n, name(symbol(CORE_SYMBOL).to_symbol_code().value) );
+      vector<char> data = get_row_by_account( db, "flon.token"_n, act, "accounts"_n, name(symbol(CORE_SYMBOL).to_symbol_code().value) );
       return data.empty() ? asset(0, symbol(CORE_SYMBOL)) : token_abi_ser.binary_to_variant("account", data, abi_serializer::create_yield_function( abi_serializer_max_time ))["balance"].as<asset>();
    }
 };
@@ -136,7 +136,7 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
    if (!shard1_db) BOOST_ERROR("shard1 db not found");
    transfer(config::system_account_name, "alice1111111"_n, core_from_string("100.0000"));
    auto xshout_data = fc::raw::pack( xtoken{core_from_string("1.0000"), ""} );
-   auto xshout_trx = xshout( "alice1111111"_n, shard1_name, "gax.token"_n, "xtoken"_n, xshout_data );
+   auto xshout_trx = xshout( "alice1111111"_n, shard1_name, "flon.token"_n, "xtoken"_n, xshout_data );
    BOOST_REQUIRE_EQUAL(get_balance(main_db, "alice1111111"_n), core_from_string("99.0000"));
 
    const auto& xsh_indx = shared_db.get_index<xshard_index, by_id>();
@@ -154,7 +154,7 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
    BOOST_REQUIRE_EQUAL(xsh_itr->owner, "alice1111111"_n);
    BOOST_REQUIRE_EQUAL(xsh_itr->from_shard, config::main_shard_name);
    BOOST_REQUIRE_EQUAL(xsh_itr->to_shard, shard1_name);
-   BOOST_REQUIRE_EQUAL(xsh_itr->contract, "gax.token"_n);
+   BOOST_REQUIRE_EQUAL(xsh_itr->contract, "flon.token"_n);
    BOOST_REQUIRE_EQUAL(xsh_itr->action_type, "xtoken"_n);
    BOOST_REQUIRE(bytes(xsh_itr->action_data.begin(), xsh_itr->action_data.end())  == xshout_data);
    auto scheduled_xshin_trx = xsh_itr->scheduled_xshin_trx;
@@ -189,7 +189,7 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
 
    transfer(config::system_account_name, "bob111111111"_n, core_from_string("100.0000"));
 
-   auto xshout_trx2 = xshout( "bob111111111"_n, shard1_name, "gax.token"_n, "xtoken"_n, xshout_data2 );
+   auto xshout_trx2 = xshout( "bob111111111"_n, shard1_name, "flon.token"_n, "xtoken"_n, xshout_data2 );
    BOOST_REQUIRE_EQUAL(get_balance(main_db, "bob111111111"_n), core_from_string("99.0000"));
 
    auto xsh_id2 = xshard_object::make_xsh_id(xshout_trx2->id, 0);
@@ -206,7 +206,7 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
    BOOST_REQUIRE_EQUAL(xsh_itr2->owner, "bob111111111"_n);
    BOOST_REQUIRE_EQUAL(xsh_itr2->from_shard, config::main_shard_name);
    BOOST_REQUIRE_EQUAL(xsh_itr2->to_shard, shard1_name);
-   BOOST_REQUIRE_EQUAL(xsh_itr2->contract, "gax.token"_n);
+   BOOST_REQUIRE_EQUAL(xsh_itr2->contract, "flon.token"_n);
    BOOST_REQUIRE_EQUAL(xsh_itr2->action_type, "xtoken"_n);
    BOOST_REQUIRE(bytes(xsh_itr2->action_data.begin(), xsh_itr2->action_data.end())  == xshout_data2);
    auto scheduled_xshin_trx2 = xsh_itr2->scheduled_xshin_trx;

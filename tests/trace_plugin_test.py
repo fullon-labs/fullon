@@ -30,7 +30,7 @@ class TraceApiPluginTest(unittest.TestCase):
     def startEnv(self) :
         account_names = ["alice", "bob", "charlie"]
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-        traceNodeosArgs = " --trace-rpc-abi gax.token=" + abs_path
+        traceNodeosArgs = " --trace-rpc-abi flon.token=" + abs_path
         self.cluster.launch(totalNodes=1, extraNodeosArgs=traceNodeosArgs)
         self.walletMgr.launch()
         testWalletName="testwallet"

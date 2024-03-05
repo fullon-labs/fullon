@@ -17,21 +17,21 @@ const static auto default_state_size            = 1*1024*1024*1024ll;
 const static auto default_state_guard_size      =    128*1024*1024ll;
 
 
-const static name system_account_name    { "gax"_n };
-const static name null_account_name      { "gax.null"_n };
-const static name producers_account_name { "gax.prods"_n };
+const static name system_account_name    { "flon"_n };
+const static name null_account_name      { "flon.null"_n };
+const static name producers_account_name { "flon.prods"_n };
 
 // Active permission of producers account requires greater than 2/3 of the producers to authorize
 const static name majority_producers_permission_name { "prod.major"_n }; // greater than 1/2 of producers needed to authorize
 const static name minority_producers_permission_name { "prod.minor"_n }; // greater than 1/3 of producers needed to authorize0
 
-const static name eosio_auth_scope       { "gax.auth"_n };
-const static name eosio_all_scope        { "gax.all"_n };
+const static name eosio_auth_scope       { "flon.auth"_n };
+const static name eosio_all_scope        { "flon.all"_n };
 
 const static name active_name     { "active"_n };
 const static name owner_name      { "owner"_n };
-const static name eosio_any_name  { "gax.any"_n };
-const static name eosio_code_name { "gax.code"_n };
+const static name eosio_any_name  { "flon.any"_n };
+const static name eosio_code_name { "flon.code"_n };
 
 const static name main_shard_name { "main"_n };
 const static name share_db_name { "share"_n };

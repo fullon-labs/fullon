@@ -13,7 +13,7 @@ class LossyNetwork:
     def maxIndex(self):
         return len(self.args)
 
-    def execute(self, cmdInd, node, testerAccount, gax):
+    def execute(self, cmdInd, node, testerAccount, flon):
         print("\n==== lossy network test: set loss ratio to %s ====" % (self.args[cmdInd]))
         RemoteCmd.exec(self.cmd + " " + self.args[cmdInd])
         s=""
@@ -22,7 +22,7 @@ class LossyNetwork:
         testerAccount.name = s
         transIdlist = []
         print("==== creating account %s ====" % (s))
-        trans = node.createAccount(testerAccount, gax, stakedDeposit=0, waitForTransBlock=True)
+        trans = node.createAccount(testerAccount, flon, stakedDeposit=0, waitForTransBlock=True)
         if trans is None:
             return ([], "", 0.0, "failed to create account")
         transIdlist.append(node.getTransId(trans))

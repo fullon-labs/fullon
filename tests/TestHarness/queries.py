@@ -500,7 +500,7 @@ class NodeosQueries:
     def getAccountEosBalanceStr(self, scope):
         """Returns SYS currency0000 account balance from gaxcli get table command. Returned balance is string following syntax "98.0311 SYS". """
         assert isinstance(scope, str)
-        amount=self.getTableAccountBalance("gax.token", scope)
+        amount=self.getTableAccountBalance("flon.token", scope)
         if Utils.Debug: Utils.Print("getNodeAccountEosBalance %s %s" % (scope, amount))
         assert isinstance(amount, str)
         return amount

@@ -70,7 +70,7 @@ void test_configs_common(std::vector<const char*>& specific_args, app_init_statu
 
 // --read-only-thread not allowed on producer node
 BOOST_AUTO_TEST_CASE(read_only_on_producer) {
-   std::vector<const char*> specific_args = {"-p", "gax", "-e", "--read-only-threads", "2" };
+   std::vector<const char*> specific_args = {"-p", "flon", "-e", "--read-only-threads", "2" };
    test_configs_common(specific_args, app_init_status::failed);
 }
 
@@ -169,13 +169,13 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
 
 // test read-only trxs on main thread (no --read-only-threads)
 BOOST_AUTO_TEST_CASE(no_read_only_threads) {
-   std::vector<const char*> specific_args = { "-p", "gax", "-e", "--abi-serializer-max-time-ms=999" };
+   std::vector<const char*> specific_args = { "-p", "flon", "-e", "--abi-serializer-max-time-ms=999" };
    test_trxs_common(specific_args);
 }
 
 // test read-only trxs on 1 threads (with --read-only-threads)
 BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
-   std::vector<const char*> specific_args = { "-p", "gax", "-e",
+   std::vector<const char*> specific_args = { "-p", "flon", "-e",
                                               "--read-only-threads=1",
                                               "--max-transaction-time=10",
                                               "--abi-serializer-max-time-ms=999",
@@ -187,7 +187,7 @@ BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
 
 // test read-only trxs on 8 separate threads (with --read-only-threads)
 BOOST_AUTO_TEST_CASE(with_8_read_only_threads) {
-   std::vector<const char*> specific_args = { "-p", "gax", "-e",
+   std::vector<const char*> specific_args = { "-p", "flon", "-e",
                                               "--read-only-threads=8",
                                               "--max-transaction-time=10",
                                               "--abi-serializer-max-time-ms=999",

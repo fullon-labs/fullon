@@ -3,14 +3,14 @@
     "abiFile": "unittests/contracts/eosio.system/eosio.system.abi",
     "actions": [
         {
-            "actionAuthAcct": "gax",
+            "actionAuthAcct": "flon",
             "actionName": "newaccount",
             "authorization": {
-                "actor": "gax",
+                "actor": "flon",
                 "permission": "active"
             },
             "actionData": {
-                "creator": "gax",
+                "creator": "flon",
                 "name": "ACCT_PER_TRX",
                 "owner": {
                     "threshold": 1,
@@ -37,14 +37,14 @@
             }
         },
         {
-            "actionAuthAcct": "gax",
+            "actionAuthAcct": "flon",
             "actionName": "buyrambytes",
             "authorization": {
-                "actor": "gax",
+                "actor": "flon",
                 "permission": "active"
             },
             "actionData": {
-                "payer": "gax",
+                "payer": "flon",
                 "receiver": "ACCT_PER_TRX",
                 "bytes": "3000"
             }

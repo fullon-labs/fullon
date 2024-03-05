@@ -44,7 +44,7 @@ cluster=Cluster(walletd=True,unshared=args.unshared)
 
 walletMgr=WalletMgr(True)
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "FO6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
 try:
     if dontLaunch: # run test against remote cluster
@@ -106,7 +106,7 @@ try:
 
     Print("Sending read-only transfer")
     trx = {
-        "actions": [{"account": "gax.token","name": "transfer",
+        "actions": [{"account": "flon.token","name": "transfer",
         "authorization": [{"actor": "account1","permission": "active"}],
         "data": {"from": "account1","to": "account2","quantity": "1.0001 SYS","memo": "tx1"},
         "compression": "none"}]
@@ -132,7 +132,7 @@ try:
         memo = 'tx-{}'.format(x)
         trx2 = {
 
-            "actions": [{"account": "gax.token","name": "transfer",
+            "actions": [{"account": "flon.token","name": "transfer",
                          "authorization": [{"actor": "account2","permission": "active"}],
                          "data": {"from": "account2","to": "account1","quantity": "10.0001 SYS","memo": memo},
                          "compression": "none"}]
@@ -150,7 +150,7 @@ try:
         memo = 'tx-{}'.format(x)
         trx2 = {
 
-            "actions": [{"account": "gax.token","name": "transfer",
+            "actions": [{"account": "flon.token","name": "transfer",
                          "authorization": [{"actor": "account2","permission": "active"}],
                          "data": {"from": "account2","to": "account1","quantity": "10.0001 SYS","memo": memo},
                          "compression": "none"}]
@@ -166,7 +166,7 @@ try:
     # Test that irrelavent signature doesn't break read-only txn
     trx3 = {
 
-        "actions": [{"account": "gax.token","name": "transfer",
+        "actions": [{"account": "flon.token","name": "transfer",
                      "authorization": [{"actor": "account1","permission": "active"},{"actor": "account2","permission": "active"}],
                      "data": {"from": "account1","to": "account2","quantity": "10.0001 SYS","memo": memo},
                      "compression": "none"}]
