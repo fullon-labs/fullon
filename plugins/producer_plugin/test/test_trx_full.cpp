@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE(producer) {
          fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
          std::vector<const char*> argv =
                {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str(),
-                "-p", "gax", "-e", "--disable-subjective-billing=true" };
+                "-p", "flon", "-e", "--disable-subjective-billing=true" };
          app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
          app->startup();
          plugin_promise.set_value(

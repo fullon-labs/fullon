@@ -32,7 +32,7 @@ void proxy::on_transfer( name from, name to, asset quantity, const std::string& 
       _config.set( cfg, self );
 
       transaction out;
-      eosio::token::transfer_action a( "gax.token"_n, {self, "active"_n} );
+      eosio::token::transfer_action a( "flon.token"_n, {self, "active"_n} );
       out.actions.emplace_back( a.to_action( self, cfg.owner, quantity, memo ) );
       out.delay_sec = cfg.delay;
       out.send( id, self );

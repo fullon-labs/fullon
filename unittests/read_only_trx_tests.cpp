@@ -101,7 +101,7 @@ BOOST_FIXTURE_TEST_CASE(setcode_test, read_only_trx_tester) { try {
 
    std::vector<uint8_t> code(10);
    action act = {
-      {}, setcode { "gax"_n, 0, 0, bytes(code.begin(), code.end()) }
+      {}, setcode { "flon"_n, 0, 0, bytes(code.begin(), code.end()) }
    };
 
    BOOST_CHECK_THROW( send_action(act), action_validate_exception );

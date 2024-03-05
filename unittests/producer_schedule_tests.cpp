@@ -690,7 +690,7 @@ BOOST_AUTO_TEST_CASE( extra_signatures_test ) try {
    main.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs1"), get_private_key("alice"_n, "bs1"));
    main.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs2"), get_private_key("alice"_n, "bs2"));
 
-   BOOST_REQUIRE( main.control->pending_block_producer() == "gax"_n );
+   BOOST_REQUIRE( main.control->pending_block_producer() == "flon"_n );
    main.produce_blocks(3);
    BOOST_REQUIRE( main.control->pending_block_producer() == "alice"_n );
 

@@ -30,10 +30,10 @@ option(ENABLE_WERROR "Enable `-Werror` compilation flag." Off)
 option(ENABLE_WEXTRA "Enable `-Wextra` compilation flag." Off)
 
 
-set( CLI_CLIENT_EXECUTABLE_NAME gaxcli )
-set( NODE_EXECUTABLE_NAME gaxnod )
-set( KEY_STORE_EXECUTABLE_NAME gaxkey )
-set( LEAP_UTIL_EXECUTABLE_NAME gax-util )
+set( CLI_CLIENT_EXECUTABLE_NAME focli )
+set( NODE_EXECUTABLE_NAME fonod )
+set( KEY_STORE_EXECUTABLE_NAME fokey )
+set( LEAP_UTIL_EXECUTABLE_NAME fo-util )
 
 # http://stackoverflow.com/a/18369825
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -56,7 +56,7 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
 set(BUILD_DOXYGEN FALSE CACHE BOOL "Build doxygen documentation on every make")
-set(ENABLE_MULTIVERSION_PROTOCOL_TEST FALSE CACHE BOOL "Enable gaxnod multiversion protocol test")
+set(ENABLE_MULTIVERSION_PROTOCOL_TEST FALSE CACHE BOOL "Enable fonod multiversion protocol test")
 
 # add defaults for openssl
 if(APPLE AND UNIX AND "${OPENSSL_ROOT_DIR}" STREQUAL "")
@@ -169,7 +169,7 @@ endif()
 include(utils)
 
 if ("${CORE_SYMBOL_NAME}" STREQUAL "")
-	set( CORE_SYMBOL_NAME "GAX" )
+	set( CORE_SYMBOL_NAME "FUON" )
 endif()
 string(TOUPPER ${CORE_SYMBOL_NAME} CORE_SYMBOL_NAME)
 
@@ -181,10 +181,10 @@ endif()
 message( STATUS "Using '${CORE_SYMBOL_NAME}' as CORE symbol name" )
 
 if ("${EOSIO_ROOT_KEY}" STREQUAL "")
-	set(EOSIO_ROOT_KEY "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
+	set(EOSIO_ROOT_KEY "FO6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV")
 endif()
 
-message( STATUS "Using '${EOSIO_ROOT_KEY}' as public key for 'gax' account" )
+message( STATUS "Using '${EOSIO_ROOT_KEY}' as public key for 'flon' account" )
 
 find_package( Gperftools QUIET )
 if( GPERFTOOLS_FOUND )

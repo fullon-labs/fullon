@@ -120,7 +120,7 @@ class Cluster(object):
         self.defProducerAccounts={}
         self.defproduceraAccount=self.defProducerAccounts["defproducera"]= Account("defproducera")
         self.defproducerbAccount=self.defProducerAccounts["defproducerb"]= Account("defproducerb")
-        self.eosioAccount=self.defProducerAccounts["gax"]= Account("gax")
+        self.eosioAccount=self.defProducerAccounts["flon"]= Account("flon")
 
         self.defproduceraAccount.ownerPrivateKey=defproduceraPrvtKey
         self.defproduceraAccount.activePrivateKey=defproduceraPrvtKey
@@ -553,7 +553,7 @@ class Cluster(object):
             initAccountKeys(account, producerKeys[name])
             self.defProducerAccounts[name] = account
 
-        self.eosioAccount=self.defProducerAccounts["gax"]
+        self.eosioAccount=self.defProducerAccounts["flon"]
         self.defproduceraAccount=self.defProducerAccounts["defproducera"]
         self.defproducerbAccount=self.defProducerAccounts["defproducerb"]
 
@@ -1035,7 +1035,7 @@ class Cluster(object):
         nodeName=Utils.nodeExtensionToName("bios")
         producerKeys=Cluster.parseProducerKeys(configFile, nodeName)
         if producerKeys is None:
-            Utils.Print("ERROR: Failed to parse gax private keys from cluster config files.")
+            Utils.Print("ERROR: Failed to parse flon private keys from cluster config files.")
             return None
 
         for i in range(0, totalNodes):
@@ -1077,7 +1077,7 @@ class Cluster(object):
 
         ignWallet=self.walletMgr.create("ignition")
 
-        eosioName="gax"
+        eosioName="flon"
         eosioKeys=producerKeys[eosioName]
         eosioAccount=Account(eosioName)
         eosioAccount.ownerPrivateKey=eosioKeys["private"]
@@ -1140,8 +1140,8 @@ class Cluster(object):
                     setProdsStr=f.read()
 
                     Utils.Print("Setting producers.")
-                    opts="--permission gax@active"
-                    myTrans=biosNode.pushMessage("gax", "setprods", setProdsStr, opts)
+                    opts="--permission flon@active"
+                    myTrans=biosNode.pushMessage("flon", "setprods", setProdsStr, opts)
                     if myTrans is None or not myTrans[0]:
                         Utils.Print("ERROR: Failed to set producers.")
                         return None
@@ -1165,9 +1165,9 @@ class Cluster(object):
                 setProdsStr += ' ] }'
                 if Utils.Debug: Utils.Print("setprods: %s" % (setProdsStr))
                 Utils.Print("Setting producers: %s." % (", ".join(prodNames)))
-                opts="--permission gax@active"
+                opts="--permission flon@active"
                 # pylint: disable=redefined-variable-type
-                trans=biosNode.pushMessage("gax", "setprods", setProdsStr, opts)
+                trans=biosNode.pushMessage("flon", "setprods", setProdsStr, opts)
                 if trans is None or not trans[0]:
                     Utils.Print("ERROR: Failed to set producer %s." % (keys["name"]))
                     return None
@@ -1178,8 +1178,8 @@ class Cluster(object):
                 Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
                 return None
 
-            # wait for block production handover (essentially a block produced by anyone but gax).
-            lam = lambda: biosNode.getInfo(exitOnError=True)["head_block_producer"] != "gax"
+            # wait for block production handover (essentially a block produced by anyone but flon).
+            lam = lambda: biosNode.getInfo(exitOnError=True)["head_block_producer"] != "flon"
             ret=Utils.waitForBool(lam)
             if not ret:
                 Utils.Print("ERROR: Block production handover failed.")
@@ -1196,7 +1196,7 @@ class Cluster(object):
                 return None
             return trans
 
-        systemAccounts = ['gax.bpay', 'gax.msig', 'gax.names', 'gax.ram', 'gax.ramfee', 'gax.saving', 'gax.stake', 'gax.token', 'gax.vpay', 'gax.wrap', 'gax.rex']
+        systemAccounts = ['flon.bpay', 'flon.msig', 'flon.names', 'flon.ram', 'flon.ramfee', 'flon.saving', 'flon.stake', 'flon.token', 'flon.vpay', 'flon.wrap', 'flon.rex']
         acctTrans = list(map(createSystemAccount, systemAccounts))
 
         for trans in acctTrans:
@@ -1208,7 +1208,7 @@ class Cluster(object):
             return None
 
         eosioTokenAccount = copy.deepcopy(eosioAccount)
-        eosioTokenAccount.name = 'gax.token'
+        eosioTokenAccount.name = 'flon.token'
         contract="eosio.token"
         contractDir=str(self.unittestsContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
@@ -1227,7 +1227,7 @@ class Cluster(object):
         opts="--permission %s@active" % (contract)
         trans=biosNode.pushMessage(contract, action, data, opts)
         if trans is None or not trans[0]:
-            Utils.Print("ERROR: Failed to push create action to gax contract.")
+            Utils.Print("ERROR: Failed to push create action to flon contract.")
             return None
 
         Node.validateTransaction(trans[1])
@@ -1257,7 +1257,7 @@ class Cluster(object):
             return None
 
         expectedAmount="1000000000.0000 {0}".format(CORE_SYMBOL)
-        Utils.Print("Verify gax issue, Expected: %s" % (expectedAmount))
+        Utils.Print("Verify flon issue, Expected: %s" % (expectedAmount))
         actualAmount=biosNode.getAccountEosBalanceStr(eosioAccount.name)
         if expectedAmount != actualAmount:
             Utils.Print("ERROR: Issue verification failed. Excepted %s, actual: %s" %

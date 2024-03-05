@@ -18,5 +18,5 @@ namespace eosio {
          MAKE_EMBD_WASM_ABI(before_producer_authority_eosio_bios)
          MAKE_EMBD_WASM_ABI(before_preactivate_eosio_bios)
       };
-   } /// gax::testing
-}  /// gax
+   } /// flon::testing
+}  /// flon

@@ -44,9 +44,9 @@ def setProds(sharedProdKey):
 
     setProdsStr += ' ] }'
     Utils.Print("setprods: %s" % (setProdsStr))
-    opts="--permission gax@active"
+    opts="--permission flon@active"
     # pylint: disable=redefined-variable-type
-    trans=cluster.biosNode.pushMessage("gax", "setprods", setProdsStr, opts)
+    trans=cluster.biosNode.pushMessage("flon", "setprods", setProdsStr, opts)
     if trans is None or not trans[0]:
         Utils.Print("ERROR: Failed to set producer with cmd %s" % (setProdsStr))
 
@@ -203,7 +203,7 @@ try:
     while tries > 0:
         node.infoValid = False
         info = node.getInfo()
-        if node.infoValid and node.lastRetrievedHeadBlockProducer != "gax":
+        if node.infoValid and node.lastRetrievedHeadBlockProducer != "flon":
             break
         time.sleep(1)
         tries = tries-1

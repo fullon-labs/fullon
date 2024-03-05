@@ -41,7 +41,7 @@ testSuccessful=False
 def runNodeosAndGetOutput(myTimeout=3, nodeosLogPath=f"{Utils.TestLogRoot}"):
     """Startup gaxnod, wait for timeout (before forced shutdown) and collect output. Stdout, stderr and return code are returned in a dictionary."""
     Print("Launching gaxnod process.")
-    cmd=f"programs/gaxnod/gaxnod --config-dir etc/gax/node_bios --data-dir {nodeosLogPath}/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
+    cmd=f"programs/gaxnod/gaxnod --config-dir etc/flon/node_bios --data-dir {nodeosLogPath}/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
     Print("cmd: %s" % (cmd))
     proc=subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if debug: Print("gaxnod process launched.")

@@ -39,7 +39,7 @@ class currency_test : public sharding_validating_tester {
          string action_type_name = abi_ser.get_action_type(name);
 
          action act;
-         act.account = "gax.token"_n;
+         act.account = "flon.token"_n;
          act.name = name;
          act.authorization = vector<permission_level>{{signer, config::active_name}};
          act.data = abi_ser.variant_to_binary(action_type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ));
@@ -54,13 +54,13 @@ class currency_test : public sharding_validating_tester {
       }
 
       asset get_balance(const account_name& account) const {
-         return get_currency_balance("gax.token"_n, symbol(SY(4,CUR)), account);
+         return get_currency_balance("flon.token"_n, symbol(SY(4,CUR)), account);
       }
       //TODO: simplify
       asset get_balance_on_shard(const account_name& account) const {
          const auto& gdb  = const_cast<database_manager&>(control->dbm()).find_shard_db("shard1"_n);
          const auto& db  = *gdb;
-         account_name code = "gax.token"_n;
+         account_name code = "flon.token"_n;
          symbol asset_symbol(SY(4,CUR));
          const auto* tbl = db.template find<table_id_object, by_code_scope_table >(boost::make_tuple(code, account, "accounts"_n));
          share_type result = 0;
@@ -89,7 +89,7 @@ class currency_test : public sharding_validating_tester {
       }
 
       auto issue(const account_name& to, const std::string& quantity, const std::string& memo = "") {
-         auto trace = push_action("gax.token"_n, "issue"_n, mutable_variant_object()
+         auto trace = push_action("flon.token"_n, "issue"_n, mutable_variant_object()
                                   ("to",       to)
                                   ("quantity", quantity)
                                   ("memo",     memo)
@@ -101,20 +101,20 @@ class currency_test : public sharding_validating_tester {
       currency_test()
          :sharding_validating_tester(),abi_ser(json::from_string(test_contracts::eosio_token_abi().data()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
       {
-         create_account( "gax.token"_n);
+         create_account( "flon.token"_n);
          produce_block();
-         set_code( "gax.token"_n, test_contracts::eosio_token_wasm() );
+         set_code( "flon.token"_n, test_contracts::eosio_token_wasm() );
          produce_block();
-         auto result = push_action("gax.token"_n, "create"_n, mutable_variant_object()
-                 ("issuer",       gax_token)
+         auto result = push_action("flon.token"_n, "create"_n, mutable_variant_object()
+                 ("issuer",       flon_token)
                  ("maximum_supply", "1000000000.0000 CUR")
                  ("can_freeze", 0)
                  ("can_recall", 0)
                  ("can_whitelist", 0),
                  "shard1"_n
          );
-         result = push_action("gax.token"_n, "create"_n, mutable_variant_object()
-                 ("issuer",       gax_token)
+         result = push_action("flon.token"_n, "create"_n, mutable_variant_object()
+                 ("issuer",       flon_token)
                  ("maximum_supply", "1000000000.0000 CUR")
                  ("can_freeze", 0)
                  ("can_recall", 0)
@@ -123,14 +123,14 @@ class currency_test : public sharding_validating_tester {
          );
          wdump((result));
          produce_block();
-         result = push_action("gax.token"_n, "issue"_n, mutable_variant_object()
-                 ("to",       gax_token)
+         result = push_action("flon.token"_n, "issue"_n, mutable_variant_object()
+                 ("to",       flon_token)
                  ("quantity", "1000000.0000 CUR")
                  ("memo", "gggggggggggg"),
                  "shard1"_n
          );
-         result = push_action("gax.token"_n, "issue"_n, mutable_variant_object()
-                 ("to",       gax_token)
+         result = push_action("flon.token"_n, "issue"_n, mutable_variant_object()
+                 ("to",       flon_token)
                  ("quantity", "1000000.0000 CUR")
                  ("memo", "gggggggggggg"),
                  "shard2"_n
@@ -140,7 +140,7 @@ class currency_test : public sharding_validating_tester {
       }
 
       abi_serializer abi_ser;
-      static constexpr name gax_token = "gax.token"_n;
+      static constexpr name flon_token = "flon.token"_n;
 };
 
 transaction_trace_ptr create_account_on_subshard( sharding_tester& t, account_name a, account_name creator=config::system_account_name, bool multisig = false, bool include_code = true ){
@@ -235,16 +235,16 @@ BOOST_FIXTURE_TEST_CASE( shard_tx_test, currency_test ) try {
    produce_block();
    int loop = 10000;
    for( int i=1 ; i< loop ; i++ ){
-      auto trace = push_action("gax.token"_n, "transfer"_n, mutable_variant_object()
-         ("from", currency_test::gax_token)
+      auto trace = push_action("flon.token"_n, "transfer"_n, mutable_variant_object()
+         ("from", currency_test::flon_token)
          ("to",   "alice")
          ("quantity", "1.0000 CUR")
          ("memo", "fund Alice"),
          "shard1"_n
       );
       idump((trace));
-      trace = push_action("gax.token"_n, "transfer"_n, mutable_variant_object()
-         ("from", currency_test::gax_token)
+      trace = push_action("flon.token"_n, "transfer"_n, mutable_variant_object()
+         ("from", currency_test::flon_token)
          ("to",   "alice")
          ("quantity", "1.0000 CUR")
          ("memo", "fund Alice"),

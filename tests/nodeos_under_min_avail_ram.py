@@ -80,7 +80,7 @@ try:
     for account in accounts:
         walletMgr.importKey(account, testWallet)
 
-    # create accounts via gax as otherwise a bid is needed
+    # create accounts via flon as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
         trans=nodes[0].createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=500000, waitForTransBlock=True, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
@@ -131,11 +131,11 @@ try:
                 if trans is None or not trans[0]:
                     timeOutCount+=1
                     if timeOutCount>=3:
-                        Print("Failed to push create action to gax contract for %d consecutive times, looks like gaxnod already exited." % (timeOutCount))
+                        Print("Failed to push create action to flon contract for %d consecutive times, looks like gaxnod already exited." % (timeOutCount))
                         keepProcessing=False
                         break
 
-                    Print("Failed to push create action to gax contract. sleep for 5 seconds")
+                    Print("Failed to push create action to flon contract. sleep for 5 seconds")
                     count-=1 # failed attempt shouldn't be counted
                     time.sleep(5)
                 else:
@@ -226,7 +226,7 @@ try:
             try:
                 trans=nodes[count % numNodes].pushMessage(contract, action, data, opts)
                 if trans is None or not trans[0]:
-                    Print("Failed to push create action to gax contract. sleep for 60 seconds")
+                    Print("Failed to push create action to flon contract. sleep for 60 seconds")
                     time.sleep(60)
                 time.sleep(1)
             except TypeError as ex:
@@ -285,7 +285,7 @@ try:
         try:
             trans=node.pushMessage(contract, action, data, opts)
             if trans is None or not trans[0]:
-                Print("Failed to push create action to gax contract. sleep for 60 seconds")
+                Print("Failed to push create action to flon contract. sleep for 60 seconds")
                 time.sleep(60)
                 continue
             time.sleep(1)

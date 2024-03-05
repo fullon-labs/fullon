@@ -21,7 +21,7 @@ class PluginHttpTest(unittest.TestCase):
     empty_content_dict = {}
     http_post_invalid_param = '{invalid}'
     EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
-    EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+    EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "FO6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
     # make a fresh data dir
     def createDataDir(self):
@@ -58,7 +58,7 @@ class PluginHttpTest(unittest.TestCase):
         nodeos_flags = (" --data-dir=%s --config-dir=%s --trace-dir=%s --trace-no-abis --access-control-allow-origin=%s "
                         "--contracts-console --http-validate-host=%s --verbose-http-errors --max-transaction-time -1 --abi-serializer-max-time-ms 30000 --http-max-response-time-ms 30000 "
                         "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
-        start_nodeos_cmd = ("%s -e -p gax %s %s ") % (Utils.EosServerPath, nodeos_plugins, nodeos_flags)
+        start_nodeos_cmd = ("%s -e -p flon %s %s ") % (Utils.EosServerPath, nodeos_plugins, nodeos_flags)
         self.gaxnod.launchCmd(start_nodeos_cmd, self.node_id)
         time.sleep(self.sleep_s*2)
         self.gaxnod.waitForBlock(1, timeout=30)
@@ -71,7 +71,7 @@ class PluginHttpTest(unittest.TestCase):
         wasmFile = "%s.wasm" % (contract)
         abiFile = "%s.abi" % (contract)
 
-        eosioAccount = Account("gax")
+        eosioAccount = Account("flon")
         eosioAccount.ownerPrivateKey = eosioAccount.activePrivateKey = self.EOSIO_ACCT_PRIVATE_DEFAULT_KEY
         eosioAccount.ownerPublicKey = eosioAccount.activePublicKey = self.EOSIO_ACCT_PUBLIC_DEFAULT_KEY
 
@@ -490,7 +490,7 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # get_currency_balance with valid parameter
-        payload = {"code":"gax.token", "account":"unknown"}
+        payload = {"code":"flon.token", "account":"unknown"}
         ret_json = self.gaxnod.processUrllibRequest(resource, command, payload)
         self.assertEqual(ret_json["code"], 500)
 
@@ -508,7 +508,7 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # get_currency_stats with valid parameter
-        payload = {"code":"gax.token","symbol":"SYS"}
+        payload = {"code":"flon.token","symbol":"SYS"}
         ret_json = self.gaxnod.processUrllibRequest(resource, command, payload)
         self.assertEqual(ret_json["code"], 500)
 
@@ -583,7 +583,7 @@ class PluginHttpTest(unittest.TestCase):
                    "authorizations": [],
                    "available_keys":["EOS4toFS3YXEQCkuuw1aqDLrtHim86Gz9u3hBdcBw5KNPZcursVHq",
                    "EOS7d9A3uLe6As66jzN8j44TXJUqJSK3bFjjEEqR4oTvNAB3iM9SA",
-                   "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"]}
+                   "FO6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"]}
         ret_json = self.gaxnod.processUrllibRequest(resource, command, payload)
         self.assertEqual(ret_json["code"], 500)
 
@@ -637,7 +637,7 @@ class PluginHttpTest(unittest.TestCase):
                    "max_cpu_usage_ms":0,
                    "delay_sec":0,
                    "context_free_actions":[],
-                   "actions":[{"account":"gax.token","name": "transfer","authorization": [{"actor": "han","permission": "active"}],"data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"}],
+                   "actions":[{"account":"flon.token","name": "transfer","authorization": [{"actor": "han","permission": "active"}],"data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"}],
                    "transaction_extensions": [],
                    "signatures": ["SIG_K1_KeqfqiZu1GwUxQb7jzK9Fdks6HFaVBQ9AJtCZZj56eG9qGgvVMVtx8EerBdnzrhFoX437sgwtojf2gfz6S516Ty7c22oEp"],
                    "context_free_data": []}
@@ -651,7 +651,7 @@ class PluginHttpTest(unittest.TestCase):
                 "max_cpu_usage_ms":0,
                 "delay_sec":0,
                 "context_free_actions":[],
-                "actions":[{"account":"gax.token","name": "transfer","authorization": [{"actor": "han","permission": "active"}],
+                "actions":[{"account":"flon.token","name": "transfer","authorization": [{"actor": "han","permission": "active"}],
                 "data": "{\"entry\":774831,\"miner\":\"eosminer1111\",\"nonce\":139429}\"}",
                 "hex_data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"}],
                 "transaction_extensions": [],

@@ -385,10 +385,10 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          //modify object
          auto& idx = db.get_index<account_index>();
          db.modify( *ptr, [&]( auto& obj ) {
-            obj.name = "gax"_n;
+            obj.name = "flon"_n;
          });
          BOOST_REQUIRE_EQUAL( idx.size(), 1 );
-         auto ptr2 = db.find<account_object, by_name>(name("gax"));
+         auto ptr2 = db.find<account_object, by_name>(name("flon"));
          BOOST_TEST(ptr2 != nullptr);
 
          //delete account object
@@ -399,18 +399,18 @@ BOOST_AUTO_TEST_SUITE(database_tests)
 
          // Create an account
          db.create<account_object>([](account_object &a) {
-            a.name = name("gax");
+            a.name = name("flon");
          });
 
          // Make sure we can retrieve that account by name
-         auto ptr3 = db.find<account_object, by_name>(name("gax"));
+         auto ptr3 = db.find<account_object, by_name>(name("flon"));
          BOOST_TEST(ptr3 != nullptr);
 
          // Undo creation of the account
          ses.undo();
 
          // Make sure we can no longer find the account
-         ptr3 = db.find<account_object, by_name>(name("gax"));
+         ptr3 = db.find<account_object, by_name>(name("flon"));
          BOOST_TEST(ptr3 == nullptr);
       } FC_CAPTURE_AND_RETHROW()
    }

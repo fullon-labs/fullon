@@ -90,7 +90,7 @@ BOOST_FIXTURE_TEST_CASE(deep_mind, deep_mind_tester)
                ("account", "alice")
                ("permission", "test1")
                ("parent", "active")
-               ("auth", authority{{"gax"_n, "active"_n}}));
+               ("auth", authority{{"flon"_n, "active"_n}}));
 
    produce_block();
 

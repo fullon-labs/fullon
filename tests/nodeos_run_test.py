@@ -67,7 +67,7 @@ try:
         Print("Stand up cluster")
 
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-        traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi gax.token=" + abs_path
+        traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi flon.token=" + abs_path
         specificNodeosInstances={0: "bin/gaxnod"}
         if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs, specificNodeosInstances=specificNodeosInstances) is False:
             cmdError("launcher")

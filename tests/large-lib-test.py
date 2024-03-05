@@ -91,8 +91,8 @@ try:
     Utils.rmNodeDataDir(2)
 
     Print ("Relaunch all cluster nodes instances.")
-    # -e -p gax for resuming production, skipGenesis=False for launch the same chain as before
-    relaunchNode(producingNode, chainArg="-e -p gax --sync-fetch-span 5 ", skipGenesis=False)
+    # -e -p flon for resuming production, skipGenesis=False for launch the same chain as before
+    relaunchNode(producingNode, chainArg="-e -p flon --sync-fetch-span 5 ", skipGenesis=False)
     relaunchNode(speculativeNode1, chainArg="--sync-fetch-span 5 ")
     relaunchNode(speculativeNode2, chainArg="--sync-fetch-span 5 ", skipGenesis=False)
 

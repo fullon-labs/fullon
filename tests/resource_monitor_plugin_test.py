@@ -76,7 +76,7 @@ def prepareDirectories():
 def runNodeos(extraNodeosArgs, myTimeout):
     """Startup gaxnod, wait for timeout (before forced shutdown) and collect output."""
     if debug: Print("Launching gaxnod process.")
-    cmd="programs/gaxnod/gaxnod --config-dir rsmStaging/etc -e -p gax --plugin eosio::chain_api_plugin --data-dir " + dataDir + " "
+    cmd="programs/gaxnod/gaxnod --config-dir rsmStaging/etc -e -p flon --plugin eosio::chain_api_plugin --data-dir " + dataDir + " "
 
     cmd=cmd + extraNodeosArgs
     if debug: Print("cmd: %s" % (cmd))

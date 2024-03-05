@@ -83,7 +83,7 @@ struct latest_block_batch_info_result
  */
 latest_block_batch_info_result get_latest_block_batch_info(uint32_t    batch_start_height_offset,
                                                            uint32_t    batch_size,
-                                                           eosio::name system_account_name = "gax"_n)
+                                                           eosio::name system_account_name = "flon"_n)
 {
    latest_block_batch_info_result result;
 

@@ -17,7 +17,7 @@ if not os.path.exists(config_dir):
     os.makedirs(config_dir)
 
 try:
-    start_nodeos_cmd = f"{Utils.EosServerPath} -e -p gax --data-dir={data_dir} --config-dir={config_dir} --blocks-log-stride 10" \
+    start_nodeos_cmd = f"{Utils.EosServerPath} -e -p flon --data-dir={data_dir} --config-dir={config_dir} --blocks-log-stride 10" \
                         " --plugin=eosio::http_plugin --plugin=eosio::chain_api_plugin --http-server-address=localhost:8888"
 
     gaxnod.launchCmd(start_nodeos_cmd, node_id)

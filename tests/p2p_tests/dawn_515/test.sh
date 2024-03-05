@@ -17,7 +17,7 @@ delay=1
 read -d '' genesis << EOF
 {
   "initial_timestamp": "2018-06-01T12:00:00.000",
-  "initial_key": "GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
+  "initial_key": "FO6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV",
   "initial_configuration": {
     "max_block_net_usage": 1048576,
     "target_block_net_usage_pct": 1000,
@@ -50,12 +50,12 @@ http-server-address = 127.0.0.1:8888
 blocks-dir = blocks
 p2p-listen-endpoint = 0.0.0.0:9876
 allowed-connection = any
-signature-provider = GAX6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
+signature-provider = FO6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
 send-whole-blocks = true
 readonly = 0
 p2p-max-nodes-per-host = 10
 enable-stale-production = true
-producer-name = gax
+producer-name = flon
 EOF
 
 read -d '' config00 << EOF
@@ -245,32 +245,32 @@ read -d '' logging01 << EOF
 EOF
 
 rm -rf staging
-rm -rf etc/gax/node_*
+rm -rf etc/flon/node_*
 rm -rf var/lib
 cName=config.ini
 lName=logging.json
 gName=genesis.json
 
-path=staging/etc/gax/node_bios
+path=staging/etc/flon/node_bios
 mkdir -p $path
 echo "$configbios" > $path/$cName
 echo "$loggingbios" > $path/$lName
 echo "$genesis" > $path/$gName
 
-path=staging/etc/gax/node_00
+path=staging/etc/flon/node_00
 mkdir -p $path
 echo "$config00" > $path/$cName
 echo "$logging00" > $path/$lName
 echo "$genesis" > $path/$gName
 
-path=staging/etc/gax/node_01
+path=staging/etc/flon/node_01
 mkdir -p $path
 echo "$config01" > $path/$cName
 echo "$logging01" > $path/$lName
 echo "$genesis" > $path/$gName
 
 
-programs/gax-launcher/gax-launcher -p $pnodes -n $total_nodes --nogen -d $delay
+programs/flon-launcher/flon-launcher -p $pnodes -n $total_nodes --nogen -d $delay
 
 sleep 5
 res=$(grep "reason = duplicate" var/lib/node_*/stderr.txt | wc -l)
@@ -299,8 +299,8 @@ if [ $ret  -eq 0 ]; then
     echo SUCCESS
 fi
 
-programs/gax-launcher/gax-launcher -k 15
+programs/flon-launcher/flon-launcher -k 15
 rm -rf staging
 rm -rf var/lib/node_*
-rm -rf etc/gax/node_*
+rm -rf etc/flon/node_*
 exit $ret

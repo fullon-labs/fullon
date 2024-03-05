@@ -53,12 +53,12 @@ struct wasm_config_tester : TESTER {
    }
    void set_wasm_params(const wasm_config& params) {
       signed_transaction trx;
-      trx.actions.emplace_back(vector<permission_level>{{"gax"_n,config::active_name}}, "gax"_n, "setwparams"_n,
+      trx.actions.emplace_back(vector<permission_level>{{"flon"_n,config::active_name}}, "flon"_n, "setwparams"_n,
                                bios_abi_ser.variant_to_binary("setwparams", fc::mutable_variant_object()("cfg", params),
                                                               abi_serializer::create_yield_function( abi_serializer_max_time )));
-      trx.actions[0].authorization = vector<permission_level>{{"gax"_n,config::active_name}};
+      trx.actions[0].authorization = vector<permission_level>{{"flon"_n,config::active_name}};
       set_transaction_headers(trx);
-      trx.sign(get_private_key("gax"_n, "active"), control->get_chain_id());
+      trx.sign(get_private_key("flon"_n, "active"), control->get_chain_id());
       push_transaction(trx);
    }
    // Pushes an empty action
@@ -1040,13 +1040,13 @@ BOOST_FIXTURE_TEST_CASE(reset_chain_tests, wasm_config_tester) {
    // {
    //    signed_transaction trx;
    //    auto make_setcode = [](const std::vector<uint8_t>& code) {
-   //       return setcode{ "gax"_n, 0, 0, bytes(code.begin(), code.end()) };
+   //       return setcode{ "flon"_n, 0, 0, bytes(code.begin(), code.end()) };
    //    };
-   //    trx.actions.push_back({ { { "gax"_n, config::active_name} }, make_setcode(wast_to_wasm(min_set_parameters_wast)) });
-   //    trx.actions.push_back({ { { "gax"_n, config::active_name} }, "gax"_n, ""_n, fc::raw::pack(genesis_state::default_initial_wasm_configuration) });
-   //    trx.actions.push_back({ { { "gax"_n, config::active_name} }, make_setcode(contracts::eosio_bios_wasm()) });
+   //    trx.actions.push_back({ { { "flon"_n, config::active_name} }, make_setcode(wast_to_wasm(min_set_parameters_wast)) });
+   //    trx.actions.push_back({ { { "flon"_n, config::active_name} }, "flon"_n, ""_n, fc::raw::pack(genesis_state::default_initial_wasm_configuration) });
+   //    trx.actions.push_back({ { { "flon"_n, config::active_name} }, make_setcode(contracts::eosio_bios_wasm()) });
    //    set_transaction_headers(trx);
-   //    trx.sign(get_private_key("gax"_n, "active"), control->get_chain_id());
+   //    trx.sign(get_private_key("flon"_n, "active"), control->get_chain_id());
    //    push_transaction(trx);
    // }
    produce_block();
