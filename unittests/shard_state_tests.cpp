@@ -7,7 +7,7 @@
 #include <eosio/testing/tester.hpp>
 #include <eosio/chain/shard_object.hpp>
 #include <test_contracts.hpp>
-#define TEST tester
+
 using namespace eosio;
 using namespace testing;
 using namespace chain;
@@ -276,7 +276,6 @@ class sharding_validating_tester : public sharding_validating_base_tester {
             trx.max_cpu_usage_ms = 0; // No limit
             trx.delay_sec = delay_sec;
          }
-         abi_serializer abi_ser;
    };
 
 class currency_test : public sharding_validating_tester {
