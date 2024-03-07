@@ -544,88 +544,6 @@ namespace eosio { namespace testing {
 
       bool validate() { return true; }
    };
-   class sharding_tester : public base_tester {
-     public:
-      sharding_tester(setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::HEAD, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}, std::optional<uint32_t> config_max_nonprivileged_inline_action_size = std::optional<uint32_t>{}) {
-         init(policy, read_mode, genesis_max_inline_action_size, config_max_nonprivileged_inline_action_size);
-         control->add_shard_db( "shard1"_n );
-      }
-
-      sharding_tester(controller::config config, const genesis_state& genesis) {
-         init(config, genesis);
-         control->add_shard_db( "shard1"_n );
-      }
-
-      sharding_tester(controller::config config) {
-         init(config);
-         control->add_shard_db( "shard1"_n );
-      }
-
-      sharding_tester(controller::config config, protocol_feature_set&& pfs, const genesis_state& genesis) {
-         init(config, std::move(pfs), genesis);
-         control->add_shard_db( "shard1"_n );
-      }
-
-      sharding_tester(const fc::temp_directory& tempdir, bool use_genesis) {
-         auto def_conf = default_config(tempdir);
-         cfg = def_conf.first;
-
-         if (use_genesis) {
-            init(cfg, def_conf.second);
-         }
-         else {
-            init(cfg);
-         }
-         control->add_shard_db( "shard1"_n );
-      }
-
-      template <typename Lambda>
-      sharding_tester(const fc::temp_directory& tempdir, Lambda conf_edit, bool use_genesis) {
-         auto def_conf = default_config(tempdir);
-         cfg = def_conf.first;
-         conf_edit(cfg);
-
-         if (use_genesis) {
-            init(cfg, def_conf.second);
-         }
-         else {
-            init(cfg);
-         }
-         control->add_shard_db( "shard1"_n );
-      }
-
-      sharding_tester(const std::function<void(controller&)>& control_setup, setup_policy policy = setup_policy::full,
-             db_read_mode read_mode = db_read_mode::HEAD);
-
-      using base_tester::produce_block;
-
-      signed_block_ptr produce_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
-         return _produce_block(skip_time, false);
-      }
-
-      signed_block_ptr produce_empty_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
-         abort_block();
-         return _produce_block(skip_time, true);
-      }
-
-      signed_block_ptr finish_block()override {
-         return _finish_block();
-      }
-
-      bool validate() { return true; } 
-      
-      void set_transaction_headers( transaction& trx, uint32_t expiration = DEFAULT_EXPIRATION_DELTA, uint32_t delay_sec = 0 ) const {
-         if (!trx.shard_name)
-            trx.shard_name = config::main_shard_name;
-         trx.expiration = control->head_block_time() + fc::seconds(expiration);
-         trx.set_reference_block( control->head_block_id() );
-
-         trx.max_net_usage_words = 0; // No limit
-         trx.max_cpu_usage_ms = 0; // No limit
-         trx.delay_sec = delay_sec;
-      }
-   };
-   
    class validating_tester : public base_tester {
    public:
       virtual ~validating_tester() {
@@ -782,47 +700,6 @@ namespace eosio { namespace testing {
       unique_ptr<controller>   validating_node;
       uint32_t                 num_blocks_to_producer_before_shutdown = 0;
       bool                     skip_validate = false;
-   };
-
-   class sharding_validating_tester : public validating_tester {
-      public:
-         virtual ~sharding_validating_tester(){
-            
-         }
-         
-         sharding_validating_tester(const flat_set<account_name>& trusted_producers = flat_set<account_name>(), deep_mind_handler* dmlog = nullptr)
-         :validating_tester(trusted_producers, dmlog)
-         {
-            control->add_shard_db( "shard1"_n ); //TODO: remove
-            control->add_shard_db( "shard2"_n );
-            //control->add_indices();
-            validating_node->add_shard_db("shard1"_n);//TODO: remove
-            validating_node->add_shard_db("shard2"_n);
-            //validating_node->add_indices();
-         }
-         
-         sharding_validating_tester( eosio::testing::setup_policy policy,const flat_set<account_name>& trusted_producers = flat_set<account_name>(),deep_mind_handler* dmlog = nullptr)
-         :validating_tester(policy, trusted_producers, dmlog)
-         {}
-         sharding_validating_tester(const fc::temp_directory& tempdir, bool use_genesis)
-         :validating_tester(tempdir, use_genesis)
-         {}
-         
-         template <typename Lambda>
-         sharding_validating_tester(const fc::temp_directory& tempdir, Lambda conf_edit, bool use_genesis)
-         :validating_tester(tempdir, conf_edit, use_genesis)
-         {}
-         
-         void set_transaction_headers( transaction& trx, uint32_t expiration = DEFAULT_EXPIRATION_DELTA, uint32_t delay_sec = 0 ) const {
-            if (!trx.shard_name)
-               trx.shard_name = config::main_shard_name;
-            trx.expiration = control->head_block_time() + fc::seconds(expiration);
-            trx.set_reference_block( control->head_block_id() );
-
-            trx.max_net_usage_words = 0; // No limit
-            trx.max_cpu_usage_ms = 0; // No limit
-            trx.delay_sec = delay_sec;
-         }
    };
    
    /**

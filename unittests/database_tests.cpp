@@ -6,6 +6,8 @@
 #include <fc/crypto/digest.hpp>
 
 #include <boost/test/unit_test.hpp>
+#include <eosio/chain/shard_object.hpp>
+#include <test_contracts.hpp>
 
 #ifdef NON_VALIDATING_TEST
 #define TESTER tester
@@ -17,7 +19,7 @@ using namespace eosio::chain;
 using namespace chainbase;
 using namespace eosio::testing;
 namespace bfs = boost::filesystem;
-
+using mvo = fc::mutable_variant_object;
 
 bool include_delta(const account_metadata_object& old, const account_metadata_object& curr) {
    return
@@ -362,7 +364,132 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          }
       } FC_LOG_AND_RETHROW()
    }
+   
+   static constexpr name contract_name   = "shard.test"_n;
+   static constexpr name shard1_name     = "shard1"_n;
+   static constexpr name shard1_owner    = "owner.shard1"_n;
+   class shard_base_tester : public tester {
+      public:
+      shard_base_tester(setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::HEAD, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}, std::optional<uint32_t> config_max_nonprivileged_inline_action_size = std::optional<uint32_t>{})
+         :tester(policy, read_mode, genesis_max_inline_action_size, config_max_nonprivileged_inline_action_size)
+      {
+         produce_blocks();
 
+         create_accounts( { contract_name, shard1_owner } );
+         produce_blocks();
+
+         set_code( contract_name, test_contracts::shard_test_wasm() );
+         set_abi( contract_name, test_contracts::shard_test_abi().data() );
+
+         produce_blocks();
+
+         const auto& accnt = control->db().get<account_object,by_name>( contract_name );
+         abi_def abi;
+         BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
+         abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
+      }
+      
+      transaction_trace_ptr push_action(const action& act, const account_name& signer)
+      { try {
+         signed_transaction trx;
+         trx.actions.emplace_back(act);
+         if (signer) {
+            trx.actions.back().authorization = vector<permission_level>{{signer, config::active_name}};
+         }
+         set_transaction_headers(trx);
+         if (signer) {
+            trx.sign(get_private_key(signer, "active"), control->get_chain_id());
+         }
+         return push_transaction(trx);
+
+      } FC_CAPTURE_AND_RETHROW( (act)(signer) ) }
+
+      transaction_trace_ptr push_action( const account_name& signer, const action_name &name, const variant_object &data ) {
+         string action_type_name = abi_ser.get_action_type(name);
+
+         action act;
+         act.account = contract_name;
+         act.name    = name;
+         act.data    = abi_ser.variant_to_binary( action_type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+
+         return push_action( std::move(act), signer );
+      }
+
+      auto regshard( const account_name&           signer,
+                     uint8_t                       reg_type,
+                     const account_name&           name,
+                     uint8_t                       shard_type,
+                     const account_name&           owner,
+                     bool                          enabled,
+                     uint8_t                       opts,
+                     const std::optional<int64_t>& expected_result) {
+
+         return push_action( signer, "regshard"_n, mvo()
+            ( "reg_type",         reg_type)
+            ( "shard",            mvo()
+                  ( "name",             name)
+                  ( "shard_type",       shard_type)
+                  ( "owner",            owner)
+                  ( "enabled",          enabled)
+                  ( "opts",             opts)
+            )
+            ( "expected_result",  expected_result)
+         );
+      }
+
+      auto regshard(const account_name& signer, const registered_shard &shard, const std::optional<int64_t>& expected_result) {
+         return regshard(signer, 0, shard.name, uint8_t(shard.shard_type), shard.owner, shard.enabled, shard.opts, expected_result);
+      }
+      
+      abi_serializer abi_ser;
+   };
+
+   class sharding_tester : public shard_base_tester {
+      public:
+         
+         sharding_tester(setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::HEAD, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}, std::optional<uint32_t> config_max_nonprivileged_inline_action_size = std::optional<uint32_t>{}) 
+            :shard_base_tester(policy, read_mode, genesis_max_inline_action_size, config_max_nonprivileged_inline_action_size)
+         {
+            registered_shard shard1 = registered_shard {
+            .name             = shard1_name,
+            .shard_type       = shard_type_enum(eosio::chain::shard_type::normal),
+            .owner            = shard1_owner,
+            .enabled          = true,
+            .opts             = 0
+            };
+            
+            base_tester::push_action(config::system_account_name, "setpriv"_n, config::system_account_name,  fc::mutable_variant_object()("account", contract_name)("is_priv", 1));
+            produce_blocks();
+            regshard( shard1_owner, shard1, 1 );
+            produce_blocks(2);
+         }
+
+         signed_block_ptr produce_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
+            return _produce_block(skip_time, false);
+         }
+
+         signed_block_ptr produce_empty_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
+            abort_block();
+            return _produce_block(skip_time, true);
+         }
+
+         signed_block_ptr finish_block()override {
+            return _finish_block();
+         }
+
+         bool validate() { return true; } 
+         
+         void set_transaction_headers( transaction& trx, uint32_t expiration = DEFAULT_EXPIRATION_DELTA, uint32_t delay_sec = 0 ) const {
+            if (!trx.shard_name)
+               trx.shard_name = config::main_shard_name;
+            trx.expiration = control->head_block_time() + fc::seconds(expiration);
+            trx.set_reference_block( control->head_block_id() );
+
+            trx.max_net_usage_words = 0; // No limit
+            trx.max_cpu_usage_ms = 0; // No limit
+            trx.delay_sec = delay_sec;
+         }
+  };
    BOOST_AUTO_TEST_CASE(sub_shard_db_test) {
       try {
          sharding_tester test;
