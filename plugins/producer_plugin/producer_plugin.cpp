@@ -535,13 +535,26 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       }
 
       void on_block( const block_state_ptr& bsp ) {
-         for ( const auto& block_shard : bsp->block->transactions ) {
-            auto& shard = _shards[block_shard.first];
-            auto removed = shard.unapplied_transactions.clear_applied( block_shard.second );
-            if (removed > 0) {
-               fc_dlog( _log, "Remove shard[${s}] applied transactions removed: ${removed}, after: ${after}",
-                        ("s", block_shard.first)("removed", removed)("after", shard.unapplied_transactions.size()) );
+         auto shard_itr = _shards.end();
+         size_t removed = 0;
+         size_t after = 0;
+         for ( const auto& receipt : bsp->block->transactions ) {
+            const auto& shard_name = receipt.get_shard_name();
+            // find or create processing shard
+            if (shard_itr == _shards.end() || shard_itr->first != shard_name ) {
+               shard_itr = _shards.find(shard_name);
+               if (shard_itr == _shards.end()) {
+                  shard_itr = _shards.emplace(shard_name, processing_shard()).first;
+               }
             }
+            auto& shard = shard_itr->second;
+            removed += shard.unapplied_transactions.clear_applied( receipt );
+            after += shard.unapplied_transactions.size();
+
+         }
+         if (removed > 0) {
+            fc_dlog( _log, "Remove applied transactions removed: ${removed}, after: ${after}",
+                     ("removed", removed)("after", after) );
          }
          _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
       }

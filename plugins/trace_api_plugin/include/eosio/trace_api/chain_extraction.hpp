@@ -85,11 +85,7 @@ private:
          using transaction_trace_t = transaction_trace_v3;
          auto bt = create_block_trace( block_state );
 
-         // TODO: only support main shard currently.
-         //eosio::chain::deque<eosio::chain::transaction_receipt>
-         //eosio::chain::transaction_receipt_map::iterator 
-         auto itr = block_state->block->transactions.find(chain::config::main_shard_name);
-         auto&& receipts = (itr != block_state->block->transactions.end() ? itr->second : eosio::chain::deque<eosio::chain::transaction_receipt>());
+         const auto& receipts = block_state->block->transactions;
 
          std::vector<transaction_trace_t> traces;
          traces.reserve( receipts.size() + 1 );

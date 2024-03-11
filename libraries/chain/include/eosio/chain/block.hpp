@@ -49,6 +49,19 @@ namespace eosio { namespace chain {
             fc::raw::pack( enc, std::get<packed_transaction>(trx).packed_digest() );
          return enc.result();
       }
+
+      const shard_name& get_shard_name() const {
+         return std::visit(overloaded{ [](const transaction_id_type& id) -> const shard_name& { return config::main_shard_name; },
+                                       [](const packed_transaction& ptrx) ->const shard_name& { return ptrx.get_shard_name(); } },
+                           trx);
+      }
+
+      const transaction_id_type& get_trx_id() const {
+         return std::visit(overloaded{ [](const transaction_id_type& id) -> const transaction_id_type& { return id; },
+                                       [](const packed_transaction& ptrx) -> const transaction_id_type& { return ptrx.id(); } },
+                           trx);
+      }
+
    };
 
    using transaction_receipt_ptr = std::shared_ptr<const transaction_receipt>;
@@ -101,13 +114,10 @@ namespace eosio { namespace chain {
       signed_block clone() const { return *this; }
 
       size_t get_trx_size() const {
-         size_t size = 0;
-         for (const auto& receipts : transactions)
-            size += receipts.second.size();
-         return size;
+         return transactions.size();
       }
 
-      transaction_receipt_map transactions; /// new or generated transactions, shard_name -> trx_receipts
+      deque<transaction_receipt>    transactions; /// new or generated transactions, should order by shard_name
       extensions_type               block_extensions;
 
       flat_multimap<uint16_t, block_extension> validate_and_extract_extensions()const;

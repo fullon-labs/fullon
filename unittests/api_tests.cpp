@@ -1475,17 +1475,15 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
       block_state_ptr bsp;
       std::set<transaction_id_type> block_ids;
       auto c2 = control->accepted_block.connect([&](const block_state_ptr& b) {
-         for( const auto& receipts : b->block->transactions ) {
-            for( const auto& receipt : receipts.second ) {
-               transaction_id_type id;
-               if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-                  const auto& pt = std::get<packed_transaction>(receipt.trx);
-                  id = pt.id();
-               } else {
-                  id = std::get<transaction_id_type>(receipt.trx);
-               }
-               block_ids.insert( id );
+         for( const auto& receipt : b->block->transactions ) {
+            transaction_id_type id;
+            if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+               const auto& pt = std::get<packed_transaction>(receipt.trx);
+               id = pt.id();
+            } else {
+               id = std::get<transaction_id_type>(receipt.trx);
             }
+            block_ids.insert( id );
          }
       });
 

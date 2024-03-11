@@ -34,7 +34,7 @@ auto next( unapplied_transaction_queue& q ) {
 
 auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
    signed_block_ptr block = std::make_shared<signed_block>();
-   auto& receipts = block->transactions[config::main_shard_name];
+   auto& receipts = block->transactions;
    for( auto& trx_meta : trx_metas ) {
       receipts.emplace_back( *trx_meta->packed_trx() );
    }
@@ -129,9 +129,7 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    // clear applied
    q.add_aborted( { trx1, trx2, trx3 } );
    auto bsp = create_test_block_state( { trx1, trx3, trx4 } );
-   auto shard_itr = bsp->block->transactions.find(config::main_shard_name);
-   BOOST_CHECK( shard_itr != bsp->block->transactions.end() );
-   q.clear_applied( shard_itr->second );
+   q.clear_applied( bsp->block->transactions );
    BOOST_CHECK( q.size() == 1 );
    BOOST_REQUIRE( next( q ) == trx2 );
    BOOST_CHECK( q.size() == 0 );

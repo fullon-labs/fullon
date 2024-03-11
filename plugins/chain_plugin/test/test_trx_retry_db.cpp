@@ -141,10 +141,11 @@ uint64_t get_id( const packed_transaction_ptr& ptr ) {
 auto make_block_state( uint32_t block_num, std::vector<chain::packed_transaction_ptr> trxs ) {
    name producer = "kevinh"_n;
    chain::signed_block_ptr block = std::make_shared<chain::signed_block>();
-   // TODO: need to add sub shard trx?
-   auto& receipts = block->transactions[config::main_shard_name];
-   for( auto& trx : trxs ) {
-      receipts.emplace_back( *trx );
+   for( size_t i = 0; i < trxs.size(); i++ ) {
+      if ( i > 1 && trxs[i]->get_shard_name() > trxs[i - 1]->get_shard_name()) {
+         BOOST_REQUIRE_MESSAGE(false, "transactions must sorted by shard name");
+      }
+      block->transactions.emplace_back( *trxs[i] );
    }
    block->producer = producer;
    block->timestamp = fc::time_point::now();

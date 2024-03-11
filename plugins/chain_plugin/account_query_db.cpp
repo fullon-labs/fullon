@@ -338,19 +338,17 @@ namespace eosio::chain_apis {
          if( onblock_trace )
             process_trace(*onblock_trace);
 
-         for( const auto& receipts : bsp->block->transactions ) {
-            for( const auto& r : receipts.second ) {
-               chain::transaction_id_type id;
-               if( std::holds_alternative<chain::transaction_id_type>(r.trx)) {
-                  id = std::get<chain::transaction_id_type>(r.trx);
-               } else {
-                  id = std::get<chain::packed_transaction>(r.trx).id();
-               }
+         for( const auto& r : bsp->block->transactions ) {
+            chain::transaction_id_type id;
+            if( std::holds_alternative<chain::transaction_id_type>(r.trx)) {
+               id = std::get<chain::transaction_id_type>(r.trx);
+            } else {
+               id = std::get<chain::packed_transaction>(r.trx).id();
+            }
 
-               const auto it = cached_trace_map.find( id );
-               if( it != cached_trace_map.end() ) {
-                  process_trace( it->second );
-               }
+            const auto it = cached_trace_map.find( id );
+            if( it != cached_trace_map.end() ) {
+               process_trace( it->second );
             }
          }
 

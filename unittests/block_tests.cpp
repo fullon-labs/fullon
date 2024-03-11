@@ -18,7 +18,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test)
    // Make a copy of the valid block and corrupt the transaction
    auto copy_b = std::make_shared<signed_block>(std::move(*b));
    // TODO: need multi shard trx?
-   auto& copy_tx_receipts = copy_b->transactions[config::main_shard_name];
+   auto& copy_tx_receipts = copy_b->transactions;
    auto signed_tx = std::get<packed_transaction>(copy_tx_receipts.back().trx).get_signed_transaction();
    auto& act = signed_tx.actions.back();
    auto act_data = act.data_as<newaccount>();
@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
    // Make a copy of the valid block and corrupt the transaction
    auto copy_b = std::make_shared<signed_block>(std::move(*b));
    // TODO: need multi shard trx?
-   auto& copy_tx_receipts = copy_b->transactions[config::main_shard_name];
+   auto& copy_tx_receipts = copy_b->transactions;
    const auto& packed_trx = std::get<packed_transaction>(copy_tx_receipts.back().trx);
    auto signed_tx = packed_trx.get_signed_transaction();
 
@@ -104,7 +104,7 @@ std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_te
    // Make a copy of the valid block and corrupt the transaction
    auto copy_b = std::make_shared<signed_block>(b->clone());
    // TODO: need multi shard trx?
-   auto& copy_tx_receipts = copy_b->transactions[config::main_shard_name];
+   auto& copy_tx_receipts = copy_b->transactions;
    const auto& packed_trx = std::get<packed_transaction>(copy_tx_receipts.back().trx);
    auto signed_tx = packed_trx.get_signed_transaction();
    // Corrupt one signature

@@ -56,12 +56,13 @@ namespace eosio::trace_api {
       auto make_block_state( chain::block_id_type previous, uint32_t height, uint32_t slot, chain::name producer,
                              std::vector<chain::packed_transaction> trxs ) {
          chain::signed_block_ptr block = std::make_shared<chain::signed_block>();
-         // TODO: multi shard trx
-         auto itr = block->transactions.find(chain::config::main_shard_name);
-         auto&& receipts = (itr != block->transactions.end() ? itr->second : eosio::chain::deque<eosio::chain::transaction_receipt>());
-         for( auto& trx : trxs ) {
-            receipts.emplace_back( trx );
+         for( size_t i = 0; i < trxs.size(); i++ ) {
+            if ( i > 1 && trxs[i].get_shard_name() > trxs[i - 1].get_shard_name()) {
+               BOOST_REQUIRE_MESSAGE(false, "transactions must sorted by shard name");
+            }
+            block->transactions.emplace_back( trxs[i] );
          }
+
          block->producer = producer;
          block->timestamp = chain::block_timestamp_type(slot);
          // make sure previous contains correct block # so block_header::block_num() returns correct value

@@ -77,11 +77,9 @@ bool verify_equal( const std::deque<packed_transaction_ptr>& trxs, const std::de
       trxs_ids.emplace( trx->id() );
    }
    for( const auto& bs : all_blocks ) {
-      for( const auto& trx_receipts : bs->block->transactions ) {
-         for( const auto& trx_receipt : trx_receipts.second ) {
-            const auto& trx = std::get<packed_transaction>( trx_receipt.trx ).get_transaction();
-            blk_trxs_ids.emplace( trx.id() );
-         }
+      for( const auto& trx_receipt : bs->block->transactions ) {
+         const auto& trx = std::get<packed_transaction>( trx_receipt.trx ).get_transaction();
+         blk_trxs_ids.emplace( trx.id() );
       }
    }
    BOOST_CHECK_EQUAL( trxs_ids.size(), blk_trxs_ids.size() );

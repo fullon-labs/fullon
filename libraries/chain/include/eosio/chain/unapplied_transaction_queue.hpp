@@ -125,20 +125,17 @@ public:
    void clear_applied( const block_state_ptr& bs ) {
       if( empty() ) return;
       auto& idx = queue.get<by_trx_id>();
-      for( const auto& receipts : bs->block->transactions ) {
-         // TODO: clear shard applied trx
-         for( const auto& receipt : receipts.second ) {
-            if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-               const auto& pt = std::get<packed_transaction>(receipt.trx);
-               auto itr = idx.find( pt.id() );
-               if( itr != idx.end() ) {
-                  if( itr->next ) {
-                     itr->next( std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
-                                 FC_LOG_MESSAGE( info, "duplicate transaction ${id}", ("id", itr->trx_meta->id())))));
-                  }
-                  removed( itr );
-                  idx.erase( itr );
+      for( const auto& receipt : bs->block->transactions ) {
+         if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+            const auto& pt = std::get<packed_transaction>(receipt.trx);
+            auto itr = idx.find( pt.id() );
+            if( itr != idx.end() ) {
+               if( itr->next ) {
+                  itr->next( std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
+                              FC_LOG_MESSAGE( info, "duplicate transaction ${id}", ("id", itr->trx_meta->id())))));
                }
+               removed( itr );
+               idx.erase( itr );
             }
          }
       }
@@ -162,6 +159,26 @@ public:
                idx.erase( itr );
                ret++;
             }
+         }
+      }
+      return ret;
+   }
+
+
+   size_t clear_applied( const transaction_receipt& receipt ) {
+      size_t ret = 0;
+      if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+         const auto& pt = std::get<packed_transaction>(receipt.trx);
+         auto& idx = queue.get<by_trx_id>();
+         auto itr = idx.find( pt.id() );
+         if( itr != idx.end() ) {
+            if( itr->next ) {
+               itr->next( std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
+                           FC_LOG_MESSAGE( info, "duplicate transaction ${id}", ("id", itr->trx_meta->id())))));
+            }
+            removed( itr );
+            idx.erase( itr );
+            ret++;
          }
       }
       return ret;
