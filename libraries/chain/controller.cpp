@@ -1693,7 +1693,7 @@ struct controller_impl {
 
       // Only subjective OR soft OR hard failure logic below:
 
-      if( gtrx.sender != account_name() && !(validating ? failure_is_subjective(*trace->except) : scheduled_failure_is_subjective(*trace->except))) {
+      if( (!gtrx.is_xshard) && gtrx.sender != account_name() && !(validating ? failure_is_subjective(*trace->except) : scheduled_failure_is_subjective(*trace->except))) {
          // Attempt error handling for the generated transaction.
 
          auto error_trace = apply_onerror( shard, gtrx, block_deadline, max_transaction_time, trx_context.pseudo_start,
@@ -2502,7 +2502,7 @@ struct controller_impl {
          for (const auto& receipt :  b->transactions) {
             const auto& shard_name = receipt.get_shard_name();
             EOS_ASSERT( !shard_name.empty(),
-               block_validate_exception, "shard name of transation is empty, block_num ${bn}, block_id ${id}, trx ${t}",
+               block_validate_exception, "shard name of transaction is empty, block_num ${bn}, block_id ${id}, trx ${t}",
                ("bn", bsp->block_num)("id", bsp->id)("t", receipt.get_trx_id())
             );
 
@@ -2512,13 +2512,12 @@ struct controller_impl {
                   ("bn", bsp->block_num)("id", bsp->id)("s", shard_name)
                );
                pending_shard = &init_building_shard(shard_name);
-               shard_contexts.emplace_back(pending_shard);
+               shard_contexts.emplace_back(*pending_shard);
                last_shard_name = shard_name;
             }
             assert(!shard_contexts.empty());
             auto& shard_context = shard_contexts.back();
 
-            const auto& bsp_caches = cache_map_itr->second;
             auto trx_receipt = transaction_receipt_ptr( b, &receipt ); // alias signed_block_ptr
             auto& shard_trx = shard_context.trx_metas.emplace_back(std::move(trx_receipt));
 
@@ -2573,6 +2572,8 @@ struct controller_impl {
                      trace = push_transaction( shard_context.pending_shard, trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
                   } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
                      trace = push_scheduled_transaction( shard_context.pending_shard, std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
+                  } else if( std::holds_alternative<shard_transaction_id_type>(receipt.trx) ) {
+                     trace = push_scheduled_transaction( shard_context.pending_shard, std::get<shard_transaction_id_type>(receipt.trx).id, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
                   } else {
                      EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
                   }

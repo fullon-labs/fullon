@@ -94,12 +94,7 @@ private:
          if( onblock_trace )
             traces.emplace_back( to_transaction_trace<transaction_trace_t>( *onblock_trace ));
          for( const auto& r : receipts ) {
-            transaction_id_type id;
-            if( std::holds_alternative<transaction_id_type>(r.trx)) {
-               id = std::get<transaction_id_type>(r.trx);
-            } else {
-               id = std::get<packed_transaction>(r.trx).id();
-            }
+            auto const& id = r.get_trx_id();
             const auto it = cached_traces.find( id );
             if( it != cached_traces.end() ) {
                traces.emplace_back( to_transaction_trace<transaction_trace_t>( it->second ));
