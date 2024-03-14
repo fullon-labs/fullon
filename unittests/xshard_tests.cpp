@@ -165,7 +165,10 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
    auto schedule_trx_obj = gen_trx_indx.find(scheduled_xshin_trx);
    BOOST_REQUIRE(schedule_trx_obj != gen_trx_indx.end());
    BOOST_REQUIRE_EQUAL(schedule_trx_obj->sender, xsh_itr->owner);
-   BOOST_REQUIRE(schedule_trx_obj->sender_id == (uint128_t)xsh_itr->id._id);
+   wdump((schedule_trx_obj->sender_id)((uint128_t)xsh_itr->id._id));
+   wdump((*schedule_trx_obj));
+   BOOST_REQUIRE(uint64_t(schedule_trx_obj->sender_id >> 64) == ("xshard"_n).to_uint64_t());
+   BOOST_REQUIRE(uint64_t(schedule_trx_obj->sender_id) == xsh_itr->id._id);
    BOOST_REQUIRE_EQUAL(schedule_trx_obj->payer, name());
    BOOST_REQUIRE(schedule_trx_obj->published == control->head_block_time());
    BOOST_REQUIRE(schedule_trx_obj->delay_until == schedule_trx_obj->published + fc::milliseconds(config::block_interval_ms));
@@ -216,7 +219,8 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
    auto schedule_trx_obj2 = gen_trx_indx.find(scheduled_xshin_trx2);
    BOOST_REQUIRE(schedule_trx_obj2 != gen_trx_indx.end());
    BOOST_REQUIRE_EQUAL(schedule_trx_obj2->sender, xsh_itr2->owner);
-   BOOST_REQUIRE(schedule_trx_obj2->sender_id == (uint128_t)xsh_itr2->id._id);
+   BOOST_REQUIRE(uint64_t(schedule_trx_obj2->sender_id >> 64) == ("xshard"_n).to_uint64_t());
+   BOOST_REQUIRE(uint64_t(schedule_trx_obj2->sender_id) == xsh_itr2->id._id);
    BOOST_REQUIRE_EQUAL(schedule_trx_obj2->payer, name());
    BOOST_REQUIRE(schedule_trx_obj2->published == control->head_block_time());
    BOOST_REQUIRE(schedule_trx_obj2->delay_until == schedule_trx_obj2->published + fc::milliseconds(config::block_interval_ms));
@@ -224,9 +228,9 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
    BOOST_REQUIRE_EQUAL(schedule_trx_obj2->is_xshard, true);
 
    {
-      shard_name_scope scope(*this, shard1_name);
+      // shard_name_scope scope(*this, shard1_name);
       auto billed_cpu_time_us = gpo.configuration.min_transaction_cpu_usage;
-      auto scheduled_trx_trace = push_scheduled_transaction(scheduled_xshin_trx2, fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
+      auto scheduled_trx_trace = push_scheduled_transaction(shard1_name, scheduled_xshin_trx2, fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
       BOOST_REQUIRE( !scheduled_trx_trace->except_ptr && !scheduled_trx_trace->except );
       BOOST_REQUIRE_EQUAL(get_balance(*shard1_db, "bob111111111"_n), core_from_string("1.0000"));
    }

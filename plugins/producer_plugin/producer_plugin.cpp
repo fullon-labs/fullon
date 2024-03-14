@@ -2673,6 +2673,15 @@ bool producer_plugin_impl::process_scheduled_trxs( const fc::time_point& deadlin
          ++sch_itr;
          continue;
       }
+      if (sch_itr->is_xshard) {
+         auto& building_shard = chain.init_building_shard(sch_itr->shard_name);
+         auto obj_id = xshard_object::id_from_sender_id(sch_itr->sender_id);
+         const auto *xsh = control->dbm().main_db().find<xshard_object, by_id>(obj_id);
+         if (xsh != nullptr && control->is_xshard_scheduled_processed(building_shard, sch_itr->trx_id, xsh->xsh_id)) {
+            continue;
+         }
+      }
+
       found = true;
    }
 

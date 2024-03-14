@@ -47,7 +47,11 @@ namespace eosio { namespace chain {
       }
 
       inline uint128_t get_sender_id() const {
-         return (uint128_t(("xshard"_n).to_uint64_t()) << 64) || (uint64_t)id._id;
+         return (uint128_t(("xshard"_n).to_uint64_t()) << 64) | (uint64_t)id._id;
+      }
+
+      static id_type id_from_sender_id(const uint128_t& sender_id) {
+         return uint64_t(sender_id);
       }
    };
 

@@ -40,6 +40,7 @@ namespace eosio { namespace chain {
       transaction_receipt():transaction_receipt_header(){}
       explicit transaction_receipt( const transaction_id_type& tid ):transaction_receipt_header(executed),trx(tid){}
       explicit transaction_receipt( const packed_transaction& ptrx ):transaction_receipt_header(executed),trx(std::in_place_type<packed_transaction>, ptrx){}
+      explicit transaction_receipt( const shard_transaction_id_type& strx_id ):transaction_receipt_header(executed),trx(std::in_place_type<shard_transaction_id_type>, strx_id){}
 
       std::variant<transaction_id_type, packed_transaction, shard_transaction_id_type> trx;
 

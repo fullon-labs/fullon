@@ -212,6 +212,10 @@ namespace eosio { namespace testing {
          transaction_trace_ptr push_scheduled_transaction( const transaction_id_type& scheduled,
                                                            fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                                            uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time );
+         transaction_trace_ptr push_scheduled_transaction( const eosio::chain::shard_name& shard_name,
+                                                           const transaction_id_type& scheduled,
+                                                           fc::time_point block_deadline, fc::microseconds max_transaction_time,
+                                                           uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time );
          [[nodiscard]]
          action_result            push_action(action&& cert_act, uint64_t authorizer); // TODO/QUESTION: Is this needed?
 
@@ -701,7 +705,6 @@ namespace eosio { namespace testing {
       uint32_t                 num_blocks_to_producer_before_shutdown = 0;
       bool                     skip_validate = false;
    };
-   
    /**
     * Utility predicate to check whether an fc::exception message is equivalent to a given string
     */
