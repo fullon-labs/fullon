@@ -2338,8 +2338,12 @@ struct controller_impl {
          {EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct), chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
       );
       resource_limits.process_block_usage(pbhs.block_num);
+
       const auto& sc_indx = dbm.main_db().get_index<shard_change_index, by_id>();
-      for( auto itr = sc_indx.begin(); itr != sc_indx.end() && itr->block_num <= pbhs.dpos_irreversible_blocknum; itr = sc_indx.begin() ) {
+      for(  auto itr = sc_indx.begin();
+            itr != sc_indx.end() && itr->block_num <= pbhs.dpos_irreversible_blocknum;
+            itr = sc_indx.begin() ) // Because the processed row will be removed, so always get row from the begining
+      {
          const auto* sp = dbm.main_db().find<shard_object, by_name>( itr->name );
          if (sp == nullptr) {
             // create new shard

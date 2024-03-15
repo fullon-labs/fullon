@@ -122,7 +122,7 @@ BOOST_FIXTURE_TEST_CASE( register_shard_test, shard_base_tester ) try {
 
    REQUIRE_MATCHING_REGISTER_SHARD(shard1, *shard_change1);
 
-   produce_blocks(1);
+   produce_blocks(2);
    const auto* shard_change2 = control->dbm().main_db().find<shard_change_object, by_name>( shard1_name );
    BOOST_REQUIRE( shard_change2 == nullptr);
 
@@ -130,7 +130,7 @@ BOOST_FIXTURE_TEST_CASE( register_shard_test, shard_base_tester ) try {
    BOOST_REQUIRE( shard_obj1 != nullptr);
 
    REQUIRE_MATCHING_REGISTER_SHARD( shard1, *shard_obj1 );
-   BOOST_REQUIRE( shard_obj1->creation_date == control->pending_block_time() );
+   BOOST_REQUIRE( shard_obj1->creation_date == control->head_block_time() );
 
    BOOST_REQUIRE( control->dbm().find_shard_db(shard1_name) != nullptr);
 
