@@ -10,6 +10,7 @@
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/unapplied_transaction_queue.hpp>
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
+#include <eosio/chain/xshard_object.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/log/logger_config.hpp>
@@ -113,7 +114,6 @@ struct transaction_id_with_expiry {
    fc::time_point          expiry;
 };
 
-struct by_id;
 struct by_expiry;
 
 using transaction_id_with_expiry_index = multi_index_container<
@@ -500,13 +500,16 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       processing_shard_map             _shards;
       uint64_t                         _block_seq{ 0 };
 
-      processing_shard_map::iterator get_shard_itr(const eosio::chain::shard_name& sname) {
+      processing_shard_map::iterator get_processing_shard_itr(const eosio::chain::shard_name& sname) {
          auto itr = _shards.find(sname);
          if (itr == _shards.end()) {
             auto new_ret = _shards.emplace(sname, processing_shard());
             itr = new_ret.first;
          }
          return itr;
+      }
+      processing_shard& get_processing_shard(const eosio::chain::shard_name& sname) {
+         return get_processing_shard_itr(sname)->second;
       }
 
       void start_write_window();
@@ -538,19 +541,18 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto shard_itr = _shards.end();
          size_t removed = 0;
          size_t after = 0;
+         shard_name last_shard_name;
          for ( const auto& receipt : bsp->block->transactions ) {
             const auto& shard_name = receipt.get_shard_name();
-            // find or create processing shard
-            if (shard_itr == _shards.end() || shard_itr->first != shard_name ) {
+            if (shard_name != last_shard_name) {
                shard_itr = _shards.find(shard_name);
-               if (shard_itr == _shards.end()) {
-                  shard_itr = _shards.emplace(shard_name, processing_shard()).first;
-               }
+               last_shard_name = shard_name;
             }
-            auto& shard = shard_itr->second;
-            removed += shard.unapplied_transactions.clear_applied( receipt );
-            after += shard.unapplied_transactions.size();
-
+            if (shard_itr != _shards.end()) {
+               auto& shard = shard_itr->second;
+               removed += shard.unapplied_transactions.clear_applied( receipt );
+               after += shard.unapplied_transactions.size();
+            }
          }
          if (removed > 0) {
             fc_dlog( _log, "Remove applied transactions removed: ${removed}, after: ${after}",
@@ -563,7 +565,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          for( auto ritr = forked_branch.rbegin(), rend = forked_branch.rend(); ritr != rend; ++ritr ) {
             const block_state_ptr& bsptr = *ritr;
             for (const auto& trx_shard : bsptr->trxs_metas()) {
-               auto& shard = _shards[trx_shard.first];
+               auto& shard = get_processing_shard(trx_shard.first);
                shard.unapplied_transactions.add_forked(trx_shard.second);
             }
          }
@@ -629,7 +631,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
          auto trx_map = chain.abort_block();
          for (auto trx_shard : trx_map) {
-            auto& shard = _shards[trx_shard.first];
+            auto& shard = get_processing_shard(trx_shard.first);
             shard.unapplied_transactions.add_aborted( std::move(trx_shard.second) );
          }
          _subjective_billing.abort_block();
@@ -852,7 +854,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                return true;
             }
 
-            auto shard_itr = get_shard_itr(trx->get_shard_name());
+            auto shard_itr = get_processing_shard_itr(trx->get_shard_name());
             shard_itr->second.unapplied_transactions.add_incoming( trx, api_trx, return_failure_trace, next );
             if( chain.is_building_block()) {
                if (shard_itr->second.trx_task_fut.valid()) {
@@ -2174,7 +2176,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             auto sch_itr = sch_idx.lower_bound( boost::make_tuple( last_shard_name, time_point(), 0 ) );
             while( sch_itr != sch_idx.end() ) {
                if (sch_itr->delay_until > pending_block_time) {
-                  auto& shard = _shards[sch_itr->shard_name];
+                  auto& shard = get_processing_shard(sch_itr->shard_name);
                   shard.has_scheduled_trx = true;
                }
                last_shard_name = name(last_shard_name.to_uint64_t() + 1);
@@ -2674,11 +2676,13 @@ bool producer_plugin_impl::process_scheduled_trxs( const fc::time_point& deadlin
          continue;
       }
       if (sch_itr->is_xshard) {
-         auto& building_shard = chain.init_building_shard(sch_itr->shard_name);
-         auto obj_id = xshard_object::id_from_sender_id(sch_itr->sender_id);
-         const auto *xsh = control->dbm().main_db().find<xshard_object, by_id>(obj_id);
-         if (xsh != nullptr && control->is_xshard_scheduled_processed(building_shard, sch_itr->trx_id, xsh->xsh_id)) {
-            continue;
+         auto* building_shard = chain.find_building_shard(sch_itr->shard_name);
+         if (building_shard) {
+            auto obj_id = xshard_object::id_from_sender_id(sch_itr->sender_id);
+            const auto *xsh = chain.dbm().shared_db().find<xshard_object, by_id>(obj_id);
+            if (xsh != nullptr && chain.is_xshard_scheduled_processed(*building_shard, sch_itr->trx_id, xsh->xsh_id)) {
+               continue;
+            }
          }
       }
 

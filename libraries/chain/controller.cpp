@@ -3566,6 +3566,17 @@ building_shard& controller::init_building_shard(const shard_name& name) {
    return my->init_building_shard(name);
 }
 
+building_shard* controller::find_building_shard(const shard_name& name) {
+   if ( my->pending && std::holds_alternative<building_block>(my->pending->_block_stage) ) {
+         auto& bb = std::get<building_block>(my->pending->_block_stage);
+         auto itr = bb._shards.find(name);
+         if ( itr != bb._shards.end() ) {
+            return &itr->second;
+         }
+   }
+   return nullptr;
+}
+
 transaction_metadata_map controller::abort_block() {
    return my->abort_block();
 }
