@@ -7,7 +7,7 @@ from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletM
 ###############################################################
 # get_account_test
 #
-# integration test for gaxcli get account
+# integration test for focli get account
 #
 ###############################################################
 

@@ -58,7 +58,7 @@ class Utils:
 
     testBinPath = Path(__file__).resolve().parents[2] / 'bin'
 
-    EosClientPath=str(testBinPath / "gaxcli")
+    EosClientPath=str(testBinPath / "focli")
     MiscEosClientArgs="--no-auto-gaxkey"
 
     LeapClientPath=str(testBinPath / "leap-util")

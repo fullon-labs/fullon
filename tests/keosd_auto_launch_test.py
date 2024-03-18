@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-# This script tests that gaxcli launches gaxkey automatically when gaxkey is not
+# This script tests that focli launches gaxkey automatically when gaxkey is not
 # running yet.
 
 import subprocess
 
 
 def run_cleos_wallet_command(command: str, no_auto_keosd: bool):
-    """Run the given gaxcli command and return subprocess.CompletedProcess."""
-    args = ['./programs/gaxcli/gaxcli']
+    """Run the given focli command and return subprocess.CompletedProcess."""
+    args = ['./bin/focli']
 
     if no_auto_keosd:
         args.append('--no-auto-gaxkey')
@@ -37,7 +37,7 @@ def keosd_auto_launch_test():
     stop_keosd()
 
     # Make sure that when '--no-auto-gaxkey' is given, gaxkey is not started by
-    # gaxcli.
+    # focli.
     completed_process = run_cleos_wallet_command('list', no_auto_keosd=True)
     assert completed_process.returncode != 0
     check_cleos_stderr(completed_process.stderr, b'Failed http request to gaxkey')

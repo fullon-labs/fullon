@@ -24,8 +24,8 @@ def nodeos_help_test():
 
 
 def cleos_help_test(args):
-    """Test that gaxcli help contains option and subcommand descriptions"""
-    help_text = subprocess.check_output(["./programs/gaxcli/gaxcli"] + args)
+    """Test that focli help contains option and subcommand descriptions"""
+    help_text = subprocess.check_output(["./bin/focli"] + args)
 
     assert(b'Options:' in help_text)
     assert(b'Subcommands:' in help_text)
@@ -34,7 +34,7 @@ def cleos_help_test(args):
 def cli11_bugfix_test():
     """Test that subcommand names can be used as option arguments"""
     completed_process = subprocess.run(
-        ['./programs/gaxcli/gaxcli', '--no-auto-gaxkey', '-u', 'http://localhost:0/',
+        ['./bin/focli', '--no-auto-gaxkey', '-u', 'http://localhost:0/',
          'push', 'action', 'accout', 'action', '["data"]', '-p', 'wallet'],
         check=False,
         stderr=subprocess.PIPE)
@@ -53,13 +53,13 @@ def cli11_optional_option_arg_test():
     chain = 'cf057bbfb72640471fd910bcb67639c22df9f92470936cddc1ade0e2f2e7dc4f'
     key = '5Jgfqh3svgBZvCAQkcnUX8sKmVUkaUekYDGqFakm52Ttkc5MBA4'
 
-    output = subprocess.check_output(['./programs/gaxcli/gaxcli', '--no-auto-gaxkey', 'sign',
+    output = subprocess.check_output(['./bin/focli', '--no-auto-gaxkey', 'sign',
                                       '-c', chain, '-k', '{}'],
                                      input=key.encode(),
                                      stderr=subprocess.DEVNULL)
     assert(b'signatures' in output)
 
-    output = subprocess.check_output(['./programs/gaxcli/gaxcli', '--no-auto-gaxkey', 'sign',
+    output = subprocess.check_output(['./bin/focli', '--no-auto-gaxkey', 'sign',
                                       '-c', chain, '-k', key, '{}'])
     assert(b'signatures' in output)
 
@@ -93,7 +93,7 @@ def cleos_sign_test():
         '"context_free_data": []'
     '}')
 
-    output = subprocess.check_output(['./programs/gaxcli/gaxcli', '--no-auto-gaxkey', 'sign',
+    output = subprocess.check_output(['./bin/focli', '--no-auto-gaxkey', 'sign',
                                       '-c', chain, '-k', key, trx])
     # make sure it is signed
     assert(b'signatures' in output)
@@ -111,7 +111,7 @@ def cleos_sign_test():
 
     # Test packed transaction is unpacked. Only with options --print-request and --public-key
     # the sign request is dumped to stderr.
-    cmd = ['./programs/gaxcli/gaxcli', '--print-request', '--no-auto-gaxkey', 'sign', '-c', chain, '--public-key', 'EOS8Dq1KosJ9PMn1vKQK3TbiihgfUiDBUsz471xaCE6eYUssPB1KY', packed_trx]
+    cmd = ['./bin/focli', '--print-request', '--no-auto-gaxkey', 'sign', '-c', chain, '--public-key', 'EOS8Dq1KosJ9PMn1vKQK3TbiihgfUiDBUsz471xaCE6eYUssPB1KY', packed_trx]
     outs=None
     errs=None
     try:
@@ -132,7 +132,7 @@ def cleos_sign_test():
     assert(b'"data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"' in errs)
 
     # Test packed transaction is signed.
-    output = subprocess.check_output(['./programs/gaxcli/gaxcli', '--no-auto-gaxkey', 'sign',
+    output = subprocess.check_output(['./bin/focli', '--no-auto-gaxkey', 'sign',
                                       '-c', chain, '-k', key, packed_trx])
     # Make sure signatures not empty
     assert(b'signatures' in output)
@@ -161,14 +161,14 @@ def cleos_abi_file_test():
     account = 'flon.token'
     action = 'transfer'
     unpacked_action_data = '{"from":"aaa","to":"bbb","quantity":"10.0000 SYS","memo":"hello"}'
-    # use URL http://127.0.0.1:12345 to make sure gaxcli not to connect to any running fonod
-    cmd = ['./programs/gaxcli/gaxcli', '-u', 'http://127.0.0.1:12345', 'convert', 'pack_action_data', account, action, unpacked_action_data]
+    # use URL http://127.0.0.1:12345 to make sure focli not to connect to any running fonod
+    cmd = ['./bin/focli', '-u', 'http://127.0.0.1:12345', 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
     assert(b'Failed http request to fonod' in errs)
 
     # invalid option --abi-file
     invalid_abi_arg = 'flon.token' + ' ' + token_abi_path
-    cmd = ['./programs/gaxcli/gaxcli', '-u', 'http://127.0.0.1:12345', '--abi-file', invalid_abi_arg, 'convert', 'pack_action_data', account, action, unpacked_action_data]
+    cmd = ['./bin/focli', '-u', 'http://127.0.0.1:12345', '--abi-file', invalid_abi_arg, 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
     assert(b'please specify --abi-file in form of <contract name>:<abi file path>.' in errs)
 
@@ -177,13 +177,13 @@ def cleos_abi_file_test():
     action = 'transfer'
     unpacked_action_data = '{"from":"aaa","to":"bbb","quantity":"10.0000 SYS","memo":"hello"}'
     packed_action_data = '0000000000008c31000000000000ce39a08601000000000004535953000000000568656c6c6f'
-    cmd = ['./programs/gaxcli/gaxcli', '-u','http://127.0.0.1:12345', '--abi-file', token_abi_file_arg, 'convert', 'pack_action_data', account, action, unpacked_action_data]
+    cmd = ['./bin/focli', '-u','http://127.0.0.1:12345', '--abi-file', token_abi_file_arg, 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
     actual = outs.strip()
     assert(actual.decode('utf-8') == packed_action_data)
 
     # unpack token transfer data
-    cmd = ['./programs/gaxcli/gaxcli', '-u','http://127.0.0.1:12345', '--abi-file', token_abi_file_arg, 'convert', 'unpack_action_data', account, action, packed_action_data]
+    cmd = ['./bin/focli', '-u','http://127.0.0.1:12345', '--abi-file', token_abi_file_arg, 'convert', 'unpack_action_data', account, action, packed_action_data]
     outs, errs = processCleosCommand(cmd)
     assert(b'"from": "aaa"' in outs)
     assert(b'"to": "bbb"' in outs)
@@ -219,14 +219,14 @@ def cleos_abi_file_test():
         }
     }"""
 
-    cmd = ['./programs/gaxcli/gaxcli', '-u','http://127.0.0.1:12345', '--abi-file', system_abi_file_arg, 'convert', 'pack_action_data', account, action, unpacked_action_data]
+    cmd = ['./bin/focli', '-u','http://127.0.0.1:12345', '--abi-file', system_abi_file_arg, 'convert', 'pack_action_data', account, action, unpacked_action_data]
     packed_action_data = '0000000000ea30550000000000000e3d01000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000001000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf01000000'
     outs, errs = processCleosCommand(cmd)
     actual = outs.strip()
     assert(actual.decode('utf-8') == packed_action_data)
 
     # unpack account create data
-    cmd = ['./programs/gaxcli/gaxcli', '-u','http://127.0.0.1:12345', '--abi-file', system_abi_file_arg, 'convert', 'unpack_action_data', account, action, packed_action_data]
+    cmd = ['./bin/focli', '-u','http://127.0.0.1:12345', '--abi-file', system_abi_file_arg, 'convert', 'unpack_action_data', account, action, packed_action_data]
     outs, errs = processCleosCommand(cmd)
     assert(b'"creator": "flon"' in outs)
     assert(b'"name": "bob"' in outs)
@@ -298,7 +298,7 @@ def cleos_abi_file_test():
     }"""
 
     expected_output = b'3aacf360ee010b864b7e00000000020000000000ea305500409e9a2264b89a010000000000ea305500000000a8ed3232660000000000ea30550000000000000e3d01000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000001000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000000a6823403ea3055000000572d3ccdcd010000000000008c3100000000a8ed3232260000000000008c31000000000000ce39a08601000000000004535953000000000568656c6c6f00'
-    cmd = ['./programs/gaxcli/gaxcli', '-u','http://127.0.0.1:12345', '--abi-file', system_abi_file_arg, token_abi_file_arg, 'convert', 'pack_transaction', '--pack-action-data', unpacked_trx]
+    cmd = ['./bin/focli', '-u','http://127.0.0.1:12345', '--abi-file', system_abi_file_arg, token_abi_file_arg, 'convert', 'pack_transaction', '--pack-action-data', unpacked_trx]
     outs, errs = processCleosCommand(cmd)
     assert(expected_output in outs)
 
@@ -311,7 +311,7 @@ def cleos_abi_file_test():
         "packed_context_free_data": "",
         "packed_trx": "3aacf360ee010b864b7e00000000020000000000ea305500409e9a2264b89a010000000000ea305500000000a8ed3232660000000000ea30550000000000000e3d01000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000001000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000000a6823403ea3055000000572d3ccdcd010000000000008c3100000000a8ed3232260000000000008c31000000000000ce39a08601000000000004535953000000000568656c6c6f00"
     }"""
-    cmd = ['./programs/gaxcli/gaxcli', '-u','http://127.0.0.1:12345', '--abi-file', system_abi_file_arg, token_abi_file_arg, 'convert', 'unpack_transaction', '--unpack-action-data', packed_trx]
+    cmd = ['./bin/focli', '-u','http://127.0.0.1:12345', '--abi-file', system_abi_file_arg, token_abi_file_arg, 'convert', 'unpack_transaction', '--unpack-action-data', packed_trx]
     outs, errs = processCleosCommand(cmd)
     assert(b'"creator": "flon"' in outs)
     assert(b'"name": "bob"' in outs)

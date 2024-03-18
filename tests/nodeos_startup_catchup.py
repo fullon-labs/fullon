@@ -53,7 +53,7 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="gaxcli"
+ClientName="focli"
 trxGenLauncher=None
 
 try:

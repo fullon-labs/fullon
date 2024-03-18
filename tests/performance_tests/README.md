@@ -14,7 +14,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
 
 ## Steps
 
-1. Build Leap. For complete instructions on building from source please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source) For older compatible fonod versions, such as 2.X, the following binaries need to be replaced with the older version: `build/bin/fonod`, `build/programs/gaxcli/gaxcli`, `bin/fonod`, and `bin/gaxcli`.
+1. Build Leap. For complete instructions on building from source please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source) For older compatible fonod versions, such as 2.X, the following binaries need to be replaced with the older version: `build/bin/fonod`, `build/bin/focli`, `bin/fonod`, and `bin/focli`.
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash

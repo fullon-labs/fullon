@@ -126,7 +126,7 @@ killEosInstances=not dontKill
 killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
-ClientName="gaxcli"
+ClientName="focli"
 
 try:
     TestHelper.printSystemInfo("BEGIN")
