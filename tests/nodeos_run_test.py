@@ -12,7 +12,7 @@ import sys
 ###############################################################
 # nodeos_run_test
 #
-# General test that tests a wide range of general use actions around gaxnod and gaxkey
+# General test that tests a wide range of general use actions around fonod and gaxkey
 #
 ###############################################################
 
@@ -68,7 +68,7 @@ try:
 
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi flon.token=" + abs_path
-        specificNodeosInstances={0: "bin/gaxnod"}
+        specificNodeosInstances={0: "bin/fonod"}
         if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs, specificNodeosInstances=specificNodeosInstances) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")

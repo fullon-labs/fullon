@@ -66,7 +66,7 @@ class Utils:
     EosWalletName="gaxkey"
     EosWalletPath=str(testBinPath / EosWalletName)
 
-    EosServerName="gaxnod"
+    EosServerName="fonod"
     EosServerPath=str(testBinPath / EosServerName)
 
     ShuttingDown=False

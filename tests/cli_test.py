@@ -16,8 +16,8 @@ from TestHarness import Account, Node, ReturnType, Utils, WalletMgr
 testSuccessful=False
 
 def nodeos_help_test():
-    """Test that gaxnod help contains option descriptions"""
-    help_text = subprocess.check_output(["./programs/gaxnod/gaxnod", "--help"])
+    """Test that fonod help contains option descriptions"""
+    help_text = subprocess.check_output(["./bin/fonod", "--help"])
 
     assert(re.search(b'Application.*Options', help_text))
     assert(re.search(b'Options for .*_plugin', help_text))
@@ -45,7 +45,7 @@ def cli11_bugfix_test():
 
     # Make sure that the command failed because of the connection error,
     # not the command line parsing error.
-    assert(b'Failed http request to gaxnod' in completed_process.stderr)
+    assert(b'Failed http request to fonod' in completed_process.stderr)
 
 
 def cli11_optional_option_arg_test():
@@ -161,10 +161,10 @@ def cleos_abi_file_test():
     account = 'flon.token'
     action = 'transfer'
     unpacked_action_data = '{"from":"aaa","to":"bbb","quantity":"10.0000 SYS","memo":"hello"}'
-    # use URL http://127.0.0.1:12345 to make sure gaxcli not to connect to any running gaxnod
+    # use URL http://127.0.0.1:12345 to make sure gaxcli not to connect to any running fonod
     cmd = ['./programs/gaxcli/gaxcli', '-u', 'http://127.0.0.1:12345', 'convert', 'pack_action_data', account, action, unpacked_action_data]
     outs, errs = processCleosCommand(cmd)
-    assert(b'Failed http request to gaxnod' in errs)
+    assert(b'Failed http request to fonod' in errs)
 
     # invalid option --abi-file
     invalid_abi_arg = 'flon.token' + ' ' + token_abi_path
@@ -342,7 +342,7 @@ def abi_file_with_nodeos_test():
 
         tries = 30
         while not Utils.arePortsAvailable(set(range(8888, 8889))):
-            Utils.Print("ERROR: Another process is listening on gaxnod test port 8888. wait...")
+            Utils.Print("ERROR: Another process is listening on fonod test port 8888. wait...")
             if tries == 0:
                 assert False
             tries -= 1
@@ -352,7 +352,7 @@ def abi_file_with_nodeos_test():
         os.makedirs(data_dir, exist_ok=True)
         walletMgr = WalletMgr(True)
         walletMgr.launch()
-        node = Node('localhost', 8888, nodeId, cmd="./programs/gaxnod/gaxnod -e -p flon --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --max-transaction-time=-1 --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir, walletMgr=walletMgr)
+        node = Node('localhost', 8888, nodeId, cmd="./bin/fonod -e -p flon --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --max-transaction-time=-1 --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir, walletMgr=walletMgr)
         node.verifyAlive() # Setting node state to not alive
         node.relaunch(newChain=True, cachePopen=True)
         node.waitForBlock(1)
@@ -402,7 +402,7 @@ def abi_file_with_nodeos_test():
                 if node.pid:
                     os.kill(node.pid, signal.SIGKILL)
         if testSuccessful:
-            Utils.Print("Cleanup gaxnod data.")
+            Utils.Print("Cleanup fonod data.")
             shutil.rmtree(Utils.DataPath)
 
         if malicious_token_abi_path:

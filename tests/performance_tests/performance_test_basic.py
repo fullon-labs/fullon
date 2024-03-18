@@ -106,7 +106,7 @@ class PerformanceTestBasic:
             if self.nonProdsEosVmOcEnable:
                 nonProdsSpecificNodeosStr += "--eos-vm-oc-enable "
             self.specificExtraNodeosArgs.update({f"{node}" : nonProdsSpecificNodeosStr for node in range(self.pnodes, self._totalNodes)})
-            assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"gaxnod version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
+            assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"fonod version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
                 self.writeTrx = lambda trxDataFile, block, blockNum: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
                 self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['block_num']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['confirmed']},{block['payload']['timestamp']}\n")

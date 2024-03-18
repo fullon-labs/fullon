@@ -10,7 +10,7 @@ from TestHarness.TestHelper import AppArgs
 ###############################################################
 # nodeos_run_test
 #
-# General test that tests a wide range of general use actions around gaxnod and gaxkey
+# General test that tests a wide range of general use actions around fonod and gaxkey
 #
 ###############################################################
 

@@ -22,7 +22,7 @@ from TestHarness.testUtils import BlockLogAction
 #  - Create a snapshot from producing node
 #  - Convert snapshot to JSON
 #  - Trim blocklog to head block of snapshot
-#  - Start gaxnod in irreversible mode on blocklog
+#  - Start fonod in irreversible mode on blocklog
 #  - Generate snapshot and convert to JSON
 #  - Compare JSON snapshot to original snapshot JSON
 #

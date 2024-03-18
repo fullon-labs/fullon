@@ -7,7 +7,7 @@ import signal
 from TestHarness import Node, TestHelper, Utils
 
 node_id = 1
-gaxnod = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id)
+fonod = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id)
 data_dir = Utils.getNodeDataDir(node_id)
 config_dir = Utils.getNodeConfigDir(node_id)
 if os.path.exists(data_dir):
@@ -20,15 +20,15 @@ try:
     start_nodeos_cmd = f"{Utils.EosServerPath} -e -p flon --data-dir={data_dir} --config-dir={config_dir} --blocks-log-stride 10" \
                         " --plugin=eosio::http_plugin --plugin=eosio::chain_api_plugin --http-server-address=localhost:8888"
 
-    gaxnod.launchCmd(start_nodeos_cmd, node_id)
+    fonod.launchCmd(start_nodeos_cmd, node_id)
     time.sleep(2)
-    gaxnod.waitForBlock(30)
-    gaxnod.kill(signal.SIGTERM)
+    fonod.waitForBlock(30)
+    fonod.kill(signal.SIGTERM)
 
-    gaxnod.relaunch(chainArg="--replay-blockchain")
+    fonod.relaunch(chainArg="--replay-blockchain")
 
     time.sleep(2)
-    assert gaxnod.waitForBlock(31)
+    assert fonod.waitForBlock(31)
 finally:
     # clean up
     Node.killAllNodeos()

@@ -82,7 +82,7 @@ try:
     for clusterNode in cluster.nodes:
         clusterNode.kill(signal.SIGTERM)
     cluster.biosNode.kill(signal.SIGTERM)
-    Print("All gaxnod instances killed.")
+    Print("All fonod instances killed.")
 
     # Remove both state and blocks such that no replay happens
     Print("Remove producer node's state and blocks directories")

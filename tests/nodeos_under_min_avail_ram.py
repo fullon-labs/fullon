@@ -8,7 +8,7 @@ from TestHarness.Cluster import NamedAccounts
 ###############################################################
 # nodeos_under_min_avail_ram
 #
-# Sets up 4 producing nodes using --chain-state-db-guard-size-mb and --chain-state-db-size-mb to verify that gaxnod will
+# Sets up 4 producing nodes using --chain-state-db-guard-size-mb and --chain-state-db-size-mb to verify that fonod will
 # shutdown safely when --chain-state-db-guard-size-mb is reached and restarts the shutdown nodes, with a higher
 # --chain-state-db-size-mb size, to verify that the node can restart and continue till the guard is reached again. The
 # test both verifies all nodes going down and 1 node at a time.
@@ -131,7 +131,7 @@ try:
                 if trans is None or not trans[0]:
                     timeOutCount+=1
                     if timeOutCount>=3:
-                        Print("Failed to push create action to flon contract for %d consecutive times, looks like gaxnod already exited." % (timeOutCount))
+                        Print("Failed to push create action to flon contract for %d consecutive times, looks like fonod already exited." % (timeOutCount))
                         keepProcessing=False
                         break
 
@@ -148,7 +148,7 @@ try:
     #spread the actions to all accounts, to use each accounts tps bandwidth
     fromIndexStart=fromIndex+1 if fromIndex+1<namedAccounts.numAccounts else 0
 
-    # min and max are subjective, just assigned to make sure that many small changes in gaxnod don't
+    # min and max are subjective, just assigned to make sure that many small changes in fonod don't
     # result in the test not correctly validating behavior
     if count < 5 or count > 20:
         strMsg="little" if count < 20 else "much"

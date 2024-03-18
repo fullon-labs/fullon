@@ -212,10 +212,10 @@ class launcher(object):
         cfg.add_argument('--template', help='the startup script template', default='testnet.template')
         cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=200000)
         cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
-        cfg.add_argument('--gaxnod-log-path', type=Path, help='path to gaxnod log directory')
+        cfg.add_argument('--fonod-log-path', type=Path, help='path to fonod log directory')
         cfg.add_argument('--logging-level', type=fc_log_level, help='Provide the "level" value to use in the logging.json file')
         cfg.add_argument('--logging-level-map', type=json.loads, help='JSON string of a logging level dictionary to use in the logging.json file for specific nodes, matching based on node number. Ex: {"bios":"off","00":"info"}')
-        cfg.add_argument('--is-gaxnod-v2', action='store_true', help='Toggles old gaxnod compatibility', default=False)
+        cfg.add_argument('--is-fonod-v2', action='store_true', help='Toggles old fonod compatibility', default=False)
         r = parser.parse_args(args)
         if r.launch != 'none' and r.topology_filename:
             Utils.Print('Output file specified--overriding launch to "none"')
@@ -249,7 +249,7 @@ class launcher(object):
         if self.args.per_host == 0:
             for i in range(self.args.total_nodes):
                 index, node_name, cfg_name = self.assign_name(i == 0)
-                node = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.gaxnod_log_path)
+                node = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.fonod_log_path)
                 node.set_host(i == 0)
                 self.aliases.append(node.name)
                 self.network.nodes[node.name] = node
@@ -261,7 +261,7 @@ class launcher(object):
             for i in range(self.args.total_nodes, 0, -1):
                 do_bios = False
                 index, node_name, cfg_name = self.assign_name(i == 0)
-                lhost = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.gaxnod_log_path)
+                lhost = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.fonod_log_path)
                 lhost.set_host(i == 0)
                 if ph_count == 0:
                     if host_ndx < num_prod_addr:
@@ -561,7 +561,7 @@ plugin = eosio::chain_api_plugin
 
         # Always enable a history query plugin on the bios node
         if instance.name == 'bios':
-            if self.args.is_gaxnod_v2:
+            if self.args.is_fonod_v2:
                 eosdcmd.append('--plugin')
                 eosdcmd.append('eosio::history_api_plugin')
                 eosdcmd.append('--filter-on')

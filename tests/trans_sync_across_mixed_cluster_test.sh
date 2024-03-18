@@ -111,10 +111,10 @@ INITA_PRV_KEY="5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
 # cleanup from last run
 cleanup
 
-# stand up gaxnod cluster
+# stand up fonod cluster
 launcherOpts="-p $pnodes -n $total_nodes -s $topo -d $delay"
-echo Launcher options: --gaxnod \"--plugin eosio::wallet_api_plugin\" $launcherOpts
-programs/flon-launcher/flon-launcher --gaxnod "--plugin eosio::wallet_api_plugin" $launcherOpts
+echo Launcher options: --fonod \"--plugin eosio::wallet_api_plugin\" $launcherOpts
+programs/flon-launcher/flon-launcher --fonod "--plugin eosio::wallet_api_plugin" $launcherOpts
 sleep 7
 
 startPort=8888
