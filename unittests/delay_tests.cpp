@@ -2400,8 +2400,7 @@ BOOST_FIXTURE_TEST_CASE( delay_expired, validating_tester) { try {
    BOOST_REQUIRE_EQUAL(transaction_receipt_header::delayed, trace->receipt->status);
    produce_empty_block(fc::milliseconds(610 * 1000));
    sb  = produce_block();
-   auto itr = sb->transactions.find(chain::config::main_shard_name);
-   auto&& receipts = (itr != sb->transactions.end() ? itr->second : eosio::chain::deque<eosio::chain::transaction_receipt>());
+   auto&& receipts = sb->transactions;
    BOOST_REQUIRE_EQUAL(1, receipts.size());
    BOOST_REQUIRE_EQUAL(transaction_receipt_header::expired, receipts[0].status);
 

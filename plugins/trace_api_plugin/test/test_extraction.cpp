@@ -204,8 +204,7 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
       };
 
       // TODO: multi shard trx
-      auto itr = bsp1->block->transactions.find(chain::config::main_shard_name);
-      auto&& receipts = (itr != bsp1->block->transactions.end() ? itr->second : eosio::chain::deque<eosio::chain::transaction_receipt>());
+      const auto& receipts = bsp1->block->transactions;
       const transaction_trace_v3 expected_transaction_trace {
          {
             ptrx1.id(),
@@ -305,8 +304,7 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
       };
 
       // TODO: multi shard trx
-      auto itr = bsp1->block->transactions.find(chain::config::main_shard_name);
-      auto&& receipts = (itr != bsp1->block->transactions.end() ? itr->second : eosio::chain::deque<eosio::chain::transaction_receipt>());
+      const auto& receipts = bsp1->block->transactions.end();
       const std::vector<transaction_trace_v3> expected_transaction_traces {
          {
             {
@@ -395,9 +393,7 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
          }
       };
 
-      // TODO: multi shard trx
-      auto itr = bsp1->block->transactions.find(chain::config::main_shard_name);
-      auto&& receipts = (itr != bsp1->block->transactions.end() ? itr->second : eosio::chain::deque<eosio::chain::transaction_receipt>());
+      const auto& receipts = bsp1->block->transactions.end();
       const std::vector<transaction_trace_v3> expected_transaction_traces {
          {
             {

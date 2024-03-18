@@ -30,25 +30,48 @@ namespace eosio { namespace chain {
       fc::unsigned_int                     net_usage_words; ///<  total billed NET usage, so we can reconstruct resource state when skipping context free data... hard failures...
    };
 
+   struct shard_transaction_id_type {
+      eosio::chain::shard_name shard_name;
+      transaction_id_type      id;
+   };
+
    struct transaction_receipt : public transaction_receipt_header {
 
       transaction_receipt():transaction_receipt_header(){}
       explicit transaction_receipt( const transaction_id_type& tid ):transaction_receipt_header(executed),trx(tid){}
       explicit transaction_receipt( const packed_transaction& ptrx ):transaction_receipt_header(executed),trx(std::in_place_type<packed_transaction>, ptrx){}
+      explicit transaction_receipt( const shard_transaction_id_type& strx_id ):transaction_receipt_header(executed),trx(std::in_place_type<shard_transaction_id_type>, strx_id){}
 
-      std::variant<transaction_id_type, packed_transaction> trx;
+      std::variant<transaction_id_type, packed_transaction, shard_transaction_id_type> trx;
 
       digest_type digest()const {
          digest_type::encoder enc;
          fc::raw::pack( enc, status );
          fc::raw::pack( enc, cpu_usage_us );
          fc::raw::pack( enc, net_usage_words );
-         if( std::holds_alternative<transaction_id_type>(trx) )
-            fc::raw::pack( enc, std::get<transaction_id_type>(trx) );
-         else
+         if( std::holds_alternative<packed_transaction>(trx) )
             fc::raw::pack( enc, std::get<packed_transaction>(trx).packed_digest() );
+         else if( std::holds_alternative<shard_transaction_id_type>(trx) )
+            fc::raw::pack( enc, std::get<shard_transaction_id_type>(trx) );
+         else
+            fc::raw::pack( enc, std::get<transaction_id_type>(trx) );
          return enc.result();
       }
+
+      const shard_name& get_shard_name() const {
+         return std::visit(overloaded{ [](const transaction_id_type& id) -> const shard_name& { return config::main_shard_name; },
+                                       [](const packed_transaction& ptrx) ->const shard_name& { return ptrx.get_shard_name(); },
+                                       [](const shard_transaction_id_type& strx) -> const shard_name& { return strx.shard_name; } },
+                           trx);
+      }
+
+      const transaction_id_type& get_trx_id() const {
+         return std::visit(overloaded{ [](const transaction_id_type& id) -> const transaction_id_type& { return id; },
+                                       [](const packed_transaction& ptrx) -> const transaction_id_type& { return ptrx.id(); },
+                                       [](const shard_transaction_id_type& strx) -> const transaction_id_type& { return strx.id; }},
+                           trx);
+      }
+
    };
 
    using transaction_receipt_ptr = std::shared_ptr<const transaction_receipt>;
@@ -101,13 +124,10 @@ namespace eosio { namespace chain {
       signed_block clone() const { return *this; }
 
       size_t get_trx_size() const {
-         size_t size = 0;
-         for (const auto& receipts : transactions)
-            size += receipts.second.size();
-         return size;
+         return transactions.size();
       }
 
-      transaction_receipt_map transactions; /// new or generated transactions, shard_name -> trx_receipts
+      deque<transaction_receipt>    transactions; /// new or generated transactions, should order by shard_name
       extensions_type               block_extensions;
 
       flat_multimap<uint16_t, block_extension> validate_and_extract_extensions()const;
@@ -130,3 +150,4 @@ FC_REFLECT(eosio::chain::transaction_receipt_header, (status)(cpu_usage_us)(net_
 FC_REFLECT_DERIVED(eosio::chain::transaction_receipt, (eosio::chain::transaction_receipt_header), (trx) )
 FC_REFLECT(eosio::chain::additional_block_signatures_extension, (signatures));
 FC_REFLECT_DERIVED(eosio::chain::signed_block, (eosio::chain::signed_block_header), (transactions)(block_extensions) )
+FC_REFLECT(eosio::chain::shard_transaction_id_type, (shard_name)(id));

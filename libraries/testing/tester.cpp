@@ -5,6 +5,7 @@
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain/eosio_contract.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
+#include <eosio/chain/xshard_object.hpp>
 #include <eosio/chain/database_manager.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/copy.hpp>
@@ -309,18 +310,10 @@ namespace eosio { namespace testing {
       if (lambda) lambda();
       chain_transactions.clear();
       control->accepted_block.connect([this]( const block_state_ptr& block_state ){
-        FC_ASSERT( block_state->block );
-          for( const auto& receipts : block_state->block->transactions ) {
-            for( auto receipt : receipts.second ) {
-               if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-                     auto &pt = std::get<packed_transaction>(receipt.trx);
-                     chain_transactions[pt.get_transaction().id()] = std::move(receipt);
-               } else {
-                     auto& id = std::get<transaction_id_type>(receipt.trx);
-                     chain_transactions[id] = std::move(receipt);
-               }
-            }
-          }
+         FC_ASSERT( block_state->block );
+         for( const auto& receipt : block_state->block->transactions ) {
+            chain_transactions.emplace(receipt.get_trx_id(), receipt);
+         }
       });
    }
 
@@ -392,18 +385,25 @@ namespace eosio { namespace testing {
             itr = unapplied_transactions.erase( itr );
          }
 
-         vector<transaction_id_type> scheduled_trxs = get_scheduled_transactions();
-         if ( scheduled_trxs.size() > 0 ) {
-            for( const auto& trx : scheduled_trxs ) {
-               auto trace = push_scheduled_transaction( trx, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true );
-               traces.emplace_back( trace );
-               if (trace->except) {
-                  idump((trace->except));
+         const auto& idx = control->dbm().main_db().get_index<generated_transaction_multi_index,by_delay>();
+         auto pbt = control->pending_block_time();
+         for( auto itr = idx.begin(); itr != idx.end() && itr->delay_until <= pbt; ++itr) {
+            auto& building_shard = control->init_building_shard(itr->shard_name);
+            if (itr->is_xshard) {
+               auto obj_id = xshard_object::id_from_sender_id(itr->sender_id);
+               const auto *xsh = control->dbm().main_db().find<xshard_object, by_id>(obj_id);
+               if (xsh != nullptr && control->is_xshard_scheduled_processed(building_shard, itr->trx_id, xsh->xsh_id)) {
+                  continue;
                }
-               if( !no_throw && trace->except ) {
-                  // this always throws an fc::exception, since the original exception is copied into an fc::exception
-                  trace->except->dynamic_rethrow_exception();
-               }
+            }
+            auto trace = control->push_scheduled_transaction( building_shard, itr->trx_id, fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true );
+            traces.emplace_back( trace );
+            if (trace->except) {
+               idump((trace->except));
+            }
+            if( !no_throw && trace->except ) {
+               // this always throws an fc::exception, since the original exception is copied into an fc::exception
+               trace->except->dynamic_rethrow_exception();
             }
          }
       }
@@ -658,7 +658,15 @@ namespace eosio { namespace testing {
    transaction_trace_ptr base_tester::push_scheduled_transaction( const transaction_id_type& scheduled,
                                        fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                        uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time ) {
-      auto& building_shard = control->init_building_shard(trx_shard_name);
+      return push_scheduled_transaction( trx_shard_name, scheduled, block_deadline,
+          max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
+   }
+
+   transaction_trace_ptr base_tester::push_scheduled_transaction( const eosio::chain::shard_name& shard_name,
+                                       const transaction_id_type& scheduled,
+                                       fc::time_point block_deadline, fc::microseconds max_transaction_time,
+                                       uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time ) {
+      auto& building_shard = control->init_building_shard(shard_name);
       return control->push_scheduled_transaction( building_shard, scheduled, block_deadline,
           max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
    }

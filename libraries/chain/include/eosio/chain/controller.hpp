@@ -145,6 +145,7 @@ namespace eosio { namespace chain {
          transaction_metadata_map abort_block();
 
          building_shard& init_building_shard(const shard_name& name);
+         building_shard* find_building_shard(const shard_name& name);
 
        /**
         *
@@ -292,6 +293,8 @@ namespace eosio { namespace chain {
          bool is_builtin_activated( builtin_protocol_feature_t f )const;
 
          bool is_known_unexpired_transaction( const transaction_id_type& id, const shard_name sname) const;
+
+         bool is_xshard_scheduled_processed(building_shard& shard, const transaction_id_type& trx_id, const xshard_id_type& xsh_id);
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 

@@ -1989,16 +1989,14 @@ read_only::get_block_serializers( const chain::signed_block_ptr& block, const fc
       }
    };
    // TODO: multi shard trx
-   for( const auto& receipts: block->transactions ) {
-      for( const auto& receipt: receipts.second ) {
-         if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
-            const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
-            const auto& t = pt.get_transaction();
-            for( const auto& a: t.actions )
-               add_to_cache( a );
-            for( const auto& a: t.context_free_actions )
-               add_to_cache( a );
-         }
+   for( const auto& receipt: block->transactions ) {
+      if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
+         const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
+         const auto& t = pt.get_transaction();
+         for( const auto& a: t.actions )
+            add_to_cache( a );
+         for( const auto& a: t.context_free_actions )
+            add_to_cache( a );
       }
    }
    return abi_cache;

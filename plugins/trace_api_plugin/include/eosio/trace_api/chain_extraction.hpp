@@ -85,11 +85,7 @@ private:
          using transaction_trace_t = transaction_trace_v3;
          auto bt = create_block_trace( block_state );
 
-         // TODO: only support main shard currently.
-         //eosio::chain::deque<eosio::chain::transaction_receipt>
-         //eosio::chain::transaction_receipt_map::iterator 
-         auto itr = block_state->block->transactions.find(chain::config::main_shard_name);
-         auto&& receipts = (itr != block_state->block->transactions.end() ? itr->second : eosio::chain::deque<eosio::chain::transaction_receipt>());
+         const auto& receipts = block_state->block->transactions;
 
          std::vector<transaction_trace_t> traces;
          traces.reserve( receipts.size() + 1 );
@@ -98,12 +94,7 @@ private:
          if( onblock_trace )
             traces.emplace_back( to_transaction_trace<transaction_trace_t>( *onblock_trace ));
          for( const auto& r : receipts ) {
-            transaction_id_type id;
-            if( std::holds_alternative<transaction_id_type>(r.trx)) {
-               id = std::get<transaction_id_type>(r.trx);
-            } else {
-               id = std::get<packed_transaction>(r.trx).id();
-            }
+            auto const& id = r.get_trx_id();
             const auto it = cached_traces.find( id );
             if( it != cached_traces.end() ) {
                traces.emplace_back( to_transaction_trace<transaction_trace_t>( it->second ));
