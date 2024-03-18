@@ -108,9 +108,9 @@ class TestHelper(object):
         if "--only-bios" in includeArgs:
             thGrp.add_argument("--only-bios", help="Limit testing to bios node.", action='store_true')
         if "--clean-run" in includeArgs:
-            thGrp.add_argument("--clean-run", help="Kill all fonod and gaxkey instances", action='store_true')
+            thGrp.add_argument("--clean-run", help="Kill all fonod and fokey instances", action='store_true')
         if "--sanity-test" in includeArgs:
-            thGrp.add_argument("--sanity-test", help="Validates fonod and gaxkey are in path and can be started up.", action='store_true')
+            thGrp.add_argument("--sanity-test", help="Validates fonod and fokey are in path and can be started up.", action='store_true')
         if "--alternate-version-labels-file" in includeArgs:
             thGrp.add_argument("--alternate-version-labels-file", type=str, help="Provide a file to define the labels that can be used in the test and the path to the version installation associated with that.")
         if "--error-log-path" in includeArgs:

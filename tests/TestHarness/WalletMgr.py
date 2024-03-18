@@ -18,7 +18,7 @@ class WalletMgr(object):
     __MaxPort=9999
 
     # pylint: disable=too-many-arguments
-    # walletd [True|False] True=Launch wallet(gaxkey) process; False=Manage launch process externally.
+    # walletd [True|False] True=Launch wallet(fokey) process; False=Manage launch process externally.
     def __init__(self, walletd, nodeosPort=8888, nodeosHost="localhost", port=9899, host="localhost"):
         self.walletd=walletd
         self.nodeosPort=nodeosPort
@@ -56,7 +56,7 @@ class WalletMgr(object):
 
     def launch(self):
         if not self.walletd:
-            Utils.Print("ERROR: Wallet Manager wasn't configured to launch gaxkey")
+            Utils.Print("ERROR: Wallet Manager wasn't configured to launch fokey")
             return False
 
         if self.isLaunched():
@@ -90,7 +90,7 @@ class WalletMgr(object):
             popen=subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
             self.__walletPid=popen.pid
 
-        # Give gaxkey time to warm up
+        # Give fokey time to warm up
         time.sleep(2)
 
         try:

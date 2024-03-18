@@ -88,11 +88,11 @@ class Cluster(object):
     __bootlog="leap-ignition-wd/bootlog.txt"
 
     # pylint: disable=too-many-arguments
-    # walletd [True|False] Is gaxkey running. If not load the wallet plugin
+    # walletd [True|False] Is fokey running. If not load the wallet plugin
     def __init__(self, walletd=False, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
                  , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers="", unshared=False):
         """Cluster container.
-        walletd [True|False] Is wallet gaxkey running. If not load the wallet plugin
+        walletd [True|False] Is wallet fokey running. If not load the wallet plugin
         localCluster [True|False] Is cluster local to host.
         host: eos server host
         port: eos server port

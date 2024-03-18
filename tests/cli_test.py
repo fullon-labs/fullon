@@ -34,7 +34,7 @@ def cleos_help_test(args):
 def cli11_bugfix_test():
     """Test that subcommand names can be used as option arguments"""
     completed_process = subprocess.run(
-        ['./bin/focli', '--no-auto-gaxkey', '-u', 'http://localhost:0/',
+        ['./bin/focli', '--no-auto-fokey', '-u', 'http://localhost:0/',
          'push', 'action', 'accout', 'action', '["data"]', '-p', 'wallet'],
         check=False,
         stderr=subprocess.PIPE)
@@ -53,13 +53,13 @@ def cli11_optional_option_arg_test():
     chain = 'cf057bbfb72640471fd910bcb67639c22df9f92470936cddc1ade0e2f2e7dc4f'
     key = '5Jgfqh3svgBZvCAQkcnUX8sKmVUkaUekYDGqFakm52Ttkc5MBA4'
 
-    output = subprocess.check_output(['./bin/focli', '--no-auto-gaxkey', 'sign',
+    output = subprocess.check_output(['./bin/focli', '--no-auto-fokey', 'sign',
                                       '-c', chain, '-k', '{}'],
                                      input=key.encode(),
                                      stderr=subprocess.DEVNULL)
     assert(b'signatures' in output)
 
-    output = subprocess.check_output(['./bin/focli', '--no-auto-gaxkey', 'sign',
+    output = subprocess.check_output(['./bin/focli', '--no-auto-fokey', 'sign',
                                       '-c', chain, '-k', key, '{}'])
     assert(b'signatures' in output)
 
@@ -93,7 +93,7 @@ def cleos_sign_test():
         '"context_free_data": []'
     '}')
 
-    output = subprocess.check_output(['./bin/focli', '--no-auto-gaxkey', 'sign',
+    output = subprocess.check_output(['./bin/focli', '--no-auto-fokey', 'sign',
                                       '-c', chain, '-k', key, trx])
     # make sure it is signed
     assert(b'signatures' in output)
@@ -111,7 +111,7 @@ def cleos_sign_test():
 
     # Test packed transaction is unpacked. Only with options --print-request and --public-key
     # the sign request is dumped to stderr.
-    cmd = ['./bin/focli', '--print-request', '--no-auto-gaxkey', 'sign', '-c', chain, '--public-key', 'EOS8Dq1KosJ9PMn1vKQK3TbiihgfUiDBUsz471xaCE6eYUssPB1KY', packed_trx]
+    cmd = ['./bin/focli', '--print-request', '--no-auto-fokey', 'sign', '-c', chain, '--public-key', 'EOS8Dq1KosJ9PMn1vKQK3TbiihgfUiDBUsz471xaCE6eYUssPB1KY', packed_trx]
     outs=None
     errs=None
     try:
@@ -132,7 +132,7 @@ def cleos_sign_test():
     assert(b'"data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"' in errs)
 
     # Test packed transaction is signed.
-    output = subprocess.check_output(['./bin/focli', '--no-auto-gaxkey', 'sign',
+    output = subprocess.check_output(['./bin/focli', '--no-auto-fokey', 'sign',
                                       '-c', chain, '-k', key, packed_trx])
     # Make sure signatures not empty
     assert(b'signatures' in output)

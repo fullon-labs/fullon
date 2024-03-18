@@ -13,9 +13,9 @@ from TestHarness import Account, Node, TestHelper, Utils, WalletMgr, ReturnType
 class PluginHttpTest(unittest.TestCase):
     sleep_s = 2
     base_wallet_cmd_str = f"http://{TestHelper.LOCAL_HOST}:{TestHelper.DEFAULT_WALLET_PORT}"
-    gaxkey = WalletMgr(True, TestHelper.DEFAULT_PORT, TestHelper.LOCAL_HOST, TestHelper.DEFAULT_WALLET_PORT, TestHelper.LOCAL_HOST)
+    fokey = WalletMgr(True, TestHelper.DEFAULT_PORT, TestHelper.LOCAL_HOST, TestHelper.DEFAULT_WALLET_PORT, TestHelper.LOCAL_HOST)
     node_id = 1
-    fonod = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id, walletMgr=gaxkey)
+    fonod = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id, walletMgr=fokey)
     data_dir = Utils.getNodeDataDir(node_id)
     config_dir = Utils.getNodeConfigDir(node_id)
     empty_content_dict = {}
@@ -35,9 +35,9 @@ class PluginHttpTest(unittest.TestCase):
             shutil.rmtree(self.config_dir)
         os.makedirs(self.config_dir)
 
-    # kill fonod and gaxkey and clean up dirs
+    # kill fonod and fokey and clean up dirs
     def cleanEnv(self) :
-        self.gaxkey.killall(True)
+        self.fokey.killall(True)
         WalletMgr.cleanup()
         Node.killAllNodeos()
         if os.path.exists(Utils.DataPath):
@@ -46,11 +46,11 @@ class PluginHttpTest(unittest.TestCase):
             shutil.rmtree(self.config_dir)
         time.sleep(self.sleep_s)
 
-    # start gaxkey and fonod
+    # start fokey and fonod
     def startEnv(self) :
         self.createDataDir(self)
         self.createConfigDir(self)
-        self.gaxkey.launch()
+        self.fokey.launch()
         plugin_names = ["trace_api_plugin", "test_control_api_plugin", "test_control_plugin", "net_plugin",
                         "net_api_plugin", "producer_plugin", "producer_api_plugin", "chain_api_plugin",
                         "http_plugin", "db_size_api_plugin", "prometheus_plugin"]
@@ -77,7 +77,7 @@ class PluginHttpTest(unittest.TestCase):
 
         testWalletName = "test"
         walletAccounts = [eosioAccount]
-        self.gaxkey.create(testWalletName, walletAccounts)
+        self.fokey.create(testWalletName, walletAccounts)
 
         retMap = self.fonod.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
 

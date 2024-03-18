@@ -12,7 +12,7 @@ import sys
 ###############################################################
 # nodeos_run_test
 #
-# General test that tests a wide range of general use actions around fonod and gaxkey
+# General test that tests a wide range of general use actions around fonod and fokey
 #
 ###############################################################
 

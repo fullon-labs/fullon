@@ -59,11 +59,11 @@ class Utils:
     testBinPath = Path(__file__).resolve().parents[2] / 'bin'
 
     EosClientPath=str(testBinPath / "focli")
-    MiscEosClientArgs="--no-auto-gaxkey"
+    MiscEosClientArgs="--no-auto-fokey"
 
     LeapClientPath=str(testBinPath / "leap-util")
 
-    EosWalletName="gaxkey"
+    EosWalletName="fokey"
     EosWalletPath=str(testBinPath / EosWalletName)
 
     EosServerName="fonod"

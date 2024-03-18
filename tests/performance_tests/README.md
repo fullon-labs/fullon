@@ -208,7 +208,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │               ├── config.ini
                     │               ├── default.wallet
                     │               ├── ignition.wallet
-                    │               ├── gaxkey.sock
+                    │               ├── fokey.sock
                     │               └── wallet.lock
                     ├── 2023-02-22_17-06-16-25000
                     ├── 2023-02-22_17-07-47-12500
@@ -242,7 +242,7 @@ Test Helper Arguments:
 * `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all fonod and gaxkey instances (default: False)
+* `--clean-run`           Kill all fonod and fokey instances (default: False)
 
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
@@ -380,7 +380,7 @@ Test Helper Arguments:
 * `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all fonod and gaxkey instances (default: False)
+* `--clean-run`           Kill all fonod and fokey instances (default: False)
 
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
@@ -1274,7 +1274,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "_pluginName": "signature_provider_plugin",
         "keosdProviderTimeout": null,
         "_keosdProviderTimeoutNodeosDefault": 5,
-        "_keosdProviderTimeoutNodeosArg": "--gaxkey-provider-timeout"
+        "_keosdProviderTimeoutNodeosArg": "--fokey-provider-timeout"
       },
       "stateHistoryPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -1858,7 +1858,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "_pluginName": "signature_provider_plugin",
         "keosdProviderTimeout": null,
         "_keosdProviderTimeoutNodeosDefault": 5,
-        "_keosdProviderTimeoutNodeosArg": "--gaxkey-provider-timeout"
+        "_keosdProviderTimeoutNodeosArg": "--fokey-provider-timeout"
       },
       "stateHistoryPluginArgs": {
         "_pluginNamespace": "eosio",
