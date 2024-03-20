@@ -60,7 +60,7 @@ try:
         walletMgr.cleanup()
         print("Stand up walletd")
         if walletMgr.launch() is False:
-            errorExit("Failed to stand up gaxkey.")
+            errorExit("Failed to stand up fokey.")
         else:
             cluster.killall(allInstances=killAll)
             cluster.cleanup()

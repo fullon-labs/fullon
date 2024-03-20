@@ -281,9 +281,9 @@ if [ $res -ne 0 ]; then
     ret=1
 fi
 
-b5idbios=`./programs/gaxcli/gaxcli -u http://localhost:8888 get block 5 | grep "^ *\"id\""`
-b5id00=`./programs/gaxcli/gaxcli -u http://localhost:8889 get block 5 | grep "^ *\"id\""`
-b5id01=`./programs/gaxcli/gaxcli -u http://localhost:8890 get block 5 | grep "^ *\"id\""`
+b5idbios=`./bin/focli -u http://localhost:8888 get block 5 | grep "^ *\"id\""`
+b5id00=`./bin/focli -u http://localhost:8889 get block 5 | grep "^ *\"id\""`
+b5id01=`./bin/focli -u http://localhost:8890 get block 5 | grep "^ *\"id\""`
 
 if [ "$b5idbios" != "$b5id00" ]; then
     echo FAILURE: nodes are not in sync

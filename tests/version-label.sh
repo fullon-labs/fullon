@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eo pipefail
-# The purpose of this test is to ensure that the output of the "gaxnod --version" command matches the version string defined by our CMake files
+# The purpose of this test is to ensure that the output of the "fonod --version" command matches the version string defined by our CMake files
 echo '##### Nodeos Version Label Test #####'
 # orient ourselves
 [[ -z "$BUILD_ROOT" ]] && export BUILD_ROOT="$(pwd)"
@@ -15,8 +15,8 @@ if [[ -z "$EXPECTED" ]]; then
     exit 1
 fi
 echo "Expecting \"$EXPECTED\"..."
-# get gaxnod version
-ACTUAL=$($BUILD_ROOT/bin/gaxnod --version)
+# get fonod version
+ACTUAL=$($BUILD_ROOT/bin/fonod --version)
 EXIT_CODE=$?
 # verify 0 exit code explicitly
 if [[ $EXIT_CODE -ne 0 ]]; then

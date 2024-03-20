@@ -115,7 +115,7 @@ try:
         out.close()
         err.close()
 
-    Print("Shutdown state_history_plugin gaxnod")
+    Print("Shutdown state_history_plugin fonod")
     shipNode.kill(signal.SIGTERM)
 
     files = None

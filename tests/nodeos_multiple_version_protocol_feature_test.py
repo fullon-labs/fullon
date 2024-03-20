@@ -13,7 +13,7 @@ from TestHarness.Cluster import PFSetupPolicy
 ###############################################################
 # nodeos_multiple_version_protocol_feature_test
 #
-# Test for verifying that older versions of gaxnod can work with newer versions of gaxnod.
+# Test for verifying that older versions of fonod can work with newer versions of fonod.
 #
 ###############################################################
 
@@ -182,16 +182,16 @@ try:
     # Restart old node with newest version
     # Before we are migrating to new version, use --export-reversible-blocks as the old version
     # and --import-reversible-blocks with the new version to ensure the compatibility of the reversible blocks
-    # Finally, when we restart the 4th node with the version of gaxnod that supports protocol feature,
+    # Finally, when we restart the 4th node with the version of fonod that supports protocol feature,
     # all nodes should be in sync, and the 4th node will also contain PREACTIVATE_FEATURE
     portableRevBlkPath = os.path.join(Utils.getNodeDataDir(oldNodeId), "rev_blk_portable_format")
     oldNode.kill(signal.SIGTERM)
     # Note, for the following relaunch, these will fail to relaunch immediately (expected behavior of export/import), so the chainArg will not replace the old cmd
     oldNode.relaunch(chainArg="--export-reversible-blocks {}".format(portableRevBlkPath), timeout=1)
-    oldNode.relaunch(chainArg="--import-reversible-blocks {}".format(portableRevBlkPath), timeout=1, nodeosPath="programs/gaxnod/gaxnod")
+    oldNode.relaunch(chainArg="--import-reversible-blocks {}".format(portableRevBlkPath), timeout=1, nodeosPath="bin/fonod")
     os.remove(portableRevBlkPath)
 
-    restartNode(oldNode, chainArg="--replay", nodeosPath="programs/gaxnod/gaxnod")
+    restartNode(oldNode, chainArg="--replay", nodeosPath="bin/fonod")
     time.sleep(2) # Give some time to replay
 
     assert areNodesInSync(allNodes), "All nodes should be in sync"

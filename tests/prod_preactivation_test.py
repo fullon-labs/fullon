@@ -45,7 +45,7 @@ killWallet=not dontKill
 dontBootstrap=sanityTest
 
 WalletdName=Utils.EosWalletName
-ClientName="gaxcli"
+ClientName="focli"
 
 try:
     TestHelper.printSystemInfo("BEGIN prod_preactivation_test.py")

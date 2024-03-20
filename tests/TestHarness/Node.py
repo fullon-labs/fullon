@@ -312,7 +312,7 @@ class Node(Transactions):
         return True
 
     # pylint: disable=too-many-locals
-    # If nodeosPath is equal to None, it will use the existing gaxnod path
+    # If nodeosPath is equal to None, it will use the existing fonod path
     def relaunch(self, chainArg=None, newChain=False, skipGenesis=True, timeout=Utils.systemWaitTimeout, addSwapFlags=None, cachePopen=False, nodeosPath=None, waitForTerm=False):
 
         assert(self.pid is None)
@@ -489,7 +489,7 @@ class Node(Transactions):
         param = { "start_block_num": sbn, "end_block_num": sbn }
         return self.processUrllibRequest("producer", "schedule_snapshot", param)
 
-    # kill all existing gaxnod in case lingering from previous test
+    # kill all existing fonod in case lingering from previous test
     @staticmethod
     def killAllNodeos():
         # kill the eos server

@@ -12,7 +12,7 @@ import sys
 ###############################################################
 # nodeos_run_test
 #
-# General test that tests a wide range of general use actions around gaxnod and gaxkey
+# General test that tests a wide range of general use actions around fonod and fokey
 #
 ###############################################################
 
@@ -51,7 +51,7 @@ killWallet=not dontKill
 dontBootstrap=sanityTest # intent is to limit the scope of the sanity test to just verifying that nodes can be started
 
 WalletdName=Utils.EosWalletName
-ClientName="gaxcli"
+ClientName="focli"
 timeout = .5 * 12 * 2 + 60 # time for finalization with 1 producer + 60 seconds padding
 Utils.setIrreversibleTimeout(timeout)
 
@@ -68,7 +68,7 @@ try:
 
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi flon.token=" + abs_path
-        specificNodeosInstances={0: "bin/gaxnod"}
+        specificNodeosInstances={0: "bin/fonod"}
         if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs, specificNodeosInstances=specificNodeosInstances) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
@@ -465,19 +465,17 @@ try:
         raise
 
     myTrans=None
-    for shard in transactions.values():
-        assert(shard)
-        for trans in shard:
-            assert(trans)
-            try:
-                myTransId=trans["trx"]["id"]
-                if transId == myTransId:
-                    myTrans=trans["trx"]["transaction"]
-                    assert(myTrans)
-                    break
-            except (AssertionError, TypeError, KeyError) as _:
-                Print("FAILURE - Failed to parse block transactions. %s" % (trans))
-                raise
+    for trans in transactions:
+        assert(trans)
+        try:
+            myTransId=trans["trx"]["id"]
+            if transId == myTransId:
+                myTrans=trans["trx"]["transaction"]
+                assert(myTrans)
+                break
+        except (AssertionError, TypeError, KeyError) as _:
+            Print("FAILURE - Failed to parse block transactions. %s" % (trans))
+            raise
 
     assert(myTrans)
     try:

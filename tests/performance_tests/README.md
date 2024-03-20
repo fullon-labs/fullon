@@ -6,7 +6,7 @@ The `performance_test_basic.py` support script performs a single basic performan
 
 The `launch_generators.py` support script provides a means to easily calculate and spawn the number of transaction generator instances to generate a given target TPS, distributing generation load between the instances in a fair manner such that the aggregate load meets the requested test load.
 
-The `log_reader.py` support script is used primarily to analyze `gaxnod` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report.
+The `log_reader.py` support script is used primarily to analyze `fonod` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
 
 ## Steps
 
-1. Build Leap. For complete instructions on building from source please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source) For older compatible gaxnod versions, such as 2.X, the following binaries need to be replaced with the older version: `build/programs/gaxnod/gaxnod`, `build/programs/gaxcli/gaxcli`, `bin/gaxnod`, and `bin/gaxcli`.
+1. Build Leap. For complete instructions on building from source please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source) For older compatible fonod versions, such as 2.X, the following binaries need to be replaced with the older version: `build/bin/fonod`, `build/bin/focli`, `bin/fonod`, and `bin/focli`.
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash
@@ -161,7 +161,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │           │   │   │   ├── blocks.index
                     │           │   │   │   ├── blocks.log
                     │           │   │   │   └── reversible
-                    │           │   │   ├── gaxnod.pid
+                    │           │   │   ├── fonod.pid
                     │           │   │   ├── snapshots
                     │           │   │   ├── state
                     │           │   │   │   └── shared_memory.bin
@@ -173,7 +173,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │           │   │   │   ├── blocks.index
                     │           │   │   │   ├── blocks.log
                     │           │   │   │   └── reversible
-                    │           │   │   ├── gaxnod.pid
+                    │           │   │   ├── fonod.pid
                     │           │   │   ├── snapshots
                     │           │   │   ├── state
                     │           │   │   │   └── shared_memory.bin
@@ -190,7 +190,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │           │       │   ├── blocks.log
                     │           │       │   └── reversible
                     │           │       │       └── fork_db.dat
-                    │           │       ├── gaxnod.pid
+                    │           │       ├── fonod.pid
                     │           │       ├── snapshots
                     │           │       ├── state
                     │           │       │   └── shared_memory.bin
@@ -208,7 +208,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │               ├── config.ini
                     │               ├── default.wallet
                     │               ├── ignition.wallet
-                    │               ├── gaxkey.sock
+                    │               ├── fokey.sock
                     │               └── wallet.lock
                     ├── 2023-02-22_17-06-16-25000
                     ├── 2023-02-22_17-07-47-12500
@@ -242,7 +242,7 @@ Test Helper Arguments:
 * `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all gaxnod and gaxkey instances (default: False)
+* `--clean-run`           Kill all fonod and fokey instances (default: False)
 
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
@@ -380,7 +380,7 @@ Test Helper Arguments:
 * `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
 * `-v`                    verbose logging (default: False)
 * `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all gaxnod and gaxkey instances (default: False)
+* `--clean-run`           Kill all fonod and fokey instances (default: False)
 
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
@@ -1274,7 +1274,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "_pluginName": "signature_provider_plugin",
         "keosdProviderTimeout": null,
         "_keosdProviderTimeoutNodeosDefault": 5,
-        "_keosdProviderTimeoutNodeosArg": "--gaxkey-provider-timeout"
+        "_keosdProviderTimeoutNodeosArg": "--fokey-provider-timeout"
       },
       "stateHistoryPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -1858,7 +1858,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "_pluginName": "signature_provider_plugin",
         "keosdProviderTimeout": null,
         "_keosdProviderTimeoutNodeosDefault": 5,
-        "_keosdProviderTimeoutNodeosArg": "--gaxkey-provider-timeout"
+        "_keosdProviderTimeoutNodeosArg": "--fokey-provider-timeout"
       },
       "stateHistoryPluginArgs": {
         "_pluginNamespace": "eosio",

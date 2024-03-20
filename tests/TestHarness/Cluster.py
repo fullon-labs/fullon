@@ -88,11 +88,11 @@ class Cluster(object):
     __bootlog="leap-ignition-wd/bootlog.txt"
 
     # pylint: disable=too-many-arguments
-    # walletd [True|False] Is gaxkey running. If not load the wallet plugin
+    # walletd [True|False] Is fokey running. If not load the wallet plugin
     def __init__(self, walletd=False, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
                  , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers="", unshared=False):
         """Cluster container.
-        walletd [True|False] Is wallet gaxkey running. If not load the wallet plugin
+        walletd [True|False] Is wallet fokey running. If not load the wallet plugin
         localCluster [True|False] Is cluster local to host.
         host: eos server host
         port: eos server port
@@ -202,11 +202,11 @@ class Cluster(object):
           delay 0 exposes a bootstrap bug where producer handover may have a large gap confusing nodes and bringing system to a halt.
         onlyBios: When true, only loads the bios contract (and not more full bootstrapping).
         dontBootstrap: When true, don't do any bootstrapping at all. (even bios is not uploaded)
-        extraNodeosArgs: string of arguments to pass through to each gaxnod instance (via --gaxnod flag on launcher)
+        extraNodeosArgs: string of arguments to pass through to each fonod instance (via --fonod flag on launcher)
         specificExtraNodeosArgs: dictionary of arguments to pass to a specific node (via --specific-num and
-                                 --specific-gaxnod flags on launcher), example: { "5" : "--plugin eosio::test_control_api_plugin" }
-        specificNodeosInstances: dictionary of paths to launch specific gaxnod binaries (via --spcfc-inst-num and
-                                 --spcfc_inst_nodeos flags to launcher), example: { "4" : "bin/gaxnod"}
+                                 --specific-fonod flags on launcher), example: { "5" : "--plugin eosio::test_control_api_plugin" }
+        specificNodeosInstances: dictionary of paths to launch specific fonod binaries (via --spcfc-inst-num and
+                                 --spcfc_inst_nodeos flags to launcher), example: { "4" : "bin/fonod"}
         onlySetProds: Stop the bootstrap process after setting the producers
         pfSetupPolicy: determine the protocol feature setup policy (none, preactivate_feature_only, or full)
         alternateVersionLabelsFile: Supply an alternate version labels file to use with associatedNodeLabels.
@@ -259,7 +259,7 @@ class Cluster(object):
 
         tries = 30
         while not Utils.arePortsAvailable(set(range(self.port, self.port+totalNodes+1))):
-            Utils.Print("ERROR: Another process is listening on gaxnod default port. wait...")
+            Utils.Print("ERROR: Another process is listening on fonod default port. wait...")
             if tries == 0:
                 return False
             tries = tries - 1
@@ -300,7 +300,7 @@ class Cluster(object):
                     continue
                 cmdArr.append("--specific-num")
                 cmdArr.append(str(nodeNum))
-                cmdArr.append("--specific-gaxnod")
+                cmdArr.append("--specific-fonod")
                 if arg.find("--http-max-response-time-ms") != -1:
                     httpMaxResponseTimeSet = True
                 if arg[0] != "'" and arg[-1] != "'":
@@ -314,7 +314,7 @@ class Cluster(object):
                 assert(isinstance(arg, str))
                 cmdArr.append("--spcfc-inst-num")
                 cmdArr.append(str(nodeNum))
-                cmdArr.append("--spcfc-inst-gaxnod")
+                cmdArr.append("--spcfc-inst-fonod")
                 cmdArr.append(arg)
 
         if not httpMaxResponseTimeSet and extraNodeosArgs.find("--http-max-response-time-ms") == -1:
@@ -325,7 +325,7 @@ class Cluster(object):
             nodeosArgs += extraNodeosArgs
 
         if nodeosArgs:
-            cmdArr.append("--gaxnod")
+            cmdArr.append("--fonod")
             cmdArr.append(nodeosArgs)
 
         if genesisPath is None:
@@ -336,7 +336,7 @@ class Cluster(object):
         else:
             cmdArr.append("--genesis")
             cmdArr.append(str(genesisPath))
-        cmdArr.append("--gaxnod-log-path")
+        cmdArr.append("--fonod-log-path")
         cmdArr.append(str(nodeosLogPath))
 
         if associatedNodeLabels is not None:
@@ -348,7 +348,7 @@ class Cluster(object):
                     Utils.errorExit("associatedNodeLabels passed in indicates label %s for node num %s, but it was not identified in %s" % (label, nodeNum, alternateVersionLabelsFile))
                 cmdArr.append("--spcfc-inst-num")
                 cmdArr.append(str(nodeNum))
-                cmdArr.append("--spcfc-inst-gaxnod")
+                cmdArr.append("--spcfc-inst-fonod")
                 cmdArr.append(path)
 
         # must be last cmdArr.append before subprocess.call, so that everything is on the command line
@@ -482,7 +482,7 @@ class Cluster(object):
         if type(specificExtraNodeosArgs) is dict:
             for args in specificExtraNodeosArgs.values():
                 if "--plugin eosio::history_api_plugin" in args:
-                    cmdArr.append("--is-gaxnod-v2")
+                    cmdArr.append("--is-fonod-v2")
                     break
         Cluster.__LauncherCmdArr = cmdArr.copy()
 
@@ -1448,9 +1448,9 @@ class Cluster(object):
                 Cluster.dumpErrorDetailImpl(fileName)
 
     def killall(self, kill=True, silent=True, allInstances=False):
-        """Kill cluster gaxnod instances. allInstances will kill all gaxnod instances running on the system."""
+        """Kill cluster fonod instances. allInstances will kill all fonod instances running on the system."""
         signalNum=9 if kill else 15
-        cmd="%s -k %d --nogen -p 1 -n 1 --gaxnod-log-path %s" % (f"{sys.executable} {str(self.launcherPath)}", signalNum, self.nodeosLogPath)
+        cmd="%s -k %d --nogen -p 1 -n 1 --fonod-log-path %s" % (f"{sys.executable} {str(self.launcherPath)}", signalNum, self.nodeosLogPath)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         if 0 != subprocess.call(cmd.split(), stdout=Utils.FNull):
             if not silent: Utils.Print("Launcher failed to shut down eos cluster.")
@@ -1475,7 +1475,7 @@ class Cluster(object):
             self.trxGenLauncher.killAll()
 
     def bounce(self, nodes, silent=True):
-        """Bounces gaxnod instances as indicated by parameter nodes.
+        """Bounces fonod instances as indicated by parameter nodes.
         nodes should take the form of a comma-separated list as accepted by the launcher --bounce command (e.g. '00' or '00,01')"""
         cmdArr = Cluster.__LauncherCmdArr.copy()
         cmdArr.append("--bounce")
@@ -1488,7 +1488,7 @@ class Cluster(object):
         return True
 
     def down(self, nodes, silent=True):
-        """Brings down gaxnod instances as indicated by parameter nodes.
+        """Brings down fonod instances as indicated by parameter nodes.
         nodes should take the form of a comma-separated list as accepted by the launcher --bounce command (e.g. '00' or '00,01')"""
         cmdArr = Cluster.__LauncherCmdArr.copy()
         cmdArr.append("--down")

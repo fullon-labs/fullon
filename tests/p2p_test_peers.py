@@ -5,7 +5,7 @@ class P2PTestPeers:
     #for testing with localhost
     sshname = "testnet" # ssh name for executing remote commands
     hosts = ["localhost"] # host list
-    ports = [8888] # gaxnod listening port of each host
+    ports = [8888] # fonod listening port of each host
     devs = ["lo0"] # network device of each host
 
     #for testing with testnet2
