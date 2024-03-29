@@ -1,5 +1,4 @@
 #pragma once
-#include <eosio/chain/database_utils.hpp>
 #include <eosio/chain/authority.hpp>
 #include <eosio/chain/code_object.hpp>
 #include <eosio/chain/block_timestamp.hpp>

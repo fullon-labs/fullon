@@ -1,6 +1,5 @@
 #pragma once
 
-#include <eosio/chain/database_utils.hpp>
 #include <eosio/chain/contract_types.hpp>
 #include <eosio/chain/multi_index_includes.hpp>
 
