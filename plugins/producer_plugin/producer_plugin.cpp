@@ -798,7 +798,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                   auto start = fc::time_point::now();
                   auto idle_time = start - self->_idle_trx_time;
                   self->_time_tracker.add_idle_time( idle_time );
-                  fc_tlog( _log, "Time since last trx: ${t}us", ("t", idle_time) );
+                  fc_tlog( _log, "Time since last trx: ${t}us, tx=${tx}", ("t", idle_time)("tx", trx->id()) );
 
                   auto exception_handler = [self, is_transient, &next, trx{std::move(trx)}, &start](fc::exception_ptr ex) {
                      self->_time_tracker.add_idle_time( start - self->_idle_trx_time );
@@ -2190,11 +2190,8 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             return start_block_result::exhausted;
          }
 
-         if (in_producing_mode()) {
-            for ( auto shard_itr = _shards.begin(); shard_itr != _shards.end(); shard_itr++ ) {
-               // TODO: if no any trx, remove shard from _shards?
-               process_trx_one(preprocess_deadline, shard_itr);
-            }
+         for ( auto shard_itr = _shards.begin(); shard_itr != _shards.end(); shard_itr++ ) {
+            process_trx_one(preprocess_deadline, shard_itr);
          }
 
          return start_block_result::succeeded;
@@ -2470,14 +2467,13 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
 
             auto trace = chain.push_transaction( building_shard, unapplied_trx.trx_meta, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
 
-            auto ttt = std::move(unapplied_trx);
-            app().executor().post( priority::low, exec_queue::read_write, [self, shard_itr{std::move(shard_itr)}, block_seq, trx_seq, block_deadline, start, disable_subjective_enforcement, first_auth, prev_billed_cpu_time_us, sub_bill, unapplied_trx{std::move(unapplied_trx)}, trace{std::move(trace)}]() mutable {
-                  chain::controller& chain = self->chain_plug->chain();
 
-               // const auto& sname = shard_itr.first;
-               auto& shard = shard_itr->second;
-               shard.last_processed_time = fc::time_point::now();
-               fc_dlog( _log, "Processed a pending transaction ${id}, type=${t}, size=${s}, incoming_size=${ins}, block_seq=${bsq}, trx_seq=${tsq}, spent_ns=${st}",
+            // const auto& sname = shard_itr.first;
+            auto& shard = shard_itr->second;
+            auto pr = self->handle_push_result(unapplied_trx.trx_meta, unapplied_trx.next, start, chain, trace, unapplied_trx.return_failure_trace, disable_subjective_enforcement, first_auth, sub_bill, prev_billed_cpu_time_us);
+
+            if (pr.block_exhausted || pr.trx_exhausted) {
+               fc_dlog( _log, "Retrying a pending transaction ${id} later, type=${t}, size=${s}, incoming_size=${ins}, block_seq=${bsq}, trx_seq=${tsq}, spent_ns=${st}",
                   ("id", unapplied_trx.trx_meta->id())
                   ("t", trx_enum_type_dump(unapplied_trx.trx_type))
                   ("s", shard.unapplied_transactions.size())
@@ -2485,15 +2481,30 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
                   ("bsq", self->_block_seq)
                   ("tsq", shard.trx_seq)
                   ("st", (fc::time_point::now() - start).count()) );
-
-               auto pr = self->handle_push_result(unapplied_trx.trx_meta, unapplied_trx.next, start, chain, trace, unapplied_trx.return_failure_trace, disable_subjective_enforcement, first_auth, sub_bill, prev_billed_cpu_time_us);
+            } else {
+               fc_dlog( _log, "Processed a pending transaction ${id}, type=${t}, size=${s}, incoming_size=${ins}, block_seq=${bsq}, trx_seq=${tsq}, spent_ns=${st}, failed=${f}",
+                  ("id", unapplied_trx.trx_meta->id())
+                  ("t", trx_enum_type_dump(unapplied_trx.trx_type))
+                  ("s", shard.unapplied_transactions.size())
+                  ("ins", shard.unapplied_transactions.incoming_size())
+                  ("bsq", self->_block_seq)
+                  ("tsq", shard.trx_seq)
+                  ("st", (fc::time_point::now() - start).count())
+                  ("f", (pr.failed)) );
+            }
+            app().executor().post( priority::low, exec_queue::read_write, [self, shard_itr{std::move(shard_itr)},
+                                    block_seq, trx_seq, block_deadline, start, disable_subjective_enforcement,
+                                    first_auth, prev_billed_cpu_time_us, sub_bill, pr(std::move(pr)),
+                                    unapplied_trx{std::move(unapplied_trx)}, trace{std::move(trace)}]() mutable {
+               chain::controller& chain = self->chain_plug->chain();
+               auto& shard = shard_itr->second;
+               shard.last_processed_time = fc::time_point::now();
                // TODO: clear trx_task_fut?
                // if( self->in_producing_mode() ) {
                //    self->schedule_maybe_produce_block( true );
                // } else {
                //    self->restart_speculative_block();
                // }
-
 
                // auto ret = self->read_only_execution_task(pending_block_num);
                if (self->_block_seq == block_seq && shard.trx_seq == trx_seq) {
@@ -2506,9 +2517,7 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
                      ("atsq", trx_seq) );
                }
 
-
-               if (pr.block_exhausted) {
-                  // produce block
+               if (pr.block_exhausted || pr.trx_exhausted) {
                   shard.unapplied_transactions.add_trx(std::move(unapplied_trx));
                   // TODO: maybe_produce_block
 
@@ -2815,29 +2824,30 @@ bool producer_plugin_impl::process_trx_one( const fc::time_point& deadline, proc
 {
    assert(shard_itr != _shards.end());
    auto& shard = shard_itr->second;
-   // const auto& shard_name = shard_itr->first;
+   const chain::controller& chain = chain_plug->chain();
+   if ( !chain.is_building_block() ) {
+      return false;
+   }
+   if (shard.trx_task_fut.valid()) {
+      fc_dlog( _log, "There is a processing trx");
+      return true;
+   }
+
+   const auto pending_block_num = chain.pending_block_num();
+   if ( should_interrupt_start_block( deadline, pending_block_num ) ) {
+      return false;
+   }
+
    try {
-      const chain::controller& chain = chain_plug->chain();
-      if ( !chain.is_building_block() ) {
-         return false;
-      }
-      if (shard.trx_task_fut.valid()) {
-         fc_dlog( _log, "There is a processing trx");
-         return true;
-      }
-      const auto pending_block_num = chain.pending_block_num();
-      if ( should_interrupt_start_block( deadline, pending_block_num ) ) {
-         return false;
-      }
-
-      if (!process_unapplied_trx_one(deadline, shard_itr)) {
-         return false;
-      }
-
-      if ( !shard.trx_task_fut.valid() ) {
-         // scheduled trx can only be in main shard
-         if (!process_scheduled_trxs(deadline, shard_itr)) {
+      if (in_producing_mode()) {
+         if (!process_unapplied_trx_one(deadline, shard_itr)) {
             return false;
+         }
+
+         if ( !shard.trx_task_fut.valid() ) {
+            if (!process_scheduled_trxs(deadline, shard_itr)) {
+               return false;
+            }
          }
       }
 
