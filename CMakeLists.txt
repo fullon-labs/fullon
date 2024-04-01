@@ -67,7 +67,7 @@ if(APPLE AND UNIX AND "${OPENSSL_ROOT_DIR}" STREQUAL "")
    endif()
 endif()
 
-option(ENABLE_OC "Enable eosvm-oc on supported platforms" ON)
+option(ENABLE_OC "Enable eosvm-oc on supported platforms" OFF)
 
 # WASM runtimes to enable. Each runtime in this list will have:
 #  * definition EOSIO_<RUNTIME>_RUNTIME_ENABLED defined in public libchain interface

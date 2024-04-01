@@ -259,7 +259,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
          add_transaction_usage({account}, increment, 0, 0 );
       }
 
-      BOOST_REQUIRE_THROW(add_transaction_usage({account}, increment, 0, 0 ), block_resource_exhausted);
+      BOOST_REQUIRE_THROW(add_transaction_usage({account}, increment, 0, 0 ), shard_resource_exhausted_exception);
 
    } FC_LOG_AND_RETHROW();
 
@@ -276,7 +276,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
          add_transaction_usage({account}, 0, increment, 0 );
       }
 
-      BOOST_REQUIRE_THROW(add_transaction_usage({account}, 0, increment, 0 ), block_resource_exhausted);
+      BOOST_REQUIRE_THROW(add_transaction_usage({account}, 0, increment, 0 ), shard_resource_exhausted_exception);
 
    } FC_LOG_AND_RETHROW();
 

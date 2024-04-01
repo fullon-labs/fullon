@@ -168,7 +168,16 @@ void resource_limits_manager::update_account_usage(const flat_set<account_name>&
 void resource_limits_manager::add_transaction_usage(const flat_set<account_name>& accounts, uint64_t cpu_usage, uint64_t net_usage, uint32_t time_slot, chainbase::database& db, chainbase::database& shared_db, bool is_trx_transient ) {
    const auto& state = shared_db.get<resource_limits_state_object>();
    const auto& config = shared_db.get<resource_limits_config_object>();
+   const auto* shard_state =  db.find<resource_limits_state_object>();
 
+   if( shard_state == nullptr ){
+      shard_state = &db.create<resource_limits_state_object>([&config](resource_limits_state_object& rls){
+         //start the shard in a way that it is "congested" aka slow-start too.
+         rls.virtual_cpu_limit = config.cpu_limit_parameters.max;
+         rls.virtual_net_limit = config.net_limit_parameters.max;
+      });
+   }
+   
    for( const auto& a : accounts ) {
 
       const auto* usage = db.find<resource_usage_object,by_owner>( a );
@@ -193,7 +202,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
 
       if( cpu_weight >= 0 && state.total_cpu_weight > 0 ) {
          uint128_t window_size = config.account_cpu_usage_average_window;
-         auto virtual_network_capacity_in_window = (uint128_t)state.virtual_cpu_limit * window_size;
+         auto virtual_network_capacity_in_window = (uint128_t)shard_state->virtual_cpu_limit * window_size;
          auto cpu_used_in_window                 = ((uint128_t)usage->cpu_usage.value_ex * window_size) / (uint128_t)config::rate_limiting_precision;
 
          uint128_t user_weight     = (uint128_t)cpu_weight;
@@ -213,7 +222,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
       if( net_weight >= 0 && state.total_net_weight > 0) {
 
          uint128_t window_size = config.account_net_usage_average_window;
-         auto virtual_network_capacity_in_window = (uint128_t)state.virtual_net_limit * window_size;
+         auto virtual_network_capacity_in_window = (uint128_t)shard_state->virtual_net_limit * window_size;
          auto net_used_in_window                 = ((uint128_t)usage->net_usage.value_ex * window_size) / (uint128_t)config::rate_limiting_precision;
 
          uint128_t user_weight     = (uint128_t)net_weight;
@@ -238,9 +247,13 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
    //    rls.pending_cpu_usage += cpu_usage;
    //    rls.pending_net_usage += net_usage;
    // });
+   db.modify( *shard_state, [&](resource_limits_state_object& rls){
+      rls.pending_cpu_usage += cpu_usage;
+      rls.pending_net_usage += net_usage;
+   });
 
-   EOS_ASSERT( state.pending_cpu_usage <= config.cpu_limit_parameters.max, block_resource_exhausted, "Block has insufficient cpu resources" );
-   EOS_ASSERT( state.pending_net_usage <= config.net_limit_parameters.max, block_resource_exhausted, "Block has insufficient net resources" );
+   EOS_ASSERT( shard_state->pending_cpu_usage <= config.cpu_limit_parameters.max, shard_resource_exhausted_exception, "Shard has insufficient cpu resources", );
+   EOS_ASSERT( shard_state->pending_net_usage <= config.net_limit_parameters.max, shard_resource_exhausted_exception, "Shard has insufficient net resources" );
 }
 
 void resource_limits_manager::add_pending_ram_usage( const account_name account, int64_t ram_delta, chainbase::database& db, bool is_trx_transient ) {
@@ -439,6 +452,36 @@ void resource_limits_manager::process_block_usage(uint32_t block_num) {
          dm_logger->on_update_resource_limits_state(state);
       }
    });
+   
+   for(auto& shard_db : _dbm.shard_dbs()){
+      const auto* ss = shard_db.second.find<resource_limits_state_object>();
+      
+      if( ss == nullptr ){
+         ss = &shard_db.second.create<resource_limits_state_object>([&config](resource_limits_state_object& rls){
+            //start the shard in a way that it is "congested" aka slow-start too.
+            rls.virtual_cpu_limit = config.cpu_limit_parameters.max;
+            rls.virtual_net_limit = config.net_limit_parameters.max;
+         });
+      }
+      
+      db.modify( *ss, [&](resource_limits_state_object& shard_state){
+         // apply pending usage, update virtual limits and reset the pending
+
+         shard_state.average_block_cpu_usage.add(shard_state.pending_cpu_usage, block_num, config.cpu_limit_parameters.periods);
+         shard_state.update_virtual_cpu_limit(config);
+         shard_state.pending_cpu_usage = 0;
+
+         shard_state.average_block_net_usage.add(shard_state.pending_net_usage, block_num, config.net_limit_parameters.periods);
+         shard_state.update_virtual_net_limit(config);
+         shard_state.pending_net_usage = 0;
+
+         // process_block_usage is called by controller::finalize_block,
+         // where transaction specific logging is not possible
+         if (auto dm_logger = _get_deep_mind_logger(false)) {
+            dm_logger->on_update_resource_limits_state(shard_state);
+         }
+      });
+   }
 
 }
 
@@ -455,7 +498,7 @@ uint64_t resource_limits_manager::get_total_net_weight() const {
    const auto& state = db.get<resource_limits_state_object>();
    return state.total_net_weight;
 }
-
+//only chain_plugin triggers this
 uint64_t resource_limits_manager::get_virtual_block_cpu_limit() const {
    //TODO:
    auto& db = _dbm.main_db();
@@ -470,14 +513,22 @@ uint64_t resource_limits_manager::get_virtual_block_net_limit() const {
    return state.virtual_net_limit;
 }
 
-uint64_t resource_limits_manager::get_block_cpu_limit(const chainbase::database& shared_db) const {
-   const auto& state = shared_db.get<resource_limits_state_object>();
+/**
+ * @brief 
+ * Is it just the main shard that determines whether block resources are exhausted?
+ * 2 cases:
+ * 1st:transaction_context init tx and determine the remaining resources of the current shard
+ * 2nd:determine whether block resource exhausted when produce block or process schedule tx.
+ * it should be considered as a whole when producing block? 
+ */
+uint64_t resource_limits_manager::get_block_cpu_limit(const chainbase::database& shared_db, const chainbase::database& db) const {
+   const auto& state = db.get<resource_limits_state_object>();
    const auto& config = shared_db.get<resource_limits_config_object>();
    return config.cpu_limit_parameters.max - state.pending_cpu_usage;
 }
-
-uint64_t resource_limits_manager::get_block_net_limit(const chainbase::database& shared_db) const {
-   const auto& state = shared_db.get<resource_limits_state_object>();
+//Is it just the main shard that determines whether block resources are exhausted?
+uint64_t resource_limits_manager::get_block_net_limit(const chainbase::database& shared_db, const chainbase::database& db) const {
+   const auto& state = db.get<resource_limits_state_object>();
    const auto& config = shared_db.get<resource_limits_config_object>();
    return config.net_limit_parameters.max - state.pending_net_usage;
 }
@@ -505,7 +556,16 @@ resource_limits_manager::get_account_cpu_limit_ex( const account_name& name, con
    const auto* usage  = db.find<resource_usage_object,by_owner>( name );
    EOS_ASSERT(usage,eosio::chain::shard_exception, "resource_usage_object not found on shard");
    const auto& config = shared_db.get<resource_limits_config_object>();
-
+   
+   const auto* shard_state = db.find<resource_limits_state_object>();
+   if( shard_state == nullptr ){
+      shard_state = &const_cast<chainbase::database&>(db).create<resource_limits_state_object>([&config](resource_limits_state_object& rls){
+         //start the shard in a way that it is "congested" aka slow-start too.
+         rls.virtual_cpu_limit = config.cpu_limit_parameters.max;
+         rls.virtual_net_limit = config.net_limit_parameters.max;
+      });
+   }
+   
    int64_t cpu_weight, x, y;
    get_account_limits( name, x, y, cpu_weight, shared_db );
 
@@ -521,14 +581,14 @@ resource_limits_manager::get_account_cpu_limit_ex( const account_name& name, con
    uint128_t virtual_cpu_capacity_in_window = window_size;
    if( greylist_limit < config::maximum_elastic_resource_multiplier ) {
       uint64_t greylisted_virtual_cpu_limit = config.cpu_limit_parameters.max * greylist_limit;
-      if( greylisted_virtual_cpu_limit < state.virtual_cpu_limit ) {
+      if( greylisted_virtual_cpu_limit < shard_state->virtual_cpu_limit ) {
          virtual_cpu_capacity_in_window *= greylisted_virtual_cpu_limit;
          greylisted = true;
       } else {
-         virtual_cpu_capacity_in_window *= state.virtual_cpu_limit;
+         virtual_cpu_capacity_in_window *= shard_state->virtual_cpu_limit;
       }
    } else {
-      virtual_cpu_capacity_in_window *= state.virtual_cpu_limit;
+      virtual_cpu_capacity_in_window *= shard_state->virtual_cpu_limit;
    }
 
    uint128_t user_weight     = (uint128_t)cpu_weight;
@@ -578,6 +638,16 @@ resource_limits_manager::get_account_net_limit_ex( const account_name& name, con
    const auto& state  = shared_db.get<resource_limits_state_object>();
    const auto* usage  = db.find<resource_usage_object,by_owner>( name );
    EOS_ASSERT(usage,eosio::chain::shard_exception, "resource_usage_object not found on shard");
+   
+   const auto* shard_state  = db.find<resource_limits_state_object>();
+   if( shard_state == nullptr ){
+      shard_state = &const_cast<chainbase::database&>(db).create<resource_limits_state_object>([&config](resource_limits_state_object& rls){
+         //start the shard in a way that it is "congested" aka slow-start too.
+         rls.virtual_cpu_limit = config.cpu_limit_parameters.max;
+         rls.virtual_net_limit = config.net_limit_parameters.max;
+      });
+   }
+   
    int64_t net_weight, x, y;
    get_account_limits( name, x, net_weight, y, shared_db );
 
@@ -593,14 +663,14 @@ resource_limits_manager::get_account_net_limit_ex( const account_name& name, con
    uint128_t virtual_network_capacity_in_window = window_size;
    if( greylist_limit < config::maximum_elastic_resource_multiplier ) {
       uint64_t greylisted_virtual_net_limit = config.net_limit_parameters.max * greylist_limit;
-      if( greylisted_virtual_net_limit < state.virtual_net_limit ) {
+      if( greylisted_virtual_net_limit < shard_state->virtual_net_limit ) {
          virtual_network_capacity_in_window *= greylisted_virtual_net_limit;
          greylisted = true;
       } else {
-         virtual_network_capacity_in_window *= state.virtual_net_limit;
+         virtual_network_capacity_in_window *= shard_state->virtual_net_limit;
       }
    } else {
-      virtual_network_capacity_in_window *= state.virtual_net_limit;
+      virtual_network_capacity_in_window *= shard_state->virtual_net_limit;
    }
 
    uint128_t user_weight     = (uint128_t)net_weight;

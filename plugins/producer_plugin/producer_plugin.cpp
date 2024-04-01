@@ -2858,11 +2858,18 @@ bool producer_plugin_impl::process_trx_one( const fc::time_point& deadline, proc
 bool producer_plugin_impl::block_is_exhausted() const {
    const chain::controller& chain = chain_plug->chain();
    const auto& rl = chain.get_resource_limits_manager();
-
-   const uint64_t cpu_limit = rl.get_block_cpu_limit( chain.dbm().main_db() );
+   const database_manager& _dbm = chain.dbm();
+   //app thread main db == shared db
+   uint64_t cpu_limit = rl.get_block_cpu_limit( _dbm.main_db(), _dbm.main_db() );
    if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
-   const uint64_t net_limit = rl.get_block_net_limit( chain.dbm().main_db() );
+   uint64_t net_limit = rl.get_block_net_limit( _dbm.main_db(), _dbm.main_db() );
    if( net_limit < _max_block_net_usage_threshold_bytes ) return true;
+   for( auto& sdb : const_cast<database_manager&>(_dbm).shard_dbs() ){
+      cpu_limit = rl.get_block_cpu_limit( _dbm.main_db(), sdb.second );
+      if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
+      net_limit = rl.get_block_net_limit( _dbm.main_db(), sdb.second );
+      if( net_limit < _max_block_net_usage_threshold_bytes ) return true;
+   }
    return false;
 }
 

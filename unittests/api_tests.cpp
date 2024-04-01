@@ -1053,7 +1053,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
    auto& rl = t.control->get_resource_limits_manager();
    rl.get_account_limits( "pause"_n, ram_bytes, net, cpu, t.control->dbm().main_db() );
    BOOST_CHECK_EQUAL( cpu, -1 );
-   auto cpu_limit = rl.get_block_cpu_limit( t.control->dbm().main_db() );
+   auto cpu_limit = rl.get_block_cpu_limit( t.control->dbm().main_db(), t.control->dbm().main_db() );
    idump(("cpu_limit")(cpu_limit));
    BOOST_CHECK( cpu_limit <= 150'000 );
 

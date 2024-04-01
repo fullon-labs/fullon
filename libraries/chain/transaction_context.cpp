@@ -106,8 +106,8 @@ namespace eosio { namespace chain {
 
       const auto& cfg = control.get_global_properties().configuration;
       auto& rl = control.get_mutable_resource_limits_manager();
-      net_limit = rl.get_block_net_limit( shared_db );
-      objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit( shared_db ) );
+      net_limit = rl.get_block_net_limit( shared_db, db );
+      objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit( shared_db, db ) );
       _deadline = start + objective_duration_limit;
 
       // Possibly lower net_limit to the maximum net usage a transaction is allowed to be billed

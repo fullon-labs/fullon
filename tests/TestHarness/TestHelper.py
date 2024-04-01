@@ -93,7 +93,7 @@ class TestHelper(object):
             thGrp.add_argument("--defproducerb_prvt_key", type=str, help="defproducerb private key.")
         if "--dump-error-details" in includeArgs:
             thGrp.add_argument("--dump-error-details",
-                                     help="Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout",
+                                     help="Upon error print etc/flon/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout",
                                      action='store_true')
         if "--dont-launch" in includeArgs:
             thGrp.add_argument("--dont-launch", help="Don't launch own node. Assume node is already running.",
@@ -145,7 +145,7 @@ class TestHelper(object):
             Utils.Print(str(prefix))
         clientVersion=Cluster.getClientVersion()
         Utils.Print("UTC time: %s" % str(datetime.utcnow()))
-        Utils.Print("EOS Client version: %s" % (clientVersion))
+        Utils.Print("fullon Client version: %s" % (clientVersion))
         Utils.Print("Processor: %s" % (platform.processor()))
         Utils.Print("OS name: %s" % (platform.platform()))
 
