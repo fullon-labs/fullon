@@ -3179,6 +3179,15 @@ struct controller_impl {
          EOS_ASSERT( sp->enabled, unavailable_shard_exception, "shard is disabled" );
       }
    }
+
+   bool is_shard_available( const shard_name name) const {
+      if ( name != config::main_shard_name ){
+         const auto* sp = dbm.shared_db().find<shard_object, by_name>( name );
+         return sp && sp->enabled;
+      } else {
+         return true;
+      }
+   }
    /*
    bool should_check_tapos()const { return true; }
 
@@ -4047,6 +4056,10 @@ void controller::check_key_list( const public_key_type& key )const {
 
 void controller::check_shard_available( const shard_name name) const {
    my->check_shard_available( name );
+}
+
+bool controller::is_shard_available( const shard_name name) const {
+   return my->is_shard_available( name );
 }
 
 bool controller::is_building_block()const {

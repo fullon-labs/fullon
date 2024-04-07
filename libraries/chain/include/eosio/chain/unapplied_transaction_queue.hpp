@@ -36,9 +36,11 @@ struct unapplied_transaction {
    trx_enum_type                  trx_type = trx_enum_type::unknown;
    bool                           return_failure_trace = false;
    next_func_t                    next;
+   uint32_t                       tried_times = 0;
 
    const transaction_id_type& id()const { return trx_meta->id(); }
    fc::time_point_sec expiration()const { return trx_meta->packed_trx()->expiration(); }
+   bool is_incoming() const { return trx_type == trx_enum_type::incoming_api || trx_type == trx_enum_type::incoming_p2p; }
 
    // unapplied_transaction(const unapplied_transaction&) = delete;
    unapplied_transaction(const unapplied_transaction&) = default; // TODO: delete instead
