@@ -37,6 +37,7 @@ struct unapplied_transaction {
    bool                           return_failure_trace = false;
    next_func_t                    next;
    uint32_t                       tried_times = 0;
+   // TODO: last_block_seq
 
    const transaction_id_type& id()const { return trx_meta->id(); }
    fc::time_point_sec expiration()const { return trx_meta->packed_trx()->expiration(); }
