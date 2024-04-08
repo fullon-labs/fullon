@@ -594,7 +594,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             const block_state_ptr& bsptr = *ritr;
             for (const auto& trx_shard : bsptr->trxs_metas()) {
                auto& shard = get_processing_shard(trx_shard.first);
-               shard.unapplied_transactions.add_forked(trx_shard.second);
+               shard.unapplied_transactions.add_forked(trx_shard.second, _block_seq);
             }
          }
       }
@@ -667,7 +667,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto trx_map = chain.abort_block();
          for (auto trx_shard : trx_map) {
             auto& shard = get_processing_shard(trx_shard.first);
-            shard.unapplied_transactions.add_aborted( std::move(trx_shard.second) );
+            shard.unapplied_transactions.add_aborted( std::move(trx_shard.second), _block_seq );
          }
          // all shard threads are stoped, no need to lock
          _subjective_billing.abort_block();
@@ -916,7 +916,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             }
 
             auto shard_itr = get_processing_shard_itr(trx->get_shard_name());
-            shard_itr->second.unapplied_transactions.add_incoming( trx, api_trx, return_failure_trace, next );
+            shard_itr->second.unapplied_transactions.add_incoming( trx, api_trx, return_failure_trace, next, _block_seq );
             if( chain.is_building_block()) {
                if (shard_itr->second.trx_task_fut.valid()) {
                   fc_dlog( _log, "There is a processing trx, cur_trx=${cur_trx}", ("cur_trx", id));
@@ -2627,6 +2627,7 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
 
                if (pr.block_exhausted || pr.trx_exhausted) {
                   // add unapplied transaction to queue back for retrying again.
+                  unapplied_trx.min_block_seq = block_seq == self->_block_seq ? self->_block_seq + 1 : self->_block_seq;
                   shard.unapplied_transactions.add_trx(std::move(unapplied_trx));
                } // else drop current transaction (maybe succeed or failed)
 
@@ -2744,15 +2745,12 @@ bool producer_plugin_impl::process_unapplied_trx_one( const fc::time_point& dead
       return true;
    }
    auto itr     = unapplied_transactions.unapplied_begin();
-   auto end_itr = unapplied_transactions.unapplied_end();
-   if (itr == end_itr) {
-      return true;
+   if (itr != unapplied_transactions.end() && itr->is_processing_unapplied(_block_seq) ) {
+      auto trx = *itr;
+      unapplied_transactions.erase( itr ); // must erase transaction before push
+      return push_transaction_one( deadline, shard_itr, std::move(trx) );
    }
-
-   auto trx = *itr;
-   unapplied_transactions.erase( itr ); // pop trx
-
-   return push_transaction_one( deadline, shard_itr, std::move(trx) );
+   return true;
 }
 
 bool producer_plugin_impl::process_scheduled_trxs( const fc::time_point& deadline, processing_shard_map::iterator shard_itr )
@@ -2947,17 +2945,12 @@ bool producer_plugin_impl::process_incoming_trx_one( const fc::time_point& deadl
 
    // bool exhausted = false;
    auto itr = unapplied_transactions.incoming_begin();
-   auto end = unapplied_transactions.incoming_end();
-   if( itr == end ) {
-      return true;
+   if (itr != unapplied_transactions.end() && itr->is_processing_incoming(_block_seq) ) {
+      auto trx = *itr;
+      unapplied_transactions.erase( itr ); // must erase transaction before push
+      return push_transaction_one( deadline, shard_itr, std::move(trx) );
    }
-
-   auto trx = *itr;
-   unapplied_transactions.erase( itr );
-
-   auto ret = push_transaction_one( deadline, shard_itr, std::move(trx) );
-
-   return ret;
+   return true;
 }
 
 
