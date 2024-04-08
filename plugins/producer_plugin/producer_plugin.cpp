@@ -585,6 +585,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             fc_dlog( _log, "Remove applied transactions removed: ${removed}, after: ${after}",
                      ("removed", removed)("after", after) );
          }
+         // all shard threads are stoped, no need to lock
          _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
       }
 
@@ -668,6 +669,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             auto& shard = get_processing_shard(trx_shard.first);
             shard.unapplied_transactions.add_aborted( std::move(trx_shard.second) );
          }
+         // all shard threads are stoped, no need to lock
          _subjective_billing.abort_block();
       }
 
@@ -1094,6 +1096,7 @@ bool producer_plugin::is_producer_key(const chain::public_key_type& key) const
 
 int64_t producer_plugin::get_subjective_bill( const account_name& first_auth, const fc::time_point& now ) const
 {
+   std::lock_guard g(my->_subjective_mtx);
    return my->_subjective_billing.get_subjective_bill( first_auth, now );
 }
 
@@ -2226,6 +2229,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             }
          }
 
+         // process before shard threads starting, no need to lock
          if( !_subjective_billing.remove_expired( _log, chain.pending_block_time(), fc::time_point::now(),
                                                   [&](){ return should_interrupt_start_block( preprocess_deadline, pending_block_num ); } ) ) {
             return start_block_result::exhausted;
@@ -2492,7 +2496,14 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
                                          || trx->is_transient();
 
    auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
-   if( !disable_subjective_enforcement && _account_fails.failure_limit( first_auth ) ) {
+   bool is_account_failed = false;
+
+   if( !disable_subjective_enforcement ) {
+      std::lock_guard g(_subjective_mtx);
+      is_account_failed = _account_fails.failure_limit( first_auth );
+   }
+
+   if( is_account_failed ) {
       if( unapplied_trx.next ) {
          auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
                FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a} until ${next_reset_time}",
@@ -2522,21 +2533,26 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
    fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
    if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
-   int64_t sub_bill = 0;
-   if( !disable_subjective_enforcement )
-      sub_bill = _subjective_billing.get_subjective_bill( first_auth, fc::time_point::now() );
-
    auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
-   if( in_producing_mode() && prev_billed_cpu_time_us > 0 ) {
+   int64_t sub_bill = 0;
+   bool is_processing_account_billed = false;
+   {
+      std::lock_guard g(_subjective_mtx);
+      if( !disable_subjective_enforcement )
+         sub_bill = _subjective_billing.get_subjective_bill( first_auth, fc::time_point::now() );
+      if( in_producing_mode() && prev_billed_cpu_time_us > 0 )
+         is_processing_account_billed = !_subjective_billing.is_account_disabled( first_auth );
+   }
+
+   if( is_processing_account_billed ) {
       const auto& rl = chain.get_resource_limits_manager();
       auto shard_name = trx->packed_trx()->get_transaction().get_shard_name();
       auto& shared_db = shard_name == config::main_shard_name ? chain.dbm().main_db(): chain.dbm().shared_db();
-      if ( !_subjective_billing.is_account_disabled( first_auth ) && !rl.is_unlimited_cpu( first_auth, shared_db ) ) {
+      if ( !rl.is_unlimited_cpu( first_auth, shared_db ) ) {
          int64_t prev_billed_plus100_us = prev_billed_cpu_time_us + EOS_PERCENT( prev_billed_cpu_time_us, 100 * config::percent_1 );
          if( prev_billed_plus100_us < max_trx_time.count() ) max_trx_time = fc::microseconds( prev_billed_plus100_us );
       }
    }
-
 
    assert(!shard.trx_task_fut.valid());
 
@@ -2648,6 +2664,7 @@ producer_plugin_impl::handle_push_result( processing_shard_map::iterator shard_i
                                           int64_t sub_bill,
                                           uint32_t prev_billed_cpu_time_us) {
    auto end = fc::time_point::now();
+   const auto& shard_name = shard_itr->first;
    auto& shard = shard_itr->second;
    push_result pr;
    if( trace->except ) {
@@ -2673,18 +2690,19 @@ producer_plugin_impl::handle_push_result( processing_shard_map::iterator shard_i
          pr.failed = true;
          const fc::exception& e = *trace->except;
          if( e.code() != tx_duplicate::code_value ) {
-            fc_tlog( _log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us",
-                     ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
-            if (!disable_subjective_enforcement) // subjectively bill failure when producing since not in objective cpu account billing
-               _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
+            fc_tlog( _log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us, shard=${s}",
+                     ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start)("s", shard_name));
 
             log_trx_results( trx, trace, start );
             // this failed our configured maximum transaction time, we don't want to replay it
-            fc_tlog( _log, "Failed ${c} trx, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}, except: ${e}",
-                     ("c", e.code())("a", first_auth)("p", prev_billed_cpu_time_us)
+            fc_tlog( _log, "Failed ${c} trx, shard:${s}, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}, except: ${e}",
+                     ("c", e.code())("s", shard_name)("a", first_auth)("p", prev_billed_cpu_time_us)
                      ( "r", end - start)("id", trx->id())("e", e) );
-            if( !disable_subjective_enforcement )
+            if( !disable_subjective_enforcement ) { // subjectively bill failure when producing since not in objective cpu account billing
+               std::lock_guard g(_subjective_mtx);
+               _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
                _account_fails.add( first_auth, e );
+            }
          }
          if( next ) {
             if( return_failure_trace ) {
@@ -2709,6 +2727,7 @@ producer_plugin_impl::handle_push_result( processing_shard_map::iterator shard_i
       log_trx_results( trx, trace, start );
       // if producing then trx is in objective cpu account billing
       if (!disable_subjective_enforcement && _pending_block_mode != pending_block_mode::producing) {
+         std::lock_guard g(_subjective_mtx);
          _subjective_billing.subjective_bill( trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed );
       }
       if( next ) next( trace );
