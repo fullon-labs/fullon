@@ -3175,8 +3175,8 @@ struct controller_impl {
    void check_shard_available( const shard_name name) const {
       if ( name != config::main_shard_name ){
          const auto* sp = dbm.shared_db().find<shard_object, by_name>( name );
-         EOS_ASSERT( sp, unavailable_shard_exception, "shard not found" );
-         EOS_ASSERT( sp->enabled, unavailable_shard_exception, "shard is disabled" );
+         EOS_ASSERT( sp, unavailable_shard_exception, "shard not found: ${s}", ("s", name) );
+         EOS_ASSERT( sp->enabled, unavailable_shard_exception, "shard is disabled: ${s}", ("s", name) );
       }
    }
 
