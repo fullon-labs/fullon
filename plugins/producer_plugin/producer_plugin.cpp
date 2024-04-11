@@ -68,6 +68,16 @@ using boost::signals2::scoped_connection;
       wlog( "${details}", ("details",e.to_detail_string()) ); \
    }
 
+
+#define TRX_CATCH_AND_CALL(NEXT)  \
+   catch ( const guard_exception& e ) { \
+      chain_plugin::handle_guard_exception(e); \
+   } catch ( const std::bad_alloc& ) { \
+      chain_plugin::handle_bad_alloc(); \
+   } catch ( boost::interprocess::bad_alloc& ) { \
+      chain_plugin::handle_db_exhaustion(); \
+   } CATCH_AND_CALL( NEXT )
+
 const std::string logger_name("producer_plugin");
 fc::logger _log;
 
@@ -413,6 +423,13 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void log_trx_results( const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr );
       void log_trx_results( const packed_transaction_ptr& trx, const transaction_trace_ptr& trace,
                             const fc::exception_ptr& except_ptr, uint32_t billed_cpu_us, const fc::time_point& start, bool is_transient );
+      std::function<void(fc::exception_ptr)>
+      make_trx_exception_handler( processing_shard_map::iterator shard_itr,
+                                  const packed_transaction_ptr& trx,
+                                  const next_function<transaction_trace_ptr>& next,
+                                  const fc::time_point& start,
+                                  bool is_transient,
+                                  bool is_tracking_time );
 
       boost::program_options::variables_map _options;
       bool     _production_enabled                 = false;
@@ -871,17 +888,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                      fc_tlog( _log, "Time since last trx: ${t}us, shard=${s}, tx=${tx}", ("t", idle_time)("s", trx->get_shard_name())("tx", trx->id()) );
                   }
 
-                  auto exception_handler = [self, is_transient, &next, trx{std::move(trx)}, &start, shard_itr, shard_is_processing](fc::exception_ptr ex) {
-                     auto& shard = shard_itr->second;
-                     self->log_trx_results( trx, nullptr, ex, 0, start, is_transient );
-                     next( std::move(ex) );
-                     if (!shard_is_processing) {
-                        // _time_tracker and _idle_trx_time must be protected by shard.trx_task_fut for multi-threads.
-                        shard._idle_trx_time = fc::time_point::now();
-                        auto dur = shard._idle_trx_time - start;
-                        shard._time_tracker.add_fail_time(dur, is_transient);
-                     }
-                  };
+                  auto exception_handler = self->make_trx_exception_handler(shard_itr, trx,
+                                                next, start, is_transient, !shard_is_processing);
                   try {
                      auto result = future.get();
                      if( !self->process_incoming_transaction_async( result, api_trx, return_failure_traces, next) ) {
@@ -2479,6 +2487,27 @@ void producer_plugin_impl::log_trx_results( const packed_transaction_ptr& trx,
    }
 }
 
+std::function<void(fc::exception_ptr)>
+producer_plugin_impl::make_trx_exception_handler( processing_shard_map::iterator shard_itr,
+                                                  const packed_transaction_ptr& trx,
+                                                  const next_function<transaction_trace_ptr>& next,
+                                                  const fc::time_point& start,
+                                                  bool is_transient,
+                                                  bool is_tracking_time )
+{
+   return [self=this, shard_itr{std::move(shard_itr)}, &trx, &next, &start, is_transient, is_tracking_time](fc::exception_ptr ex) {
+      auto& shard = shard_itr->second;
+      self->log_trx_results( trx, nullptr, ex, 0, start, is_transient );
+      if (next) next( std::move(ex) );
+      if (is_tracking_time) {
+         // _time_tracker and _idle_trx_time must be protected by shard.trx_task_fut for multi-threads.
+         shard._idle_trx_time = fc::time_point::now();
+         auto dur = shard._idle_trx_time - start;
+         shard._time_tracker.add_fail_time(dur, is_transient);
+      }
+   };
+}
+
 void
 producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline, processing_shard_map::iterator shard_itr,
                                         unapplied_transaction&& unapplied_trx)
@@ -2526,7 +2555,7 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
       }
       shard._time_tracker.add_fail_time(fc::time_point::now() - start, trx->is_transient());
       // cur trx will be dropped
-      self->maybe_process_trx_one(deadline, shard_itr, false);
+      maybe_process_trx_one(block_deadline, shard_itr, false);
       return;
    }
 
@@ -2555,19 +2584,25 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
    }
 
    assert(!shard.trx_task_fut.valid());
-
-   auto& building_shard = chain.init_building_shard(shard_itr->first);
+   chain::building_shard* building_shard_ptr = nullptr;
+   auto exception_handler = make_trx_exception_handler(shard_itr, trx->packed_trx(), unapplied_trx.next, start, trx->is_transient(), true);
+   try {
+      building_shard_ptr = &chain.init_building_shard(shard_itr->first);
+   }TRX_CATCH_AND_CALL(exception_handler);
+   if (!building_shard_ptr) {
+      return;
+   }
    shard._idle_trx_time = fc::time_point::now();
    shard.trx_task_fut = start_push_transaction( block_deadline,
-                     std::move(shard_itr),
-                     std::move(unapplied_trx),
-                     building_shard,
-                     std::move(start),
-                     disable_subjective_enforcement,
-                     std::move(first_auth),
-                     std::move(max_trx_time),
-                     prev_billed_cpu_time_us,
-                     sub_bill );
+                  std::move(shard_itr),
+                  std::move(unapplied_trx),
+                  *building_shard_ptr,
+                  std::move(start),
+                  disable_subjective_enforcement,
+                  std::move(first_auth),
+                  std::move(max_trx_time),
+                  prev_billed_cpu_time_us,
+                  sub_bill );
 }
 
 std::future<bool> producer_plugin_impl::start_push_transaction(  const fc::time_point& block_deadline, processing_shard_map::iterator shard_itr,
@@ -2590,18 +2625,16 @@ std::future<bool> producer_plugin_impl::start_push_transaction(  const fc::time_
    {
       chain::controller& chain = self->chain_plug->chain();
       auto& shard = shard_itr->second;
+      auto& trx = unapplied_trx.trx_meta;
 
       producer_plugin_impl::push_result pr;
-      auto exception_handler = [self, &pr, &unapplied_trx, &start, &shard](fc::exception_ptr ex) {
-         auto& trx = unapplied_trx.trx_meta;
-         self->log_trx_results( trx, ex );
+      auto exception_handler = self->make_trx_exception_handler(shard_itr, trx->packed_trx(),
+               unapplied_trx.next, start, trx->is_transient(), true);
+      auto exception_result_handler = [&pr, &exception_handler](fc::exception_ptr ex) {
+         exception_handler(std::move(ex));
          pr = { .failed = true };
-         if (unapplied_trx.next)
-            unapplied_trx.next( std::move(ex) );
-         auto dur = fc::time_point::now() - start;
-         shard._time_tracker.add_fail_time(dur, trx->is_transient());
-
       };
+
       try {
          // check block seq to ensure that current thead is running in expected block producing.
          EOS_ASSERT(self->_block_seq == block_seq, producer_exception, "Building block sequence error");
@@ -2632,13 +2665,7 @@ std::future<bool> producer_plugin_impl::start_push_transaction(  const fc::time_
                ("st", (fc::time_point::now() - start).count())
                ("f", (pr.failed)) );
          }
-      } catch ( const guard_exception& e ) {
-         chain_plugin::handle_guard_exception(e);
-      } catch ( boost::interprocess::bad_alloc& ) {
-         chain_plugin::handle_db_exhaustion();
-      } catch ( std::bad_alloc& ) {
-         chain_plugin::handle_bad_alloc();
-      } CATCH_AND_CALL(exception_handler);
+      } TRX_CATCH_AND_CALL(exception_result_handler);
       // TODO: lock _idle_trx_time
       shard.last_processed_time = fc::time_point::now();
       shard._idle_trx_time = shard.last_processed_time;
@@ -2896,18 +2923,25 @@ void producer_plugin_impl::push_schedule_transaction( const fc::time_point& dead
    auto start = fc::time_point::now();
    auto& shard = shard_itr->second;
    chain::controller& chain = chain_plug->chain();
-   auto& building_shard = chain.init_building_shard(shard_itr->first);
+   chain::building_shard* building_shard_ptr = nullptr;
+   try {
+      building_shard_ptr = &chain.init_building_shard(shard_itr->first);
+   } LOG_AND_DROP();
+   if (!building_shard_ptr) {
+      return;
+   }
+
    shard._idle_trx_time = fc::time_point::now();
    shard.trx_task_fut = post_async_task( _shard_thread_pool.get_executor(), [
                               self = this, shard_itr{std::move(shard_itr)},
-                              &building_shard, block_seq{_block_seq},
+                              &building_shard{*building_shard_ptr}, block_seq{_block_seq},
                               trx_seq{shard.trx_seq}, trx_id{gtrx.trx_id}, deadline,
                               start, sch_expiration] () {
 
       bool block_exhausted = false;
+      auto& shard = shard_itr->second;
       try {
          chain::controller& chain = self->chain_plug->chain();
-         auto& shard = shard_itr->second;
 
          // check block seq to ensure that current thead is running in expected block producing.
          EOS_ASSERT(self->_block_seq == block_seq, producer_exception, "Building block sequence error");
@@ -2956,8 +2990,8 @@ void producer_plugin_impl::push_schedule_transaction( const fc::time_point& dead
                   ("entire_trace", self->chain_plug->get_log_trx_trace(trace)));
             shard.num_schedule_trx_applied++;
          }
-         shard._idle_trx_time = fc::time_point::now();
       } LOG_AND_DROP();
+      shard._idle_trx_time = fc::time_point::now();
 
       app().executor().post( priority::low, exec_queue::read_write, [self,
                      shard_itr{std::move(shard_itr)}, block_seq, trx_seq, deadline,
