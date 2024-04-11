@@ -43,8 +43,8 @@ struct unapplied_transaction {
    fc::time_point_sec expiration()const { return trx_meta->packed_trx()->expiration(); }
    inline bool is_incoming() const { return trx_type >= trx_enum_type::incoming_api; }
    inline bool is_unapplied() const { return trx_type >= trx_enum_type::unknown && trx_type <= trx_enum_type::aborted; }
-   inline bool is_processing_incoming(uint64_t block_seq) const { return is_incoming() && min_block_seq < block_seq; }
-   inline bool is_processing_unapplied(uint64_t block_seq) const { return is_unapplied() && min_block_seq < block_seq; }
+   inline bool is_processing_incoming(uint64_t block_seq) const { return is_incoming() && block_seq >= min_block_seq; }
+   inline bool is_processing_unapplied(uint64_t block_seq) const { return is_unapplied() && block_seq >= min_block_seq; }
 
    // unapplied_transaction(const unapplied_transaction&) = delete;
    unapplied_transaction(const unapplied_transaction&) = default; // TODO: delete instead
