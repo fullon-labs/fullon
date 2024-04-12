@@ -2862,12 +2862,12 @@ bool producer_plugin_impl::block_is_exhausted() const {
    //app thread main db == shared db
    uint64_t cpu_limit = rl.get_block_cpu_limit( _dbm.main_db(), _dbm.main_db() );
    if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
-   uint64_t net_limit = rl.get_block_net_limit( _dbm.main_db(), _dbm.main_db() );
+   uint64_t net_limit = rl.get_block_net_limit( _dbm.main_db() );
    if( net_limit < _max_block_net_usage_threshold_bytes ) return true;
    for( auto& sdb : const_cast<database_manager&>(_dbm).shard_dbs() ){
       cpu_limit = rl.get_block_cpu_limit( _dbm.main_db(), sdb.second );
       if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
-      net_limit = rl.get_block_net_limit( _dbm.main_db(), sdb.second );
+      net_limit = rl.get_block_net_limit( _dbm.main_db() );
       if( net_limit < _max_block_net_usage_threshold_bytes ) return true;
    }
    return false;

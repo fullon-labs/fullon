@@ -7,7 +7,7 @@
 #include <eosio/testing/tester.hpp>
 #include <eosio/chain/shard_object.hpp>
 #include <test_contracts.hpp>
-
+#include "dummy_data.hpp"
 using namespace eosio;
 using namespace testing;
 using namespace chain;
@@ -206,7 +206,41 @@ class sharding_validating_base_tester : public validating_tester{
 
          return push_action( std::move(act), signer );
       }
+      
+      transaction_trace_ptr push_dummy(account_name from, const string& v, uint32_t billed_cpu_time_us, shard_name sname = config::main_shard_name) {
+         // use reqauth for a normal action, this could be anything
+         fc::variant pretty_trx = fc::mutable_variant_object()
+            ("actions", fc::variants({
+               fc::mutable_variant_object()
+                  ("account", name(config::system_account_name))
+                  ("name", "reqauth")
+                  ("authorization", fc::variants({
+                     fc::mutable_variant_object()
+                        ("actor", from)
+                        ("permission", name(config::active_name))
+                  }))
+                  ("data", fc::mutable_variant_object()
+                     ("from", from)
+                  )
+               })
+         )
+         // lets also push a context free action, the multi chain test will then also include a context free action
+         ("context_free_actions", fc::variants({
+               fc::mutable_variant_object()
+                  ("account", name(config::null_account_name))
+                  ("name", "nonce")
+                  ("data", fc::raw::pack(v))
+               })
+            );
 
+         signed_transaction trx;
+         abi_serializer::from_variant(pretty_trx, trx, get_resolver(), abi_serializer::create_yield_function( abi_serializer_max_time ));
+         set_transaction_headers(trx);
+         trx.set_shard_name(sname);
+         trx.sign( get_private_key( from, "active" ), control->get_chain_id() );
+         return push_transaction( trx, fc::time_point::maximum(), billed_cpu_time_us );
+      }
+      
       auto regshard( const account_name&           signer,
                      uint8_t                       reg_type,
                      const account_name&           name,
@@ -505,6 +539,49 @@ BOOST_FIXTURE_TEST_CASE( shard_tx_test, currency_test ) try {
    std::string value = std::to_string(1*(loop-1))+".0000 CUR";
    // BOOST_REQUIRE_EQUAL(get_balance_on_shard("alice"_n), asset::from_string( "500.0000 CUR" ) );
    BOOST_REQUIRE_EQUAL(get_balance_on_shard("alice"_n), asset::from_string( value ) );
+} FC_LOG_AND_RETHROW ();
+
+BOOST_FIXTURE_TEST_CASE( shard_net_capacity_test, sharding_validating_tester ) try {
+   BOOST_CHECK_NO_THROW(create_account("alice"_n));
+   produce_block();
+   
+   //max_block_net 1024*1024 bytes, max_transaction_net max_block_net/2 bytes
+   //dummy data 450000 bytes
+   std::string dummy_string = dummy;
+   uint32_t increment = 0;
+   
+   //3 consecutive concurrent transactions
+   push_dummy( "alice"_n, dummy_string + std::to_string(0), increment );
+   push_dummy( "alice"_n, dummy_string + std::to_string(1), increment , "shard1"_n);
+   
+   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n ),
+               shard_resource_exhausted_exception,
+               fc_exception_message_contains("Shard has insufficient net resources")
+   );
+   produce_block();
+   
+   //3 consecutive concurrent transactions
+   push_dummy( "alice"_n, dummy_string + std::to_string(1), increment , "shard1"_n);
+   push_dummy( "alice"_n, dummy_string + std::to_string(0), increment );
+   
+   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n ),
+               shard_resource_exhausted_exception,
+               fc_exception_message_contains("Shard has insufficient net resources")
+   );
+   produce_block();
+   
+   //4 consecutive concurrent transactions
+   push_dummy( "alice"_n, dummy_string + std::to_string(1), increment , "shard1"_n);
+   push_dummy( "alice"_n, dummy_string + std::to_string(0), increment );
+   
+   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n ),
+               shard_resource_exhausted_exception,
+               fc_exception_message_contains("Shard has insufficient net resources")
+   );
+   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard1"_n ),
+               shard_resource_exhausted_exception,
+               fc_exception_message_contains("Shard has insufficient net resources")
+   );
 } FC_LOG_AND_RETHROW ();
 
 BOOST_AUTO_TEST_SUITE_END()

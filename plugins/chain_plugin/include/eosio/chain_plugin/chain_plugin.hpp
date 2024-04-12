@@ -368,6 +368,7 @@ public:
       name                 code;
       string               scope;
       name                 table;
+      name                 shard_name{"main"};
       string               table_key;
       string               lower_bound;
       string               upper_bound;
@@ -528,7 +529,7 @@ public:
       fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
 
       read_only::get_table_rows_result result;
-      const auto& d = db.db();
+      const auto& d = p.shard_name == eosio::chain::config::main_shard_name ? db.db() : db.dbm().shard_db( p.shard_name );
 
       name scope{ convert_to_type<uint64_t>(p.scope, "scope") };
 
@@ -919,7 +920,7 @@ FC_REFLECT(eosio::chain_apis::read_only::get_block_header_result, (id)(signed_bl
 FC_REFLECT( eosio::chain_apis::read_write::push_transaction_results, (transaction_id)(processed) )
 FC_REFLECT( eosio::chain_apis::read_write::send_transaction2_params, (return_failure_trace)(retry_trx)(retry_trx_num_blocks)(transaction) )
 
-FC_REFLECT( eosio::chain_apis::read_only::get_table_rows_params, (json)(code)(scope)(table)(table_key)(lower_bound)(upper_bound)(limit)(key_type)(index_position)(encode_type)(reverse)(show_payer)(time_limit_ms) )
+FC_REFLECT( eosio::chain_apis::read_only::get_table_rows_params, (json)(code)(scope)(table)(shard_name)(table_key)(lower_bound)(upper_bound)(limit)(key_type)(index_position)(encode_type)(reverse)(show_payer)(time_limit_ms) )
 FC_REFLECT( eosio::chain_apis::read_only::get_table_rows_result, (rows)(more)(next_key) );
 
 FC_REFLECT( eosio::chain_apis::read_only::get_table_by_scope_params, (code)(table)(lower_bound)(upper_bound)(limit)(reverse)(time_limit_ms) )
