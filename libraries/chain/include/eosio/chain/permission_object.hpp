@@ -1,6 +1,5 @@
 #pragma once
 #include <eosio/chain/authority.hpp>
-#include <eosio/chain/database_utils.hpp>
 
 #include "multi_index_includes.hpp"
 

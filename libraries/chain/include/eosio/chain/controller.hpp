@@ -269,6 +269,7 @@ namespace eosio { namespace chain {
          void check_action_list( account_name code, action_name action )const;
          void check_key_list( const public_key_type& key )const;
          void check_shard_available( const shard_name name) const;
+         bool is_shard_available( const shard_name name) const;
 
          bool is_building_block()const;
          bool is_speculative_block()const;

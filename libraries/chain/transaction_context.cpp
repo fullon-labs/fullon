@@ -793,6 +793,7 @@ namespace eosio { namespace chain {
         gto.published   = control.pending_block_time();
         gto.delay_until = gto.published + delay;
         gto.expiration  = gto.delay_until + fc::seconds(control.get_global_properties().configuration.deferred_trx_expiration_window);
+        gto.shard_name = shard_name;
         trx_size = gto.set( trx );
 
         if (auto dm_logger = control.get_deep_mind_logger(is_transient())) {
@@ -817,7 +818,7 @@ namespace eosio { namespace chain {
          db.create<transaction_object>([&](transaction_object& transaction) {
               transaction.trx_id = id;
               transaction.expiration = expire;
-         }); 
+         });
       } catch( const boost::interprocess::bad_alloc& ) {
          throw;
       } catch ( ... ) {

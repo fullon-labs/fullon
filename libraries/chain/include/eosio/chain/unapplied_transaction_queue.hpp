@@ -36,9 +36,15 @@ struct unapplied_transaction {
    trx_enum_type                  trx_type = trx_enum_type::unknown;
    bool                           return_failure_trace = false;
    next_func_t                    next;
+   uint32_t                       tried_times = 0;
+   uint64_t                       min_block_seq = 0;
 
    const transaction_id_type& id()const { return trx_meta->id(); }
    fc::time_point_sec expiration()const { return trx_meta->packed_trx()->expiration(); }
+   inline bool is_incoming() const { return trx_type >= trx_enum_type::incoming_api; }
+   inline bool is_unapplied() const { return trx_type >= trx_enum_type::unknown && trx_type <= trx_enum_type::aborted; }
+   inline bool is_processing_incoming(uint64_t block_seq) const { return is_incoming() && block_seq >= min_block_seq; }
+   inline bool is_processing_unapplied(uint64_t block_seq) const { return is_unapplied() && block_seq >= min_block_seq; }
 
    // unapplied_transaction(const unapplied_transaction&) = delete;
    unapplied_transaction(const unapplied_transaction&) = default; // TODO: delete instead
@@ -61,7 +67,13 @@ private:
          hashed_unique< tag<by_trx_id>,
                const_mem_fun<unapplied_transaction, const transaction_id_type&, &unapplied_transaction::id>
          >,
-         ordered_non_unique< tag<by_type>, member<unapplied_transaction, trx_enum_type, &unapplied_transaction::trx_type> >,
+         ordered_non_unique< tag<by_type>,
+            composite_key< unapplied_transaction,
+               const_mem_fun<unapplied_transaction, bool, &unapplied_transaction::is_incoming>,
+               member <unapplied_transaction, uint64_t, &unapplied_transaction::min_block_seq >,
+               member< unapplied_transaction, trx_enum_type, &unapplied_transaction::trx_type >
+            >
+         >,
          ordered_non_unique< tag<by_expiry>, const_mem_fun<unapplied_transaction, fc::time_point_sec, &unapplied_transaction::expiration> >
       >
    > unapplied_trx_queue_type;
@@ -184,43 +196,43 @@ public:
       return ret;
    }
 
-   void add_forked( const branch_type& forked_branch ) {
+   void add_forked( const branch_type& forked_branch, uint64_t block_seq = 0 ) {
       // forked_branch is in reverse order
       for( auto ritr = forked_branch.rbegin(), rend = forked_branch.rend(); ritr != rend; ++ritr ) {
          const block_state_ptr& bsptr = *ritr;
          for (const auto& metas : bsptr->trxs_metas()) {
             for( const auto& trx : metas.second ) {
-               auto insert_itr = queue.insert( { trx, trx_enum_type::forked } );
+               auto insert_itr = queue.insert( { trx, trx_enum_type::forked, false, nullptr, 0, block_seq } );
                if( insert_itr.second ) added( insert_itr.first );
             }
          }
       }
    }
 
-   inline void add_trxs( const deque<transaction_metadata_ptr> &trxs, trx_enum_type trx_type ) {
+   inline void add_trxs( const deque<transaction_metadata_ptr> &trxs, trx_enum_type trx_type, uint64_t block_seq = 0 ) {
       for( const auto& trx : trxs ) {
-         auto insert_itr = queue.insert( { trx, trx_type } );
+         auto insert_itr = queue.insert( { trx, trx_type, false, nullptr, 0, block_seq } );
          if( insert_itr.second ) added( insert_itr.first );
       }
    }
 
 
-   void add_forked( const deque<transaction_metadata_ptr> &trxs ) {
-      add_trxs(trxs, trx_enum_type::forked);
+   void add_forked( const deque<transaction_metadata_ptr> &trxs, uint64_t block_seq = 0 ) {
+      add_trxs(trxs, trx_enum_type::forked, block_seq);
    }
 
-   void add_aborted( deque<transaction_metadata_ptr> aborted_trxs ) {
+   void add_aborted( deque<transaction_metadata_ptr> aborted_trxs, uint64_t block_seq = 0 ) {
       for( auto& trx : aborted_trxs ) {
-         auto insert_itr = queue.insert( { std::move( trx ), trx_enum_type::aborted } );
+         auto insert_itr = queue.insert( { std::move( trx ), trx_enum_type::aborted, false, nullptr, 0, block_seq } );
          if( insert_itr.second ) added( insert_itr.first );
       }
    }
 
-   void add_incoming( const transaction_metadata_ptr& trx, bool api_trx, bool return_failure_trace, next_func_t next ) {
+   void add_incoming( const transaction_metadata_ptr& trx, bool api_trx, bool return_failure_trace, next_func_t next, uint64_t block_seq = 0 ) {
       auto itr = queue.get<by_trx_id>().find( trx->id() );
       if( itr == queue.get<by_trx_id>().end() ) {
          auto insert_itr = queue.insert(
-               { trx, api_trx ? trx_enum_type::incoming_api : trx_enum_type::incoming_p2p, return_failure_trace, std::move( next ) } );
+               { trx, api_trx ? trx_enum_type::incoming_api : trx_enum_type::incoming_p2p, return_failure_trace, std::move( next ), 0, block_seq } );
          if( insert_itr.second ) added( insert_itr.first );
       } else {
          if( itr->trx_meta == trx ) return; // same trx meta pointer
@@ -252,9 +264,9 @@ public:
 
    // forked, aborted
    iterator unapplied_begin() { return queue.get<by_type>().begin(); }
-   iterator unapplied_end() { return queue.get<by_type>().upper_bound( trx_enum_type::aborted ); }
+   // iterator unapplied_end() { return queue.get<by_type>().upper_bound( trx_enum_type::aborted ); }
 
-   iterator incoming_begin() { return queue.get<by_type>().lower_bound( trx_enum_type::incoming_api ); }
+   iterator incoming_begin() { return queue.get<by_type>().lower_bound( std::make_tuple(true) ); }
    iterator incoming_end() { return queue.get<by_type>().end(); } // if changed to upper_bound, verify usage performance
 
    iterator lower_bound( const transaction_id_type& id ) {
