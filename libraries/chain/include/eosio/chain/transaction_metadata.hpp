@@ -29,6 +29,8 @@ class transaction_metadata {
          read_only
       };
 
+      typedef fc::enum_type<uint8_t, trx_type> trx_type_dump;
+
    private:
       const packed_transaction_ptr                               _packed_trx;
       const fc::microseconds                                     _sig_cpu_usage;
@@ -98,3 +100,5 @@ class transaction_metadata {
 };
 
 } } // eosio::chain
+
+FC_REFLECT_ENUM( eosio::chain::transaction_metadata::trx_type, (input)(implicit)(scheduled)(dry_run)(read_only) )

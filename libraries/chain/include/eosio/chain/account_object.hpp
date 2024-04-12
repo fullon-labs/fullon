@@ -1,5 +1,4 @@
 #pragma once
-#include <eosio/chain/database_utils.hpp>
 #include <eosio/chain/authority.hpp>
 #include <eosio/chain/code_object.hpp>
 #include <eosio/chain/block_timestamp.hpp>
@@ -57,7 +56,7 @@ namespace eosio { namespace chain {
          fc::raw::unpack( ds, a );
          return a;
       }
-      
+
       bool is_privileged()const { return has_field( flags, flags_fields::privileged ); }
 
       void set_privileged( bool privileged )  {
