@@ -632,7 +632,7 @@ public:
       fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
 
       read_only::get_table_rows_result result;
-      const auto& d = db.db();
+      const auto& d = p.shard_name == eosio::chain::config::main_shard_name ? db.db() : db.dbm().shard_db( p.shard_name );
 
       uint64_t scope = convert_to_type<uint64_t>(p.scope, "scope");
 

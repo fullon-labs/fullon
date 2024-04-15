@@ -101,7 +101,7 @@ namespace eosio { namespace chain {
          bool is_unlimited_cpu( const account_name& account, const chainbase::database& shared_db) const;
 
          void process_account_limit_updates();
-         void process_block_usage( uint32_t block_num );
+         void process_block_usage( uint32_t block_num, std::set<shard_name> processing_shard = {} );
 
          // accessors
          uint64_t get_total_cpu_weight() const;

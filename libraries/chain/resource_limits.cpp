@@ -441,7 +441,7 @@ void resource_limits_manager::process_account_limit_updates() {
    });
 }
 
-void resource_limits_manager::process_block_usage(uint32_t block_num) {
+void resource_limits_manager::process_block_usage(uint32_t block_num, std::set<shard_name> processing_shard) {
    auto&     db = _dbm.main_db();
    const auto& s = db.get<resource_limits_state_object>();
    const auto& config = db.get<resource_limits_config_object>();
@@ -464,19 +464,20 @@ void resource_limits_manager::process_block_usage(uint32_t block_num) {
       }
    });
    
-   for(auto& shard_db : _dbm.shard_dbs()){
-      const auto* ss = shard_db.second.find<resource_limits_state_object>();
+   for(auto& shard_name : processing_shard ){
+      auto& sdb = _dbm.shard_db(shard_name);
+      const auto* ss = sdb.find<resource_limits_state_object>();
       
       if( ss == nullptr ){
-         ss = &shard_db.second.create<resource_limits_state_object>([&config](resource_limits_state_object& rls){
+         ss = &sdb.create<resource_limits_state_object>([&config](resource_limits_state_object& rls){
             //start the shard in a way that it is "congested" aka slow-start too.
             rls.virtual_cpu_limit = config.cpu_limit_parameters.max;
-            rls.virtual_net_limit = config.net_limit_parameters.max;
+            //rls.virtual_net_limit = config.net_limit_parameters.max;
          });
       }
       
       //Statistics of CPU bandwidth usage on shards executed by nodes
-      db.modify( *ss, [&](resource_limits_state_object& shard_state){
+      sdb.modify( *ss, [&](resource_limits_state_object& shard_state){
          // apply pending usage, update virtual limits and reset the pending
          // management of sharded CPU bandwidth is performed on shard. 
          shard_state.average_block_cpu_usage.add(shard_state.pending_cpu_usage, block_num, config.cpu_limit_parameters.periods);

@@ -2346,7 +2346,12 @@ struct controller_impl {
          { CPU_TARGET, chain_config.max_block_cpu_usage, config::block_cpu_usage_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}},
          { NET_TARGET, chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
       );
-      resource_limits.process_block_usage(pbhs.block_num);
+      std::set<shard_name> processing_shard;
+      for(auto& shard_pair : bb._shards ){
+         if( shard_pair.first == config::main_shard_name ) continue;
+         processing_shard.emplace( shard_pair.first );
+      }
+      resource_limits.process_block_usage( pbhs.block_num, processing_shard );
 
       const auto& sc_indx = dbm.main_db().get_index<shard_change_index, by_id>();
       for(  auto itr = sc_indx.begin();

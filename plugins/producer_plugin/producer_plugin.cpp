@@ -2934,7 +2934,7 @@ void producer_plugin_impl::push_schedule_transaction( const fc::time_point& dead
    shard._idle_trx_time = fc::time_point::now();
    shard.trx_task_fut = post_async_task( _shard_thread_pool.get_executor(), [
                               self = this, shard_itr{std::move(shard_itr)},
-                              &building_shard{*building_shard_ptr}, block_seq{_block_seq},
+                              /*&building_shard{*/building_shard_ptr/*}*/, block_seq{_block_seq},
                               trx_seq{shard.trx_seq}, trx_id{gtrx.trx_id}, deadline,
                               start, sch_expiration] () {
 
@@ -2948,7 +2948,7 @@ void producer_plugin_impl::push_schedule_transaction( const fc::time_point& dead
 
          fc::microseconds max_trx_time = fc::milliseconds( self->_max_transaction_time_ms.load() );
          if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
-         auto trace = chain.push_scheduled_transaction(building_shard, trx_id, deadline, max_trx_time, 0, false);
+         auto trace = chain.push_scheduled_transaction(*building_shard_ptr, trx_id, deadline, max_trx_time, 0, false);
 
          auto get_first_authorizer = [&](const transaction_trace_ptr& trace) {
             for( const auto& a : trace->action_traces ) {
