@@ -30,22 +30,33 @@ namespace fc { namespace crypto {
 
    static public_key::storage_type parse_base58(const std::string& base58str)
    {
-      constexpr auto legacy_prefix = config::public_key_legacy_prefix;
-      if(prefix_matches(legacy_prefix, base58str) && base58str.find('_') == std::string::npos ) {
-         auto sub_str = base58str.substr(const_strlen(legacy_prefix));
-         using default_type = typename std::variant_alternative_t<0, public_key::storage_type>; //public_key::storage_type::template type_at<0>;
-         using data_type = default_type::data_type;
-         using wrapper = checksummed_data<data_type>;
-         auto bin = fc::from_base58(sub_str);
-         FC_ASSERT(bin.size() == sizeof(data_type) + sizeof(uint32_t), "");
-         auto wrapped = fc::raw::unpack<wrapper>(bin);
-         FC_ASSERT(wrapper::calculate_checksum(wrapped.data) == wrapped.check);
-         return public_key::storage_type(default_type(wrapped.data));
+      const auto pivot = base58str.find('_');
+      if (pivot == std::string::npos) {
+         constexpr auto legacy_prefix = config::public_key_legacy_prefix;
+         constexpr auto eos_prefix = config::public_key_eos_prefix;
+         size_t prefix_len = 0;
+
+         if( prefix_matches(legacy_prefix, base58str) ) {
+            prefix_len = const_strlen(legacy_prefix);
+         } else if( prefix_matches(eos_prefix, base58str) ) {
+            prefix_len = const_strlen(eos_prefix);
+         }
+
+         if ( prefix_len > 0 ) {
+            auto sub_str = base58str.substr(prefix_len);
+            using default_type = typename std::variant_alternative_t<0, public_key::storage_type>; //public_key::storage_type::template type_at<0>;
+            using data_type = default_type::data_type;
+            using wrapper = checksummed_data<data_type>;
+            auto bin = fc::from_base58(sub_str);
+            FC_ASSERT(bin.size() == sizeof(data_type) + sizeof(uint32_t), "");
+            auto wrapped = fc::raw::unpack<wrapper>(bin);
+            FC_ASSERT(wrapper::calculate_checksum(wrapped.data) == wrapped.check);
+            return public_key::storage_type(default_type(wrapped.data));
+         } else {
+            FC_ASSERT(false, "No delimiter in string, cannot determine data type: ${str}", ("str", base58str));
+         }
       } else {
          constexpr auto prefix = config::public_key_base_prefix;
-
-         const auto pivot = base58str.find('_');
-         FC_ASSERT(pivot != std::string::npos, "No delimiter in string, cannot determine data type: ${str}", ("str", base58str));
 
          const auto prefix_str = base58str.substr(0, pivot);
          FC_ASSERT(prefix == prefix_str, "Public Key has invalid prefix: ${str}", ("str", base58str)("prefix_str", prefix_str));
