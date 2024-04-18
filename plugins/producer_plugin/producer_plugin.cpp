@@ -2816,7 +2816,7 @@ void producer_plugin_impl::maybe_process_trx_one( const fc::time_point& deadline
          return;
 
       uint32_t pending_block_num = chain.pending_block_num();
-      if (!exhausted || should_interrupt_start_block( deadline, pending_block_num )) {
+      if (!exhausted && should_interrupt_start_block( deadline, pending_block_num )) {
          exhausted = true;
       }
 
