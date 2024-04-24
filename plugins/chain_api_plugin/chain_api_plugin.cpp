@@ -73,7 +73,7 @@ parse_params<chain_apis::read_only::get_transaction_id_params, http_params_types
                else {
                   EOS_THROW(chain::invalid_http_request, "Transaction contains invalid or empty action");
                }
-            } 
+            }
          }
          else {
             EOS_THROW(chain::invalid_http_request, "Transaction actions are missing or invalid");
@@ -151,7 +151,10 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RW_CALL_ASYNC(push_transaction, chain_apis::read_write::push_transaction_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(push_transactions, chain_apis::read_write::push_transactions_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(send_transaction, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
-      CHAIN_RW_CALL_ASYNC(send_transaction2, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required)
+      CHAIN_RW_CALL_ASYNC(send_transaction2, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
+
+      // shard related APIs
+      CHAIN_RO_CALL(get_shards, 200, http_params_types::params_required)
    }, appbase::exec_queue::read_only);
 
    // Not safe to run in parallel with read-only transactions

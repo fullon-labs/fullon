@@ -484,6 +484,20 @@ public:
 
    void compute_transaction(const compute_transaction_params& params, chain::plugin_interface::next_function<compute_transaction_results> next ) const;
 
+
+   struct get_shards_params {
+      string                  lower_bound;
+      uint32_t                limit = 50;
+      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+   };
+
+   struct get_shards_results {
+      vector<fc::variant> shards;
+      string              more; ///< fill lower_bound with this value to fetch more rows
+   };
+
+   get_shards_results get_shards( const get_shards_params& params, const fc::time_point& deadline )const;
+
    struct send_read_only_transaction_results {
       chain::transaction_id_type  transaction_id;
       fc::variant                 processed;
@@ -966,3 +980,6 @@ FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_results, (transact
 FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_params, (transaction))
 FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_results, (transaction_id)(processed) )
 FC_REFLECT( eosio::chain_apis::read_only::get_consensus_parameters_results, (chain_config)(wasm_config))
+FC_REFLECT( eosio::chain_apis::read_only::get_shards_params, (lower_bound)(limit)(time_limit_ms) )
+FC_REFLECT( eosio::chain_apis::read_only::get_shards_results, (shards)(more) )
+
