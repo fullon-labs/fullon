@@ -69,6 +69,8 @@ class Utils:
     EosServerName="fonod"
     EosServerPath=str(testBinPath / EosServerName)
 
+    SysAccount="flon"
+
     ShuttingDown=False
 
     FileDivider="================================================================="

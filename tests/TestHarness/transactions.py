@@ -357,3 +357,14 @@ class Transactions(NodeosQueries):
         allBuiltinProtocolFeatureDigests = self.getAllBuiltinFeatureDigestsToPreactivate()
         self.preactivateProtocolFeatures(allBuiltinProtocolFeatureDigests)
 
+    # void regshard( const eosio::name& name, const eosio::name& owner, bool enabled );
+    def regshard(self, name, owner, enabled):
+        assert(isinstance(owner, Account))
+        Utils.Print("push regshard action with name:{}, owner:{}, enabled {}".format(name, owner.name, enabled))
+        data="{{\"name\":\"{}\", \"owner\":\"{}\", \"enabled\":1}}".format(name, owner.name, enabled)
+        opts="--permission {}@active".format(Utils.SysAccount)
+        success, trans=self.pushMessage(Utils.SysAccount, "regshard", data, opts)
+        if not success:
+            Utils.Print("ERROR: Failed to regshard name {}".format(name))
+            return None
+        self.waitForTransactionInBlock(trans['transaction_id'])

@@ -69,6 +69,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/launcher.py ${CMAKE_CURRENT_BINARY_DI
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/auto_bp_peering_test.py ${CMAKE_CURRENT_BINARY_DIR}/auto_bp_peering_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/auto_bp_peering_test_shape.json ${CMAKE_CURRENT_BINARY_DIR}/auto_bp_peering_test_shape.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/split_blocklog_replay_test.py ${CMAKE_CURRENT_BINARY_DIR}/split_blocklog_replay_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/shard_register_test.py ${CMAKE_CURRENT_BINARY_DIR}/shard_register_test.py COPYONLY)
 
 if(DEFINED ENV{GITHUB_ACTIONS})
   set(UNSHARE "--unshared")

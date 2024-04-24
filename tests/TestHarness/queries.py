@@ -777,3 +777,19 @@ class NodeosQueries:
     def getActivatedProtocolFeatures(self):
         latestBlockHeaderState = self.getLatestBlockHeaderState()
         return latestBlockHeaderState["activated_protocol_features"]["protocol_features"]
+
+    def getShards(self, lower_bound, limit):
+        param = {
+            "lower_bound": lower_bound,
+            "limit": limit
+        }
+        res = self.processUrllibRequest("chain", "get_shards", param)
+        code = res["code"]
+        payload = res["payload"]
+        assert code == 200, f"ERROR: Invalid response code '{code}' of get_shards, payload:'{payload}'"
+        return payload
+
+    def isShardExists(self, name):
+        res = self.getShards(name, 1)
+        shards = res["shards"]
+        return shards and len(shards) > 0 and shards[0]["name"] == name
