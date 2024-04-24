@@ -294,6 +294,13 @@ private:
                      ("cs", size_in_bytes) );
       }
       size_in_bytes += size;
+
+      dlog( "Add an unapplied transaction ${id}, type=${t}, size=${s}, tried_times=${tt} , block_seq=${bsq}",
+                  ("id", itr->trx_meta->id())
+                  ("t", trx_enum_type_dump(itr->trx_type))
+                  ("s", this->size())
+                  ("tt", itr->tried_times)
+                  ("bsq", itr->min_block_seq) );
    }
 
    template<typename Itr>

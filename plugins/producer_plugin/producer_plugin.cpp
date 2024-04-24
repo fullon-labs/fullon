@@ -2695,7 +2695,7 @@ std::future<bool> producer_plugin_impl::start_push_transaction(  const fc::time_
                ("atsq", trx_seq) );
          }
 
-         if (pr.block_exhausted || pr.trx_exhausted) {
+         if (pr.trx_exhausted) {
             // add unapplied transaction to queue back for retrying again.
             unapplied_trx.min_block_seq = block_seq == self->_block_seq ? self->_block_seq + 1 : self->_block_seq;
             shard.unapplied_transactions.add_trx(std::move(unapplied_trx));
@@ -2817,7 +2817,7 @@ void producer_plugin_impl::maybe_process_trx_one( const fc::time_point& deadline
          return;
 
       uint32_t pending_block_num = chain.pending_block_num();
-      if (!exhausted || should_interrupt_start_block( deadline, pending_block_num )) {
+      if (!exhausted && should_interrupt_start_block( deadline, pending_block_num )) {
          exhausted = true;
       }
 
