@@ -83,12 +83,9 @@ namespace eosio { namespace chain {
 
    transaction_context::~transaction_context()
    {
-      if( !is_squash ) {
+      if( !is_squash && is_initialized ) {
          //Thread safe
-         std::lock_guard  guard( control.get_mutable_resource_limits_manager().get_net_lock() );
-         if(control.get_mutable_resource_limits_manager()._block_pending_net_usage->pending_net_usage >= this->net_usage){
-            control.get_mutable_resource_limits_manager()._block_pending_net_usage->pending_net_usage -= this->net_usage ;
-         }
+         control.get_mutable_resource_limits_manager().undo_block_pending_net( this->net_usage );
       }
       if(auto dm_logger = control.get_deep_mind_logger(is_transient()))
       {
@@ -114,7 +111,7 @@ namespace eosio { namespace chain {
       const auto& cfg = control.get_global_properties().configuration;
       auto& rl = control.get_mutable_resource_limits_manager();
       net_limit = rl.get_block_net_limit( shared_db );
-      objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit( shared_db, db ) );
+      objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit_writable( shared_db, db ) );
       _deadline = start + objective_duration_limit;
 
       // Possibly lower net_limit to the maximum net usage a transaction is allowed to be billed
@@ -442,10 +439,7 @@ namespace eosio { namespace chain {
 
    void transaction_context::undo() {
       if (undo_session) undo_session->undo();
-      std::lock_guard  guard( control.get_mutable_resource_limits_manager().get_net_lock() );
-      if( control.get_mutable_resource_limits_manager()._block_pending_net_usage->pending_net_usage >= this->net_usage ){
-         control.get_mutable_resource_limits_manager()._block_pending_net_usage->pending_net_usage -= this->net_usage ;
-      }
+      control.get_mutable_resource_limits_manager().undo_block_pending_net( this->net_usage );
    }
 
    void transaction_context::check_net_usage()const {

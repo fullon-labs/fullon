@@ -101,7 +101,7 @@ namespace eosio { namespace chain {
          bool is_unlimited_cpu( const account_name& account, const chainbase::database& shared_db) const;
 
          void process_account_limit_updates();
-         void process_block_usage( uint32_t block_num, std::set<shard_name> processing_shard = {} );
+         void process_block_usage( uint32_t block_num, std::vector<chainbase::database*> processing_shard = {} );
 
          // accessors
          uint64_t get_total_cpu_weight() const;
@@ -110,6 +110,7 @@ namespace eosio { namespace chain {
          uint64_t get_virtual_block_cpu_limit() const;
          uint64_t get_virtual_block_net_limit() const;
 
+         uint64_t get_block_cpu_limit_writable( const chainbase::database& shared_db, chainbase::database& db ) const;
          uint64_t get_block_cpu_limit( const chainbase::database& shared_db, const chainbase::database& db ) const;
          uint64_t get_block_net_limit( const chainbase::database& shared_db ) const;
 
@@ -128,7 +129,15 @@ namespace eosio { namespace chain {
 
          int64_t get_account_ram_usage( const account_name& name , chainbase::database& db) const;
          std::shared_mutex& get_net_lock(){ return _block_pending_net_usage->rw_lock; }
-         
+         void init_block_pending_net(){ std::unique_lock write_lock( get_net_lock() ); _block_pending_net_usage->pending_net_usage = 0ULL; }
+         uint64_t get_block_pending_net() const { std::shared_lock read_lock( _block_pending_net_usage->rw_lock ); return _block_pending_net_usage->pending_net_usage; }
+         void add_block_pending_net( uint64_t usage ){ std::unique_lock write_lock( get_net_lock() ); _block_pending_net_usage->pending_net_usage += usage; }
+         void undo_block_pending_net( uint64_t usage ){
+            std::unique_lock write_lock( get_net_lock() );
+            if(_block_pending_net_usage->pending_net_usage >= usage){
+               _block_pending_net_usage->pending_net_usage -= usage;
+            }
+         }
       private:
          eosio::chain::database_manager&     _dbm;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;

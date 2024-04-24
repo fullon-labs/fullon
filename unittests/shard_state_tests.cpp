@@ -555,8 +555,8 @@ BOOST_FIXTURE_TEST_CASE( shard_net_capacity_test, sharding_validating_tester ) t
    push_dummy( "alice"_n, dummy_string + std::to_string(1), increment , "shard1"_n);
    
    BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n ),
-               shard_resource_exhausted_exception,
-               fc_exception_message_contains("Shard has insufficient net resources")
+               block_net_usage_exceeded,
+               fc_exception_message_contains("not enough space left in block")
    );
    produce_block();
    
@@ -565,22 +565,22 @@ BOOST_FIXTURE_TEST_CASE( shard_net_capacity_test, sharding_validating_tester ) t
    push_dummy( "alice"_n, dummy_string + std::to_string(0), increment );
    
    BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n ),
-               shard_resource_exhausted_exception,
-               fc_exception_message_contains("Shard has insufficient net resources")
+               block_net_usage_exceeded,
+               fc_exception_message_contains("not enough space left in block")
    );
    produce_block();
    
    //4 consecutive concurrent transactions
-   push_dummy( "alice"_n, dummy_string + std::to_string(1), increment , "shard1"_n);
+   push_dummy( "alice"_n, dummy_string + std::to_string(1), increment , "shard1"_n );
    push_dummy( "alice"_n, dummy_string + std::to_string(0), increment );
    
    BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n ),
-               shard_resource_exhausted_exception,
-               fc_exception_message_contains("Shard has insufficient net resources")
+               block_net_usage_exceeded,
+               fc_exception_message_contains("not enough space left in block")
    );
-   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard1"_n ),
-               shard_resource_exhausted_exception,
-               fc_exception_message_contains("Shard has insufficient net resources")
+   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(3), increment, "shard1"_n ),
+               block_net_usage_exceeded,
+               fc_exception_message_contains("not enough space left in block")
    );
 } FC_LOG_AND_RETHROW ();
 

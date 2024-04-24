@@ -2096,10 +2096,7 @@ struct controller_impl {
       const auto& pbhs = bb._pending_block_header_state;
       auto& main_db = dbm.main_db(); // TODO: shared_db?
       //0 == resource_limits._block_pending_net_usage = main_db.get<resource_limits_state_object>().pending_net_usage;
-      {
-         std::lock_guard  guard( resource_limits.get_net_lock() );
-         resource_limits._block_pending_net_usage->pending_net_usage = 0ULL;
-      }
+      resource_limits.init_block_pending_net();
       //TODO: Processing NET bandwidth of shard transactions not executed(Subscribed) by the node
       
       // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
@@ -2346,10 +2343,10 @@ struct controller_impl {
          { CPU_TARGET, chain_config.max_block_cpu_usage, config::block_cpu_usage_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}},
          { NET_TARGET, chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
       );
-      std::set<shard_name> processing_shard;
+      std::vector<chainbase::database*> processing_shard;
       for(auto& shard_pair : bb._shards ){
-         if( shard_pair.first == config::main_shard_name ) continue;
-         processing_shard.emplace( shard_pair.first );
+         if( shard_pair.first == config::main_shard_name || shard_pair.second._pending_trx_receipts.empty() ) continue;
+         processing_shard.push_back( &(shard_pair.second._db) );
       }
       resource_limits.process_block_usage( pbhs.block_num, processing_shard );
 

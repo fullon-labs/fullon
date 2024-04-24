@@ -380,6 +380,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void produce_block();
       bool maybe_produce_block();
       bool block_is_exhausted() const;
+      bool shard_is_exhausted( shard_name sname ) const;
       bool remove_expired_trxs( const fc::time_point& deadline, processing_shard& shard, removed_expired_trx_tracker &tracker );
       bool remove_expired_blacklisted_trxs( const fc::time_point& deadline, processing_shard& shard, expired_blacklisted_trx_tracker &tracker );
       bool process_unapplied_trx_one( const fc::time_point& deadline, processing_shard_map::iterator shard_itr );
@@ -2742,7 +2743,7 @@ producer_plugin_impl::handle_push_result( processing_shard_map::iterator shard_i
             fc_dlog(trx->is_transient() ? _transient_trx_failed_trace_log : _trx_failed_trace_log, "[TRX_TRACE] Speculative execution COULD NOT FIT tx: ${txid} RETRYING", ("txid", trx->id()));
          }
          if ( !trx->is_read_only() )
-            pr.block_exhausted = block_is_exhausted(); // smaller trx might fit
+            pr.block_exhausted = shard_is_exhausted( shard_name ); // smaller trx might fit
          pr.trx_exhausted = true;
       } else {
          pr.failed = true;
@@ -2962,7 +2963,7 @@ void producer_plugin_impl::push_schedule_transaction( const fc::time_point& dead
          if (trace->except) {
             shard._time_tracker.add_fail_time(end - start, false); // delayed transaction cannot be transient
             if (exception_is_exhausted(*trace->except)) {
-               if( self->block_is_exhausted() ) {
+               if( self->shard_is_exhausted( shard_itr->first ) ) {
                   block_exhausted = true;
                }
             } else {
@@ -3089,12 +3090,25 @@ bool producer_plugin_impl::block_is_exhausted() const {
    if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
    uint64_t net_limit = rl.get_block_net_limit( _dbm.main_db() );
    if( net_limit < _max_block_net_usage_threshold_bytes ) return true;
-   for( auto& sdb : const_cast<database_manager&>(_dbm).shard_dbs() ){
-      cpu_limit = rl.get_block_cpu_limit( _dbm.main_db(), sdb.second );
+   for( auto& sdb : _shards ){
+      cpu_limit = rl.get_block_cpu_limit( _dbm.main_db(), _dbm.shard_db( sdb.first ) );
       if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
-      net_limit = rl.get_block_net_limit( _dbm.main_db() );
-      if( net_limit < _max_block_net_usage_threshold_bytes ) return true;
    }
+   return false;
+}
+
+bool producer_plugin_impl::shard_is_exhausted( shard_name sname ) const {
+   const chain::controller& chain = chain_plug->chain();
+   const auto& rl = chain.get_resource_limits_manager();
+   const database_manager& _dbm = chain.dbm();
+   uint64_t cpu_limit = rl.get_block_cpu_limit( _dbm.main_db(), _dbm.main_db() );
+   if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
+   uint64_t net_limit = rl.get_block_net_limit( _dbm.main_db() );
+   if( net_limit < _max_block_net_usage_threshold_bytes ) return true;
+   
+   cpu_limit = rl.get_block_cpu_limit( _dbm.main_db(), _dbm.shard_db( sname ) );
+   if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
+   
    return false;
 }
 
