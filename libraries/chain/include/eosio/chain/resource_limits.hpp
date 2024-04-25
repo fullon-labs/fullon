@@ -146,7 +146,7 @@ namespace eosio { namespace chain {
          void undo_block_pending_net( uint64_t usage ){
             std::unique_lock write_lock( get_net_lock() );
             EOS_ASSERT( _block_pending_net_usage->pending_net_usage >= usage, transaction_exception,
-              "transaction Net usage undoing would underflow pending_net_usage");
+              "transaction Net usage is bigger than pending_net_usage");
             _block_pending_net_usage->pending_net_usage -= usage;
          }
       private:

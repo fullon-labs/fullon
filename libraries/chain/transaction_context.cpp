@@ -440,7 +440,10 @@ namespace eosio { namespace chain {
 
    void transaction_context::undo() {
       if (undo_session) undo_session->undo();
-      if (is_net_added) control.get_mutable_resource_limits_manager().undo_block_pending_net( this->net_usage );
+      if (is_net_added) {
+         control.get_mutable_resource_limits_manager().undo_block_pending_net( this->net_usage );
+         is_net_added = false;
+      }
    }
 
    void transaction_context::check_net_usage()const {
