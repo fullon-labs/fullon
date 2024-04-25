@@ -83,7 +83,7 @@ namespace eosio { namespace chain {
 
    transaction_context::~transaction_context()
    {
-      if( !is_squash && is_initialized ) {
+      if( !is_squash && is_net_added ) {
          //Thread safe
          control.get_mutable_resource_limits_manager().undo_block_pending_net( this->net_usage );
       }
@@ -430,6 +430,7 @@ namespace eosio { namespace chain {
 
       rl.add_transaction_usage( bill_to_accounts, static_cast<uint64_t>(billed_cpu_time_us), net_usage,
                                 block_timestamp_type(control.pending_block_time()).slot, this->db, this->shared_db, is_transient() ); // Should never fail
+      is_net_added = true;                          
    }
 
    void transaction_context::squash() {
@@ -439,7 +440,7 @@ namespace eosio { namespace chain {
 
    void transaction_context::undo() {
       if (undo_session) undo_session->undo();
-      control.get_mutable_resource_limits_manager().undo_block_pending_net( this->net_usage );
+      if (is_net_added) control.get_mutable_resource_limits_manager().undo_block_pending_net( this->net_usage );
    }
 
    void transaction_context::check_net_usage()const {

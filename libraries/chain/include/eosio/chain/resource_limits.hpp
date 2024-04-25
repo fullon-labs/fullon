@@ -129,14 +129,25 @@ namespace eosio { namespace chain {
 
          int64_t get_account_ram_usage( const account_name& name , chainbase::database& db) const;
          std::shared_mutex& get_net_lock(){ return _block_pending_net_usage->rw_lock; }
-         void init_block_pending_net(){ std::unique_lock write_lock( get_net_lock() ); _block_pending_net_usage->pending_net_usage = 0ULL; }
-         uint64_t get_block_pending_net() const { std::shared_lock read_lock( _block_pending_net_usage->rw_lock ); return _block_pending_net_usage->pending_net_usage; }
-         void add_block_pending_net( uint64_t usage ){ std::unique_lock write_lock( get_net_lock() ); _block_pending_net_usage->pending_net_usage += usage; }
+         void init_block_pending_net(){ 
+            std::unique_lock write_lock( get_net_lock() ); 
+            _block_pending_net_usage->pending_net_usage = 0ULL; 
+         }
+         uint64_t get_block_pending_net() const { 
+            std::shared_lock read_lock( _block_pending_net_usage->rw_lock ); 
+            return _block_pending_net_usage->pending_net_usage; 
+         }
+         void add_block_pending_net( uint64_t usage ){ 
+            std::unique_lock write_lock( get_net_lock() );
+            EOS_ASSERT( UINT64_MAX - _block_pending_net_usage->pending_net_usage >= usage, transaction_exception,
+            "transaction Net usage adding would overflow UINT64_MAX"); 
+            _block_pending_net_usage->pending_net_usage += usage; 
+         }
          void undo_block_pending_net( uint64_t usage ){
             std::unique_lock write_lock( get_net_lock() );
-            if(_block_pending_net_usage->pending_net_usage >= usage){
-               _block_pending_net_usage->pending_net_usage -= usage;
-            }
+            EOS_ASSERT( _block_pending_net_usage->pending_net_usage >= usage, transaction_exception,
+              "transaction Net usage undoing would underflow pending_net_usage");
+            _block_pending_net_usage->pending_net_usage -= usage;
          }
       private:
          eosio::chain::database_manager&     _dbm;

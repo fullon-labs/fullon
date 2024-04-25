@@ -170,6 +170,7 @@ namespace eosio { namespace chain {
          uint64_t                      eager_net_limit = 0;
          uint64_t&                     net_usage; /// reference to trace->net_usage
          bool                          is_squash = false;
+         bool                          is_net_added = false;
          bool                          cpu_limit_due_to_greylist = false;
 
          fc::microseconds              max_transaction_time_subjective;
