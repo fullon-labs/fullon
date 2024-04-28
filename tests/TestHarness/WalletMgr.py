@@ -15,6 +15,7 @@ class WalletMgr(object):
     __walletDataDir=f"{Utils.TestLogRoot}/test_wallet_0"
     __walletLogOutFile=f"{__walletDataDir}/test_keosd_out.log"
     __walletLogErrFile=f"{__walletDataDir}/test_keosd_err.log"
+    __walletPasswordFile=f"{__walletDataDir}/test_keosd_pass.txt"
     __MaxPort=9999
 
     # pylint: disable=too-many-arguments
@@ -154,6 +155,9 @@ class WalletMgr(object):
         p=m.group(1)
         wallet=Wallet(name, p, self.host, self.port)
         self.wallets[name] = wallet
+        with open(WalletMgr.__walletPasswordFile, 'w') as f:
+            f.write("%s=%s" % (name, p))
+            f.close()
 
         if accounts:
             self.importKeys(accounts,wallet)

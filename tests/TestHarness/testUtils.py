@@ -70,6 +70,8 @@ class Utils:
     EosServerPath=str(testBinPath / EosServerName)
 
     SysAccount="flon"
+    SysTokenAccount="flon.token"
+    MainShardName="main"
 
     ShuttingDown=False
 
@@ -314,7 +316,7 @@ class Utils:
     @staticmethod
     def runCmdArrReturnJson(cmdArr, trace=False, silentErrors=True):
         retStr=Utils.checkOutput(cmdArr)
-        return Utils.toJson(retStr)
+        return Utils.toJson(retStr, trace)
 
     @staticmethod
     def runCmdReturnStr(cmd, trace=False):

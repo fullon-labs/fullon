@@ -9,6 +9,7 @@ from .depresolver import dep
 from .queries import NodeosQueries
 from .testUtils import Account
 from .testUtils import Utils
+import shlex
 
 class Transactions(NodeosQueries):
     def __init__(self, host, port, walletMgr=None):
@@ -358,13 +359,26 @@ class Transactions(NodeosQueries):
         self.preactivateProtocolFeatures(allBuiltinProtocolFeatureDigests)
 
     # void regshard( const eosio::name& name, const eosio::name& owner, bool enabled );
-    def regshard(self, name, owner, enabled):
+    def regshard(self, name, owner, enabled, waitForTransBlock=False, exitOnError=False):
         assert(isinstance(owner, Account))
         Utils.Print("push regshard action with name:{}, owner:{}, enabled {}".format(name, owner.name, enabled))
         data="{{\"name\":\"{}\", \"owner\":\"{}\", \"enabled\":1}}".format(name, owner.name, enabled)
         opts="--permission {}@active".format(Utils.SysAccount)
         success, trans=self.pushMessage(Utils.SysAccount, "regshard", data, opts)
-        if not success:
-            Utils.Print("ERROR: Failed to regshard name {}".format(name))
-            return None
-        self.waitForTransactionInBlock(trans['transaction_id'])
+        assert success,  f"ERROR: Failed to register shard \"{name}\", response:{trans}"
+        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
+
+    def xTransferOut(self, owner, from_shard, to_shard, contract, quantity, memo = "", waitForTransBlock=False, exitOnError=False, sign=False):
+        assert(isinstance(owner, Account))
+        signStr = NodeosQueries.sign_str(sign, [ owner.activePublicKey ])
+        cmdDesc = "system xtransfer"
+        cmdArr = cmdDesc.split()
+        if signStr:
+            cmdArr += signStr.split()
+        cmdArr += ["-j", "--shard", from_shard, owner.name, to_shard, contract, quantity, memo]
+        msg = " ".join(cmdArr)
+        trans=self.processCleosCmdArr(cmdArr, cmdDesc, silentErrors = False, exitOnError=exitOnError, exitMsg=msg)
+
+        self.trackCmdTransaction(trans)
+        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
+
