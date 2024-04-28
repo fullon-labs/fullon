@@ -111,7 +111,8 @@ namespace eosio { namespace chain {
       const auto& cfg = control.get_global_properties().configuration;
       auto& rl = control.get_mutable_resource_limits_manager();
       net_limit = rl.get_block_net_limit( shared_db );
-      objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit_writable( shared_db, db ) );
+      rl.check_resource_limits_state_object( db, shared_db );
+      objective_duration_limit = fc::microseconds( rl.get_block_cpu_limit( shared_db, db ) );
       _deadline = start + objective_duration_limit;
 
       // Possibly lower net_limit to the maximum net usage a transaction is allowed to be billed
@@ -427,7 +428,7 @@ namespace eosio { namespace chain {
       update_billed_cpu_time( now );
 
       validate_cpu_usage_to_bill( billed_cpu_time_us, account_cpu_limit, true, subjective_cpu_bill_us );
-
+      rl.check_resource_limits_state_object(this->db, this->shared_db);
       rl.add_transaction_usage( bill_to_accounts, static_cast<uint64_t>(billed_cpu_time_us), net_usage,
                                 block_timestamp_type(control.pending_block_time()).slot, this->db, this->shared_db, is_transient() ); // Should never fail
       is_net_added = true;                          
@@ -667,6 +668,7 @@ namespace eosio { namespace chain {
       bool greylisted_cpu = false;
 
       uint32_t specified_greylist_limit = control.get_greylist_limit();
+      rl.check_resource_limits_state_object( this->db, this->shared_db);
       for( const auto& a : bill_to_accounts ) {
          uint32_t greylist_limit = config::maximum_elastic_resource_multiplier;
          if( !force_elastic_limits && control.is_speculative_block() ) {

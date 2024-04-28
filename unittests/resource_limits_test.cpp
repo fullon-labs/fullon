@@ -46,6 +46,7 @@ class resource_limits_fixture: private database_manager_fixture<1024*1024>, publ
       std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const{
                chainbase::database&        db = get_shard();
          const chainbase::database& shared_db = get_shared();
+         resource_limits_manager::check_resource_limits_state_object( db, shared_db );
          return resource_limits_manager::get_account_cpu_limit( name, db, shared_db, greylist_limit );
       }
       
@@ -259,7 +260,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
          add_transaction_usage({account}, increment, 0, 0 );
       }
 
-      BOOST_REQUIRE_THROW(add_transaction_usage({account}, increment, 0, 0 ), shard_resource_exhausted_exception);
+      BOOST_REQUIRE_THROW(add_transaction_usage({account}, increment, 0, 0 ), block_resource_exhausted );
 
    } FC_LOG_AND_RETHROW();
 
@@ -276,7 +277,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
          add_transaction_usage({account}, 0, increment, 0 );
       }
 
-      BOOST_REQUIRE_THROW(add_transaction_usage({account}, 0, increment, 0 ), shard_resource_exhausted_exception);
+      BOOST_REQUIRE_THROW(add_transaction_usage({account}, 0, increment, 0 ), block_resource_exhausted );
 
    } FC_LOG_AND_RETHROW();
 

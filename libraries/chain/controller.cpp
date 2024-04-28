@@ -2095,9 +2095,8 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
       const auto& pbhs = bb._pending_block_header_state;
       auto& main_db = dbm.main_db(); // TODO: shared_db?
-      //0 == resource_limits._block_pending_net_usage = main_db.get<resource_limits_state_object>().pending_net_usage;
       resource_limits.init_block_pending_net();
-      //TODO: Processing NET bandwidth of shard transactions not executed(Subscribed) by the node
+      //TODO: For shards that are not executing, process transaction NET bandwidth on it
       
       // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
       // speculative incomplete block (otherwise we need clean state for head mode, ephemeral block)

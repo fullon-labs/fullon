@@ -110,7 +110,7 @@ namespace eosio { namespace chain {
          uint64_t get_virtual_block_cpu_limit() const;
          uint64_t get_virtual_block_net_limit() const;
 
-         uint64_t get_block_cpu_limit_writable( const chainbase::database& shared_db, chainbase::database& db ) const;
+         //uint64_t get_block_cpu_limit_writable( const chainbase::database& shared_db, chainbase::database& db ) const;
          uint64_t get_block_cpu_limit( const chainbase::database& shared_db, const chainbase::database& db ) const;
          uint64_t get_block_net_limit( const chainbase::database& shared_db ) const;
 
@@ -149,6 +149,7 @@ namespace eosio { namespace chain {
               "transaction Net usage is bigger than pending_net_usage");
             _block_pending_net_usage->pending_net_usage -= usage;
          }
+         void check_resource_limits_state_object(chainbase::database& db, const chainbase::database& shared_db) const;
       private:
          eosio::chain::database_manager&     _dbm;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
