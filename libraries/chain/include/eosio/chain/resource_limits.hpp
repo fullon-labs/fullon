@@ -8,7 +8,7 @@
 #include <chainbase/chainbase.hpp>
 #include <eosio/chain/database_manager.hpp>
 #include <set>
-
+#include <shared_mutex>
 namespace eosio { namespace chain {
 
    class deep_mind_handler;
@@ -62,7 +62,11 @@ namespace eosio { namespace chain {
       block_timestamp_type last_usage_update_time; ///< last usage timestamp
       int64_t current_used = 0;  ///< current usage according to the given timestamp
    };
-
+   struct block_pending_net {
+      mutable std::shared_mutex           rw_lock;
+      uint64_t                            pending_net_usage = 0ULL;
+   };
+   
    class resource_limits_manager {
       public:
 
@@ -70,6 +74,7 @@ namespace eosio { namespace chain {
          :_dbm(dbm)
          ,_get_deep_mind_logger(get_deep_mind_logger)
          {
+            _block_pending_net_usage = std::make_shared<block_pending_net>();
          }
 
          static void add_indices(chainbase::database& db);
@@ -96,7 +101,7 @@ namespace eosio { namespace chain {
          bool is_unlimited_cpu( const account_name& account, const chainbase::database& shared_db) const;
 
          void process_account_limit_updates();
-         void process_block_usage( uint32_t block_num );
+         void process_block_usage( uint32_t block_num, std::vector<chainbase::database*> processing_shard = {} );
 
          // accessors
          uint64_t get_total_cpu_weight() const;
@@ -105,7 +110,7 @@ namespace eosio { namespace chain {
          uint64_t get_virtual_block_cpu_limit() const;
          uint64_t get_virtual_block_net_limit() const;
 
-         uint64_t get_block_cpu_limit( const chainbase::database& shared_db ) const;
+         uint64_t get_block_cpu_limit( const chainbase::database& shared_db, const chainbase::database& db ) const;
          uint64_t get_block_net_limit( const chainbase::database& shared_db ) const;
 
          std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
@@ -122,10 +127,33 @@ namespace eosio { namespace chain {
          get_account_net_limit_ex( const account_name& name, const chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
 
          int64_t get_account_ram_usage( const account_name& name , chainbase::database& db) const;
-
+         std::shared_mutex& get_net_lock(){ return _block_pending_net_usage->rw_lock; }
+         void init_block_pending_net(){ 
+            std::unique_lock write_lock( get_net_lock() ); 
+            _block_pending_net_usage->pending_net_usage = 0ULL; 
+         }
+         uint64_t get_block_pending_net() const { 
+            std::shared_lock read_lock( _block_pending_net_usage->rw_lock ); 
+            return _block_pending_net_usage->pending_net_usage; 
+         }
+         void add_block_pending_net( uint64_t usage ){ 
+            std::unique_lock write_lock( get_net_lock() );
+            EOS_ASSERT( UINT64_MAX - _block_pending_net_usage->pending_net_usage >= usage, transaction_exception,
+            "transaction Net usage adding would overflow UINT64_MAX"); 
+            _block_pending_net_usage->pending_net_usage += usage; 
+         }
+         void undo_block_pending_net( uint64_t usage ){
+            std::unique_lock write_lock( get_net_lock() );
+            EOS_ASSERT( _block_pending_net_usage->pending_net_usage >= usage, transaction_exception,
+              "transaction Net usage is bigger than pending_net_usage");
+            _block_pending_net_usage->pending_net_usage -= usage;
+         }
+         void ensure_resource_limits_state_object(chainbase::database& db, const chainbase::database& shared_db) const;
       private:
          eosio::chain::database_manager&     _dbm;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
+      public:
+         std::shared_ptr<block_pending_net> _block_pending_net_usage;
    };
 } } } /// eosio::chain
 

@@ -3155,12 +3155,14 @@ int main( int argc, char** argv ) {
    uint32_t limit = 10;
    uint32_t time_limit_ms = 10;
    string index_position;
+   string shard_name = "main";
    bool reverse = false;
    bool show_payer = false;
    auto getTable = get->add_subcommand( "table", localized("Retrieve the contents of a database table"));
    getTable->add_option( "account", code, localized("The account who owns the table") )->required();
    getTable->add_option( "scope", scope, localized("The scope within the contract in which the table is found") )->required();
    getTable->add_option( "table", table, localized("The name of the table as specified by the contract abi") )->required();
+   getTable->add_option( "--shard", shard_name, localized("The shard name to querry, default to 'main'") );
    getTable->add_option( "-l,--limit", limit, localized("The maximum number of rows to return") );
    getTable->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds, defaults to 10ms"));
    getTable->add_option( "-k,--key", table_key, localized("Deprecated") );
@@ -3186,6 +3188,7 @@ int main( int argc, char** argv ) {
         ( "code", code )
         ( "scope", scope )
         ( "table", table )
+        ( "shard_name", shard_name )
         ( "table_key", table_key ) // not used
         ( "lower_bound", lower )
         ( "upper_bound", upper )

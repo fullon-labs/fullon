@@ -1938,7 +1938,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
 
    auto max_cpu_time_us = chain.control->get_global_properties().configuration.max_transaction_cpu_usage;
    auto min_cpu_time_us = chain.control->get_global_properties().configuration.min_transaction_cpu_usage;
-
+   mgr.ensure_resource_limits_state_object(db, shared_db);
    auto cpu_limit = mgr.get_account_cpu_limit(acc, db, shared_db).first; // huge limit ~17s
 
    ptrx = create_trx(0);

@@ -320,8 +320,9 @@ BOOST_FIXTURE_TEST_CASE(sequence_numbers_test, read_only_trx_tester) { try {
    auto res = send_db_api_transaction("insert"_n, insert_data);
    produce_block();
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
-
-   BOOST_CHECK_EQUAL( prev_global_action_sequence + 1, p.global_action_sequence );
+   //Due to the update of the system contract, onblock action successful execuation result in addition of {global_action_sequence}.
+   //                                                  \/
+   BOOST_CHECK_EQUAL( prev_global_action_sequence + 1 + 1, p.global_action_sequence );
    BOOST_CHECK_EQUAL( prev_recv_sequence + 1, receiver_account->recv_sequence );
    BOOST_CHECK_EQUAL( prev_auth_sequence + 1, amo->auth_sequence );
 

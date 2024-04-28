@@ -2095,7 +2095,9 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
       const auto& pbhs = bb._pending_block_header_state;
       auto& main_db = dbm.main_db(); // TODO: shared_db?
-
+      resource_limits.init_block_pending_net();
+      //TODO: For shards that are not executing, process transaction NET bandwidth on it
+      
       // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
       // speculative incomplete block (otherwise we need clean state for head mode, ephemeral block)
       if ( pending->_block_status != controller::block_status::ephemeral )
@@ -2333,11 +2335,19 @@ struct controller_impl {
       resource_limits.process_account_limit_updates();
       const auto& chain_config = self.get_global_properties().configuration;
       uint64_t CPU_TARGET = EOS_PERCENT(chain_config.max_block_cpu_usage, chain_config.target_block_cpu_usage_pct);
+      // virtual net target = chain_config.max_block_net_usage * chain_config.target_block_net_usage_pct
+      // default chain_config.max_block_net_usage * 0.1
+      uint64_t NET_TARGET = EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct);
       resource_limits.set_block_parameters(
          { CPU_TARGET, chain_config.max_block_cpu_usage, config::block_cpu_usage_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}},
-         {EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct), chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
+         { NET_TARGET, chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
       );
-      resource_limits.process_block_usage(pbhs.block_num);
+      std::vector<chainbase::database*> processing_shard;
+      for(auto& shard_pair : bb._shards ){
+         if( shard_pair.first == config::main_shard_name || shard_pair.second._pending_trx_receipts.empty() ) continue;
+         processing_shard.push_back( &(shard_pair.second._db) );
+      }
+      resource_limits.process_block_usage( pbhs.block_num, processing_shard );
 
       const auto& sc_indx = dbm.main_db().get_index<shard_change_index, by_id>();
       for(  auto itr = sc_indx.begin();
