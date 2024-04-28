@@ -46,7 +46,7 @@ class resource_limits_fixture: private database_manager_fixture<1024*1024>, publ
       std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const{
                chainbase::database&        db = get_shard();
          const chainbase::database& shared_db = get_shared();
-         resource_limits_manager::check_resource_limits_state_object( db, shared_db );
+         resource_limits_manager::ensure_resource_limits_state_object( db, shared_db );
          return resource_limits_manager::get_account_cpu_limit( name, db, shared_db, greylist_limit );
       }
       

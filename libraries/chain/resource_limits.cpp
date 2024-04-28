@@ -308,7 +308,7 @@ int64_t resource_limits_manager::get_account_ram_usage( const account_name& name
    return usage->ram_usage;
 }
 
-void resource_limits_manager::check_resource_limits_state_object(chainbase::database& db, const chainbase::database& shared_db) const {
+void resource_limits_manager::ensure_resource_limits_state_object(chainbase::database& db, const chainbase::database& shared_db) const {
    const auto& config = shared_db.get<resource_limits_config_object>();
    const auto* shard_state = db.find<resource_limits_state_object>();
    if( shard_state == nullptr ){
