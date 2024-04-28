@@ -286,15 +286,16 @@ private:
 
 signing_keys_option signing_keys_opt;
 
-
-void add_standard_transaction_options_plus_signing(CLI::App* cmd, string default_permission = "") {
-   add_standard_transaction_options(cmd, default_permission);
-   signing_keys_opt.add_option(cmd);
-}
-
-
 void add_transaction_shard_options(CLI::App* cmd) {
    cmd->add_option("--shard", tx_shard_name, localized("Set the shard name of the transaction, defaults to \"main\""));
+}
+
+void add_standard_transaction_options_plus_signing(CLI::App* cmd, string default_permission = "", bool has_shard_opt = true) {
+   add_standard_transaction_options(cmd, default_permission);
+   signing_keys_opt.add_option(cmd);
+   if (has_shard_opt) {
+      add_transaction_shard_options(cmd);
+   }
 }
 
 vector<chain::permission_level> get_account_permissions(const vector<string>& permissions) {
@@ -2301,6 +2302,43 @@ struct closerex_subcommand {
    }
 };
 
+struct xtransfer_subcommand {
+   string owner_str;
+   string from_shard_str;
+   string to_shard_str;
+   string contract_str;
+   string quantity_str;
+   string memo;
+
+   xtransfer_subcommand(CLI::App* actionRoot) {
+      auto xshout = actionRoot->add_subcommand("xtransfer", localized("Transfer owner's tokens out from current shard to to_shard"));
+      xshout->add_option("owner", owner_str, localized("The owner account to transfer token"))->required();
+      xshout->add_option("to_shard", to_shard_str, localized("The shard to transfer in to"))->required();
+      xshout->add_option("contract", contract_str, localized("The token contract to transfer"))->required();
+      xshout->add_option("quantity", quantity_str, localized("The quantity of tokens to transfer"))->required();
+      xshout->add_option("memo", memo, localized("The memo for the transfer"));
+      add_standard_transaction_options_plus_signing(xshout, "owner@active");
+
+      xshout->callback([this] {
+
+         auto data = variant_to_bin( config::system_account_name, "xtransfer"_n, fc::mutable_variant_object()
+                  ("quantity", quantity_str)
+                  ("memo", memo));
+         fc::variant act_payload = fc::mutable_variant_object()
+                  ("owner", owner_str)
+                  ("to_shard", to_shard_str)
+                  ("contract", contract_str)
+                  ("action_type", "xtransfer"_n)
+                  ("action_data", data);
+
+         auto accountPermissions = get_account_permissions(tx_permission, {name(owner_str), config::active_name});
+         auto act = create_action(accountPermissions, config::system_account_name, "xshout"_n, act_payload);
+         send_actions({act}, signing_keys_opt.get_keys());
+      });
+   }
+};
+
+
 struct protocol_features_t {
    std::string names;
    std::unordered_map<std::string, std::string> digests {}; // from name to digest
@@ -3935,7 +3973,6 @@ int main( int argc, char** argv ) {
                                  localized("A JSON string or filename defining the action to execute on the contract"))->required()->capture_default_str();
    actionsSubcommand->add_option("data", data, localized("The arguments to the contract"))->required();
    actionsSubcommand->add_flag("--read", tx_read, localized("Specify an action is read-only"));
-   add_transaction_shard_options(actionsSubcommand);
 
    add_standard_transaction_options_plus_signing(actionsSubcommand);
    actionsSubcommand->callback([&] {
@@ -4501,6 +4538,8 @@ int main( int argc, char** argv ) {
    auto updaterex      = updaterex_subcommand(rex);
    auto rexexec        = rexexec_subcommand(rex);
    auto closerex       = closerex_subcommand(rex);
+
+   auto xtransfer = xtransfer_subcommand(system);
 
    auto handle_error = [&](const auto& e)
    {

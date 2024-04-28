@@ -120,16 +120,7 @@ namespace eosiosystem {
       EOSLIB_SERIALIZE( abi_hash, (owner)(hash) )
    };
 
-   /**
-    * xtoken is the struct of `xtransfer` action type of xshard.
-    */
-   struct [[eosio::action]] xtoken {
-      eosio::asset      quantity;
-      std::string       memo;
 
-      // explicit serialization macro is not necessary, used here only to improve compilation time
-      EOSLIB_SERIALIZE( xtoken, (quantity)(memo) )
-   };
 
    void check_auth_change(name contract, name account, const binary_extension<name>& authorized_by);
 
@@ -319,20 +310,32 @@ namespace eosiosystem {
          [[eosio::action]]
          void setcode( const name& account, uint8_t vmtype, uint8_t vmversion, const std::vector<char>& code,
                        const binary_extension<std::string>& memo ) {}
+
+         /**
+          * xtransfer is the struct of `xtransfer` action type of xshard.
+          */
+         struct [[eosio::action]] xtransfer {
+            eosio::asset      quantity;
+            std::string       memo;
+
+            // explicit serialization macro is not necessary, used here only to improve compilation time
+            EOSLIB_SERIALIZE( xtransfer, (quantity)(memo) )
+         };
+
          /**
           * Allows `owner` account to make a request to transfer tokens from current shard to `to_shard`.
           *
           * @param owner - the owner account to execute this action,
           * @param to_shard - the shard to be transferred to,
           * @param contract - the token contract,
-          * @param action_type - the action type: `xtoken`.
+          * @param action_type - the action type: `xtransfer`.
           * @param action_data - the action data
           */
          [[eosio::action]]
          void xshout(   name                 owner,
                         name                 to_shard,
                         name                 contract,
-                        name                 action_name,
+                        name                 action_type,
                         std::vector<char>    action_data );
 
          /**

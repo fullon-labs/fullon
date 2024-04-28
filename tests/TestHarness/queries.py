@@ -5,6 +5,7 @@ import json
 import re
 import subprocess
 import time
+import shlex
 
 import urllib.request
 import urllib.parse
@@ -168,7 +169,7 @@ class NodeosQueries:
         return balance
 
     @staticmethod
-    def currencyIntToStr(balance, symbol):
+    def currencyIntToStr(balance, symbol = CORE_SYMBOL):
         """Converts currency int of form 123456 to string "12.3456 SYS" where SYS is symbol string"""
         assert(isinstance(balance, int))
         assert(isinstance(symbol, str))
@@ -596,6 +597,51 @@ class NodeosQueries:
 
         return trans
 
+
+    def processCleosCmdArr(self, cmdArr, cmdDesc, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
+        assert(isinstance(returnType, ReturnType))
+        assert(isinstance(cmdArr, list))
+        cmdArr = [Utils.EosClientPath] + shlex.split(self.eosClientArgs()) + cmdArr
+        if Utils.Debug: Utils.Print("cmd: %s" % (shlex.join(cmdArr)))
+        if exitMsg is not None:
+            exitMsg="Context: " + exitMsg
+        else:
+            exitMsg=""
+        trans=None
+        start=time.perf_counter()
+        try:
+            Utils.Print("returnType=%s" %(returnType))
+            if returnType==ReturnType.json:
+                Utils.Print("runCmdArrReturnJson11111")
+                trans=Utils.runCmdArrReturnJson(cmdArr, silentErrors=silentErrors)
+            elif returnType==ReturnType.raw:
+                Utils.Print("runCmdArrReturnJson111112")
+                trans=Utils.runCmdArrReturnStr(cmdArr)
+            else:
+                unhandledEnumType(returnType)
+
+            if Utils.Debug:
+                end=time.perf_counter()
+                Utils.Print("cmd Duration: %.3f sec" % (end-start))
+        except subprocess.CalledProcessError as ex:
+            if not silentErrors:
+                end=time.perf_counter()
+                out=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
+                errorMsg="Exception during \"%s\". Exception message: %s.  stdout: %s.  cmd Duration=%.3f sec. %s" % (cmdDesc, msg, out, end-start, exitMsg)
+                if exitOnError:
+                    Utils.cmdError(errorMsg)
+                    Utils.errorExit(errorMsg)
+                else:
+                    Utils.Print("ERROR: %s" % (errorMsg))
+            return None
+
+        if exitOnError and trans is None:
+            Utils.cmdError("could not \"%s\". %s" % (cmdDesc,exitMsg))
+            Utils.errorExit("Failed to \"%s\"" % (cmdDesc))
+
+        return trans
+
     def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, method="POST", endpoint=None):
         if not endpoint:
             endpoint = self.endpointHttp
@@ -777,3 +823,19 @@ class NodeosQueries:
     def getActivatedProtocolFeatures(self):
         latestBlockHeaderState = self.getLatestBlockHeaderState()
         return latestBlockHeaderState["activated_protocol_features"]["protocol_features"]
+
+    def getShards(self, lower_bound, limit):
+        param = {
+            "lower_bound": lower_bound,
+            "limit": limit
+        }
+        res = self.processUrllibRequest("chain", "get_shards", param)
+        code = res["code"]
+        payload = res["payload"]
+        assert code == 200, f"ERROR: Invalid response code '{code}' of get_shards, payload:'{payload}'"
+        return payload
+
+    def isShardExists(self, name):
+        res = self.getShards(name, 1)
+        shards = res["shards"]
+        return shards and len(shards) > 0 and shards[0]["name"] == name
