@@ -2097,7 +2097,7 @@ struct controller_impl {
       auto& main_db = dbm.main_db(); // TODO: shared_db?
       resource_limits.init_block_pending_net();
       //TODO: For shards that are not executing, process transaction NET bandwidth on it
-      
+
       // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
       // speculative incomplete block (otherwise we need clean state for head mode, ephemeral block)
       if ( pending->_block_status != controller::block_status::ephemeral )
@@ -3038,8 +3038,10 @@ struct controller_impl {
                break;
             }
          }
-         dlog("removed ${n} expired transactions of the ${t} input dedup list, pending block time ${pt}, block shard name: ${sname}",
-            ("n", num_removed)("t", total)("pt", now)("sname", sname));
+         if (num_removed > 0) {
+            dlog("removed ${n} expired transactions of the ${t} input dedup list, pending block time ${pt}, block shard name: ${sname}",
+               ("n", num_removed)("t", total)("pt", now)("sname", sname));
+         }
       };
 
       auto& db = dbm.main_db();

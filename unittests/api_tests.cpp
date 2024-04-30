@@ -1006,7 +1006,7 @@ BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
                           deadline_exception, is_deadline_exception );
 
    BOOST_CHECK_EXCEPTION( call_test( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
-                                     0, 200, 200, fc::raw::pack(10000000000000000000ULL) ),
+                                     0, 400, 400, fc::raw::pack(10000000000000000000ULL) ),
                           tx_cpu_usage_exceeded, fc_exception_message_contains("reached on chain max_transaction_cpu_usage") );
 
    BOOST_CHECK_EXCEPTION( push_trx( t, test_api_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
@@ -1725,7 +1725,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
       } );
       CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_transaction", {});
       BOOST_CHECK_THROW(CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_transaction", {}), deferred_tx_duplicate);
-      produce_blocks( 3 );
+      produce_blocks( calc_blocks_by_sec(2, -1) );
 
       //check that only one deferred transaction executed
       auto dtrxs = get_scheduled_transactions();
@@ -1751,7 +1751,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
       } );
       CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_transaction_replace", {});
       CALL_TEST_FUNCTION(*this, "test_transaction", "send_deferred_transaction_replace", {});
-      produce_blocks( 3 );
+      produce_blocks( calc_blocks_by_sec(2, -1) );
 
       //check that only one deferred transaction executed
       auto billed_cpu_time_us = control->get_global_properties().configuration.min_transaction_cpu_usage;

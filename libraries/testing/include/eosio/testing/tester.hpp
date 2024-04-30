@@ -85,6 +85,16 @@ namespace eosio { namespace testing {
 
    bool expect_assert_message(const fc::exception& ex, string expected);
 
+   inline uint32_t calc_blocks_by_sec(uint32_t sec, int32_t offset_count = 0) {
+      int64_t calc_count = sec * 1000 / config::block_interval_ms;
+      calc_count += offset_count;
+      if (calc_count < 0 ) {
+         edump((sec)(offset_count)(calc_count));
+         BOOST_ERROR("The calculated block count can not be negative");
+      }
+      return calc_count;
+   }
+
    using subjective_restriction_map = std::map<builtin_protocol_feature_t, protocol_feature_subjective_restrictions>;
 
    protocol_feature_set make_protocol_feature_set(const subjective_restriction_map& custom_subjective_restrictions = {});

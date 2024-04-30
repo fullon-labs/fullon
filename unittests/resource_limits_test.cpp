@@ -5,6 +5,7 @@
 #include <eosio/chain/config.hpp>
 #include <eosio/testing/chainbase_fixture.hpp>
 #include <eosio/testing/database_manager_fixture.hpp>
+#include <eosio/testing/tester.hpp>
 
 #include <boost/test/unit_test.hpp>
 
@@ -28,39 +29,39 @@ class resource_limits_fixture: private database_manager_fixture<1024*1024>, publ
       chainbase::database::session start_session() {
          return database_manager_fixture::_dbm->main_db().start_undo_session(true);
       }
-      
+
       chainbase::database& get_shard() const { return (*database_manager_fixture::_dbm).main_db();}
       chainbase::database& get_shared() const { return (*database_manager_fixture::_dbm).main_db();}
-      
+
       void add_transaction_usage( const flat_set<account_name>& accounts, uint64_t cpu_usage, uint64_t net_usage, uint32_t ordinal,bool is_trx_transient = false ){
          chainbase::database&        db = get_shard();
          chainbase::database& shared_db = get_shared();
          resource_limits_manager::add_transaction_usage( accounts, cpu_usage, net_usage, ordinal, db, shared_db, is_trx_transient );
       }
-      
+
       bool set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, bool is_trx_transient){
          chainbase::database& shared_db = get_shared();
          return resource_limits_manager::set_account_limits( account, ram_bytes, net_weight, cpu_weight, shared_db, is_trx_transient);
       }
-      
+
       std::pair<int64_t, bool> get_account_cpu_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const{
                chainbase::database&        db = get_shard();
          const chainbase::database& shared_db = get_shared();
          resource_limits_manager::ensure_resource_limits_state_object( db, shared_db );
          return resource_limits_manager::get_account_cpu_limit( name, db, shared_db, greylist_limit );
       }
-      
+
       std::pair<int64_t, bool> get_account_net_limit( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const{
                chainbase::database&        db = get_shard();
          const chainbase::database& shared_db = get_shared();
          return resource_limits_manager::get_account_net_limit( name, db, shared_db, greylist_limit );
       }
-      
+
       void add_pending_ram_usage( const account_name account, int64_t ram_delta, bool is_trx_transient = false ){
          chainbase::database&        db = get_shard();
          resource_limits_manager::add_pending_ram_usage( account, ram_delta, db, is_trx_transient );
       }
-      
+
       void verify_account_ram_usage( const account_name accunt ) const {
          chainbase::database&        db = get_shard();
          chainbase::database& shared_db = get_shared();
@@ -108,7 +109,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       const uint64_t expected_contract_iterations =
               expected_exponential_average_iterations(0, EOS_PERCENT(config::default_max_block_cpu_usage, config::default_target_block_cpu_usage_pct), config::default_max_block_cpu_usage, config::block_cpu_usage_average_window_ms / config::block_interval_ms ) +
               expected_elastic_iterations( desired_virtual_limit, config::default_max_block_cpu_usage, 99, 100 ) - 1;
-      
+
       const account_name account(1);
       initialize_account(account, false);
       set_account_limits(account, -1, -1, -1, false);
@@ -147,7 +148,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       const uint64_t expected_contract_iterations =
               expected_exponential_average_iterations(0, EOS_PERCENT(config::default_max_block_net_usage, config::default_target_block_net_usage_pct), config::default_max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms ) +
               expected_elastic_iterations( desired_virtual_limit, config::default_max_block_net_usage, 99, 100 ) - 1;
-      
+
       const account_name account(1);
       initialize_account(account, false);
       set_account_limits(account, -1, -1, -1, false);
@@ -188,7 +189,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       uint128_t account_cpu_usage_average_window = 172800;
       uint128_t virtual_cpu_capacity_in_window = account_cpu_usage_average_window * (config::default_max_block_cpu_usage);
       std::transform(std::begin(weights), std::end(weights), std::back_inserter(expected_limits), [total, &virtual_cpu_capacity_in_window](const auto& v){ return (int64_t)(v * virtual_cpu_capacity_in_window / total); });
-   
+
       for (int64_t idx = 0; idx < weights.size(); idx++) {
          const account_name account(idx + 100);
          initialize_account(account, false);
@@ -351,7 +352,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       int64_t  total_staked_tokens = 1'000'000'000'0000ll;
       int64_t  user_stake = 1'0000ll;
       uint64_t max_block_cpu = 200'000.; // us;
-      uint64_t blocks_per_day = 2*60*60*24;
+      uint64_t blocks_per_day = calc_blocks_by_sec(60*60*24);
       uint64_t total_cpu_per_period = max_block_cpu * blocks_per_day;
       double congested_cpu_time_per_period = (double(total_cpu_per_period) * user_stake) / total_staked_tokens;
       wdump((congested_cpu_time_per_period));

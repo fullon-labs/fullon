@@ -1,5 +1,6 @@
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/resource_limits_private.hpp>
 #include <eosio/testing/tester.hpp>
 #include <eosio/testing/tester_network.hpp>
 
@@ -19,6 +20,7 @@
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
+using namespace eosio::chain::resource_limits;
 
 using mvo = fc::mutable_variant_object;
 
@@ -743,10 +745,21 @@ BOOST_AUTO_TEST_CASE( greylist_limit_tests ) { try {
    cfg.min_transaction_cpu_usage  = 100; // Empty blocks (consisting of only onblock) would be below the target.
    // But all it takes is one transaction in the block to be above the target.
 
+   idump((cfg));
+
    tester c( conf_genesis.first, conf_genesis.second );
    c.execute_setup_policy( setup_policy::full );
 
    const resource_limits_manager& rm = c.control->get_resource_limits_manager();
+   auto& shard_db  = const_cast<chainbase::database&>(c.control->dbm().main_db());
+   auto& shared_db = c.control->dbm().main_db();
+
+   auto get_account_cpu_limit_ex = [&]( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier) {
+      return rm.get_account_cpu_limit_ex(name, shard_db, shared_db, greylist_limit);
+   };
+   auto get_account_net_limit_ex = [&]( const account_name& name, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier) {
+      return rm.get_account_net_limit_ex(name, shard_db, shared_db, greylist_limit);
+   };
 
    const auto& user_account  = "user"_n;
    const auto& other_account = "other"_n;
@@ -767,7 +780,7 @@ BOOST_AUTO_TEST_CASE( greylist_limit_tests ) { try {
       ("cpu_weight", 249'999'999)
    );
 
-   const int64_t reqauth_net_charge = 104;
+   const int64_t reqauth_net_charge = 112;
    auto push_reqauth = [&]( name acnt, name perm, uint32_t billed_cpu_time_us ) {
       signed_transaction trx;
       trx.actions.emplace_back( c.get_action( config::system_account_name, "reqauth"_n,
@@ -776,7 +789,6 @@ BOOST_AUTO_TEST_CASE( greylist_limit_tests ) { try {
       c.set_transaction_headers( trx, 6, 0 );
       trx.sign( c.get_private_key( acnt, perm.to_string() ), c.control->get_chain_id() );
       // This transaction is charged 104 bytes of NET.
-
       return c.push_transaction( trx, fc::time_point::maximum(), billed_cpu_time_us );
    };
 
@@ -784,20 +796,21 @@ BOOST_AUTO_TEST_CASE( greylist_limit_tests ) { try {
    c.produce_block();
    for( size_t i = 0; i < 300; ++i ) {
       push_reqauth( other_account, config::active_name, cfg.min_transaction_cpu_usage );
-      push_reqauth( other_account, config::owner_name, cfg.min_transaction_cpu_usage );
+      auto trace = push_reqauth( other_account, config::owner_name, cfg.min_transaction_cpu_usage );
+      if (i == 0) {
+         idump((trace->net_usage)); // show the net_usage for reqauth_net_charge
+      }
       c.produce_block();
    }
 
    BOOST_REQUIRE_EQUAL( rm.get_virtual_block_cpu_limit(), cfg.max_block_cpu_usage );
    BOOST_REQUIRE_EQUAL( rm.get_virtual_block_net_limit(), cfg.max_block_net_usage );
 
-   uint64_t blocks_per_day = 2*60*60*24;
+   uint64_t blocks_per_day = calc_blocks_by_sec(60*60*24);
 
    uint64_t user_cpu_per_day = (cfg.max_block_cpu_usage * blocks_per_day / 250'000'000); // 103 us
    uint64_t user_net_per_day = (cfg.max_block_net_usage * blocks_per_day / 250'000'000); // 90 bytes
    wdump((user_cpu_per_day)(user_net_per_day));
-   auto& shard_db  = const_cast<chainbase::database&>(c.control->dbm().main_db());
-   auto& shared_db = c.control->dbm().main_db();
    BOOST_REQUIRE_EQUAL( rm.get_account_cpu_limit_ex(user_account, shard_db, shared_db).first.max, user_cpu_per_day );
    BOOST_REQUIRE_EQUAL( rm.get_account_net_limit_ex(user_account, shard_db, shared_db).first.max, user_net_per_day );
    BOOST_REQUIRE_EQUAL( rm.get_account_cpu_limit_ex(user_account, shard_db, shared_db, 1).first.max, user_cpu_per_day );
@@ -813,14 +826,22 @@ BOOST_AUTO_TEST_CASE( greylist_limit_tests ) { try {
    wdump((rm.get_account_net_limit(user_account, shard_db, shared_db).first));
 
    // Allow congestion to reduce a little bit.
-   c.produce_blocks(1400);
+   idump((rm.get_account_net_limit_ex(user_account, shard_db, shared_db)));
+   for (size_t i = 0; i < 10000; i++) {
+      auto user_net_limit = get_account_net_limit_ex(user_account).first.max;
+      auto user_cpu_limit = get_account_cpu_limit_ex(user_account).first.max;
+      if (  user_net_limit > 3*reqauth_net_charge
+         && user_net_limit % user_net_per_day > 1 && user_net_limit % user_net_per_day < user_net_per_day/2
+         && user_cpu_limit % user_cpu_per_day > 1 && user_cpu_limit % user_cpu_per_day < user_cpu_per_day/2)
+      {
+         break;
+      }
+      c.produce_blocks(1);
+   }
 
-   BOOST_REQUIRE( rm.get_virtual_block_net_limit() > (3*cfg.max_block_net_usage) );
-   BOOST_REQUIRE( rm.get_virtual_block_net_limit() < (4*cfg.max_block_net_usage) );
-   wdump((rm.get_account_net_limit_ex(user_account, shard_db, shared_db)));
-   BOOST_REQUIRE( rm.get_account_net_limit_ex(user_account, shard_db, shared_db).first.max > 3*reqauth_net_charge );
-   BOOST_REQUIRE( rm.get_account_net_limit_ex(user_account, shard_db, shared_db).first.max < 4*reqauth_net_charge );
-
+   idump((get_account_net_limit_ex(user_account)));
+   BOOST_REQUIRE( get_account_net_limit_ex(user_account).first.max > 3*reqauth_net_charge );
+   BOOST_REQUIRE( get_account_net_limit_ex(user_account).first.max < 4*reqauth_net_charge );
 
    // User can only push three reqauths per day even at this relaxed congestion level.
    push_reqauth( user_account, config::active_name, cfg.min_transaction_cpu_usage );
@@ -843,46 +864,68 @@ BOOST_AUTO_TEST_CASE( greylist_limit_tests ) { try {
    c.produce_block();
    c.produce_block( fc::days(1) );
 
-   // Reducing the greylist limit from 1000 to 4 should not make a difference since it would not be the
-   // bottleneck at this level of congestion. But dropping it to 3 would make a difference.
-   {
-      auto user_elastic_cpu_limit = rm.get_account_cpu_limit_ex(user_account, shard_db, shared_db).first.max;
-      auto user_elastic_net_limit = rm.get_account_net_limit_ex(user_account, shard_db, shared_db).first.max;
+   const auto& rl_config = shared_db.get<resource_limits_config_object>();
+   const auto& rl_state  = shard_db.get<resource_limits_state_object>();
+   wdump((rl_config));
+   wdump((rl_state));
+   auto user_elastic_cpu_limit = get_account_cpu_limit_ex(user_account).first.max;
+   auto user_elastic_net_limit = get_account_net_limit_ex(user_account).first.max;
 
-      auto user_cpu_res1 = rm.get_account_cpu_limit_ex(user_account,shard_db, shared_db, 4);
-      BOOST_REQUIRE_EQUAL( user_cpu_res1.first.max, user_elastic_cpu_limit );
-      BOOST_REQUIRE_EQUAL( user_cpu_res1.second, false );
-      auto user_net_res1 = rm.get_account_net_limit_ex(user_account, shard_db, shared_db, 4);
-      BOOST_REQUIRE_EQUAL( user_net_res1.first.max, user_elastic_net_limit );
-      BOOST_REQUIRE_EQUAL( user_net_res1.second, false );
+   idump( (user_elastic_cpu_limit)(user_elastic_net_limit) );
 
-      auto user_cpu_res2 = rm.get_account_cpu_limit_ex(user_account, shard_db, shared_db, 3);
-      BOOST_REQUIRE( user_cpu_res2.first.max < user_elastic_cpu_limit );
-      BOOST_REQUIRE_EQUAL( user_cpu_res2.second, true );
-      auto user_net_res2 = rm.get_account_net_limit_ex(user_account, shard_db, shared_db, 3);
-      BOOST_REQUIRE( user_net_res2.first.max < user_elastic_net_limit );
-      BOOST_REQUIRE_EQUAL( user_net_res2.second, true );
-      BOOST_REQUIRE( 2*reqauth_net_charge < user_net_res2.first.max );
-      BOOST_REQUIRE( user_net_res2.first.max < 3*reqauth_net_charge );
+   BOOST_REQUIRE_EQUAL( get_account_cpu_limit_ex(user_account, 1).first.max, user_cpu_per_day );
+   BOOST_REQUIRE_EQUAL( get_account_net_limit_ex(user_account, 1).first.max, user_net_per_day );
+
+   auto cpu_multiple = rl_state.virtual_cpu_limit/rl_config.cpu_limit_parameters.max;
+   auto net_multiple = rl_state.virtual_net_limit/rl_config.net_limit_parameters.max;
+   idump( (cpu_multiple)(net_multiple) );
+
+   auto user_cpu_res_upper = get_account_cpu_limit_ex(user_account, cpu_multiple + 1);
+   BOOST_REQUIRE_EQUAL( user_cpu_res_upper.first.max, user_elastic_cpu_limit );
+   BOOST_REQUIRE_EQUAL( user_cpu_res_upper.second, false );
+   auto user_net_res_upper = get_account_net_limit_ex(user_account, net_multiple + 1);
+   BOOST_REQUIRE_EQUAL( user_net_res_upper.first.max, user_elastic_net_limit );
+   BOOST_REQUIRE_EQUAL( user_net_res_upper.second, false );
+
+   idump((get_account_cpu_limit_ex(user_account, cpu_multiple+1)));
+   idump((get_account_cpu_limit_ex(user_account, cpu_multiple)));
+   idump((get_account_cpu_limit_ex(user_account, cpu_multiple-1)));
+   idump((get_account_cpu_limit_ex(user_account, cpu_multiple-2)));
+   auto user_cpu_res_lower = get_account_cpu_limit_ex(user_account, cpu_multiple);
+   idump( (user_cpu_res_lower)(cpu_multiple) );
+   BOOST_REQUIRE_LT( user_cpu_res_lower.first.max, user_elastic_cpu_limit );
+   BOOST_REQUIRE_EQUAL( user_cpu_res_lower.second, true );
+   auto user_net_res_lower = get_account_net_limit_ex(user_account, net_multiple);
+   idump((net_multiple) (user_net_res_lower));
+   BOOST_REQUIRE_LT( user_net_res_lower.first.max, user_elastic_net_limit );
+   BOOST_REQUIRE_EQUAL( user_net_res_lower.second, true );
+
+   auto reqauth_net_multiple = user_net_res_lower.first.max / reqauth_net_charge;
+   BOOST_REQUIRE_NE( user_net_res_lower.first.max % reqauth_net_charge, 0);
+   BOOST_REQUIRE_GT( reqauth_net_multiple, 0);
+
+   ilog("setting greylist limit to " + std::to_string(net_multiple + 1));
+   c.control->set_greylist_limit( net_multiple + 1 );
+   c.produce_blocks(1);
+   idump( (get_account_net_limit_ex(user_account, net_multiple + 1)) );
+   c.produce_block( fc::days(1) );
+   idump( (get_account_net_limit_ex(user_account)) );
+
+   for (size_t i = 0; i < reqauth_net_multiple; i++) {
+      push_reqauth( user_account, config::active_name, cfg.min_transaction_cpu_usage );
+      c.produce_block();
    }
+   idump( (get_account_net_limit_ex(user_account, net_multiple + 1)) );
 
-   ilog("setting greylist limit to 4");
-   c.control->set_greylist_limit( 4 );
-   c.produce_block();
-
-   push_reqauth( user_account, config::active_name, cfg.min_transaction_cpu_usage );
-   c.produce_block();
-   push_reqauth( user_account, config::active_name, cfg.min_transaction_cpu_usage );
-   c.produce_block();
-   push_reqauth( user_account, config::active_name, cfg.min_transaction_cpu_usage );
-   c.produce_block();
-
-   ilog("setting greylist limit to 3");
-   c.control->set_greylist_limit( 3 );
+   ilog("setting greylist limit to " + std::to_string(reqauth_net_multiple));
+   c.control->set_greylist_limit( net_multiple );
    c.produce_block( fc::days(1) );
 
-   push_reqauth( user_account, config::active_name, cfg.min_transaction_cpu_usage );
-   c.produce_block();
+   for (size_t i = 0; i < reqauth_net_multiple - 1; i++) {
+      push_reqauth( user_account, config::active_name, cfg.min_transaction_cpu_usage );
+      c.produce_block();
+   }
+
    push_reqauth( user_account, config::active_name, cfg.min_transaction_cpu_usage );
    c.produce_block();
    BOOST_REQUIRE_EXCEPTION(

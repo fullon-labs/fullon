@@ -2926,7 +2926,7 @@ BOOST_AUTO_TEST_CASE(abi_deserialize_detailed_error_messages)
       ],
    })";
 
-   // Some details here: c::variant("030101000103") represents an array of std::optional {1,null,3}, and 
+   // Some details here: c::variant("030101000103") represents an array of std::optional {1,null,3}, and
    // fc::variant("0400000000") represents an array of 4 nulls. Also fc::variant("030001af013a") represents {null, 0xAF, 0x3A}.
    // Test to verify that array of optinal doesn't throw exception
    abi_serializer abis( fc::json::from_string(abi).as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time ) );
@@ -3037,7 +3037,7 @@ inline std::pair<action_trace, std::string> generate_action_trace(const std::opt
       <<         "\"console\":\"console line\","
       <<         "\"trx_id\":\"5d039021cf3262c5036a6ad40a809ae1440ae6c6792a48e6e95abf083b108d5f\","
       <<         "\"block_num\":4,"
-      <<         "\"block_time\":\"2000-01-01T00:00:02.500\","
+      <<         "\"block_time\":\"" << std::string(at.block_time.to_time_point()) << "\","
       <<         "\"producer_block_id\":null,"
       <<         "\"account_ram_deltas\":[],"
       <<         "\"except\":null,"
