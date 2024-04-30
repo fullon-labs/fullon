@@ -72,7 +72,7 @@ BOOST_FIXTURE_TEST_CASE( delay_error_create_account, validating_tester) { try {
    auto trace = push_transaction( trx );
    edump((*trace));
 
-   produce_blocks(6);
+   produce_blocks(calc_blocks_by_sec(3));
 
    auto scheduled_trxs = get_scheduled_transactions();
    BOOST_REQUIRE_EQUAL(scheduled_trxs.size(), 1u);
@@ -206,7 +206,7 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(18);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 2));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
@@ -481,7 +481,7 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_parent_permission_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(28);
+   chain.produce_blocks(calc_blocks_by_sec(15, - 2));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
@@ -625,7 +625,7 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_walk_parent_permissions_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(38);
+   chain.produce_blocks(calc_blocks_by_sec(20, - 2));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
@@ -749,7 +749,7 @@ BOOST_AUTO_TEST_CASE( link_delay_permission_change_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(16);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 4));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
@@ -816,7 +816,7 @@ BOOST_AUTO_TEST_CASE( link_delay_permission_change_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("11.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(15);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 5));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("89.0000 CUR"), liquid_balance);
@@ -948,7 +948,7 @@ BOOST_AUTO_TEST_CASE( link_delay_permission_change_with_delay_heirarchy_test ) {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(16);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 4));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
@@ -1012,7 +1012,7 @@ BOOST_AUTO_TEST_CASE( link_delay_permission_change_with_delay_heirarchy_test ) {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("11.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(14);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 6));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("89.0000 CUR"), liquid_balance);
@@ -1158,7 +1158,7 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(16);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 4));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
@@ -1220,7 +1220,7 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("11.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(16);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 4));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("89.0000 CUR"), liquid_balance);
@@ -1349,7 +1349,7 @@ BOOST_AUTO_TEST_CASE( link_delay_unlink_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(16);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 4));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
@@ -1410,7 +1410,7 @@ BOOST_AUTO_TEST_CASE( link_delay_unlink_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("11.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(15);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 5));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("89.0000 CUR"), liquid_balance);
@@ -1540,7 +1540,7 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_heirarchy_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(16);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 4));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
@@ -1601,7 +1601,7 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_heirarchy_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("11.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(16);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 4));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("89.0000 CUR"), liquid_balance);
@@ -1725,7 +1725,7 @@ BOOST_AUTO_TEST_CASE( mindelay_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(18);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 2));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
@@ -1871,7 +1871,7 @@ BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(16);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 4));
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
@@ -1963,7 +1963,7 @@ BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
    liquid_balance = get_currency_balance(chain, "tester2"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("10.0000 CUR"), liquid_balance);
 
-   chain.produce_blocks(15);
+   chain.produce_blocks(calc_blocks_by_sec(10, - 5));
 
    gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
    BOOST_CHECK_EQUAL(1, gen_size);
