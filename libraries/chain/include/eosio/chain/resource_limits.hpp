@@ -9,6 +9,8 @@
 #include <eosio/chain/database_manager.hpp>
 #include <set>
 #include <shared_mutex>
+#include <mutex>
+
 namespace eosio { namespace chain {
 
    class deep_mind_handler;
@@ -66,7 +68,7 @@ namespace eosio { namespace chain {
       mutable std::shared_mutex           rw_lock;
       uint64_t                            pending_net_usage = 0ULL;
    };
-   
+
    class resource_limits_manager {
       public:
 
@@ -97,6 +99,7 @@ namespace eosio { namespace chain {
          /// set_account_limits returns true if new ram_bytes limit is more restrictive than the previously set one
          bool set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, chainbase::database& shared_db, bool is_trx_transient);
          void get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight, const chainbase::database& shared_db) const;
+         void get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight) const;
 
          bool is_unlimited_cpu( const account_name& account, const chainbase::database& shared_db) const;
 
@@ -117,30 +120,27 @@ namespace eosio { namespace chain {
          std::pair<int64_t, bool> get_account_net_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier ) const;
 
          std::pair<account_resource_limit, bool>
-         get_account_cpu_limit_ex_writable( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
-         std::pair<account_resource_limit, bool>
          get_account_cpu_limit_ex( const account_name& name, const chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
-         
-         std::pair<account_resource_limit, bool>
-         get_account_net_limit_ex_writable( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
+
          std::pair<account_resource_limit, bool>
          get_account_net_limit_ex( const account_name& name, const chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit = config::maximum_elastic_resource_multiplier, const std::optional<block_timestamp_type>& current_time={} ) const;
 
          int64_t get_account_ram_usage( const account_name& name , chainbase::database& db) const;
+         int64_t get_account_ram_usage( const account_name& name ) const;
          std::shared_mutex& get_net_lock(){ return _block_pending_net_usage->rw_lock; }
-         void init_block_pending_net(){ 
-            std::unique_lock write_lock( get_net_lock() ); 
-            _block_pending_net_usage->pending_net_usage = 0ULL; 
+         void init_block_pending_net(){
+            std::unique_lock write_lock( get_net_lock() );
+            _block_pending_net_usage->pending_net_usage = 0ULL;
          }
-         uint64_t get_block_pending_net() const { 
-            std::shared_lock read_lock( _block_pending_net_usage->rw_lock ); 
-            return _block_pending_net_usage->pending_net_usage; 
+         uint64_t get_block_pending_net() const {
+            std::shared_lock read_lock( _block_pending_net_usage->rw_lock );
+            return _block_pending_net_usage->pending_net_usage;
          }
-         void add_block_pending_net( uint64_t usage ){ 
+         void add_block_pending_net( uint64_t usage ){
             std::unique_lock write_lock( get_net_lock() );
             EOS_ASSERT( UINT64_MAX - _block_pending_net_usage->pending_net_usage >= usage, transaction_exception,
-            "transaction Net usage adding would overflow UINT64_MAX"); 
-            _block_pending_net_usage->pending_net_usage += usage; 
+            "transaction Net usage adding would overflow UINT64_MAX");
+            _block_pending_net_usage->pending_net_usage += usage;
          }
          void undo_block_pending_net( uint64_t usage ){
             std::unique_lock write_lock( get_net_lock() );
@@ -152,6 +152,8 @@ namespace eosio { namespace chain {
       private:
          eosio::chain::database_manager&     _dbm;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
+
+         const resource_usage_object& get_or_create_usage_object(const account_name& name, chainbase::database& db);
       public:
          std::shared_ptr<block_pending_net> _block_pending_net_usage;
    };
