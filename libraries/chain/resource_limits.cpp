@@ -150,14 +150,9 @@ void resource_limits_manager::set_block_parameters(const elastic_limit_parameter
 void resource_limits_manager::update_account_usage(const flat_set<account_name>& accounts, uint32_t time_slot, chainbase::database& db, chainbase::database& shared_db ) {
    const auto& config = shared_db.get<resource_limits_config_object>();
    for( const auto& a : accounts ) {
-      const auto* usage = db.find<resource_usage_object,by_owner>( a );
-      if( usage == nullptr ) {
-         usage = &db.create<resource_usage_object>([&]( auto& bu ){
-            bu.owner = a;
-         });
-      }
+      const auto& usage = get_or_create_usage_object(a, db);
 
-      db.modify( *usage, [&]( auto& bu ){
+      db.modify( usage, [&]( auto& bu ){
          bu.net_usage.add( 0, time_slot, config.account_net_usage_average_window );
          bu.cpu_usage.add( 0, time_slot, config.account_cpu_usage_average_window );
       });
@@ -170,21 +165,16 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
    const auto& config = shared_db.get<resource_limits_config_object>();
    const auto* shard_state =  db.find<resource_limits_state_object>();
    EOS_ASSERT(shard_state,eosio::chain::shard_exception, "resource_limits_state_object not found on shard");
-   
+
    for( const auto& a : accounts ) {
 
-      const auto* usage = db.find<resource_usage_object,by_owner>( a );
+      const auto& usage = get_or_create_usage_object( a, db );
       int64_t unused;
       int64_t net_weight;
       int64_t cpu_weight;
       get_account_limits( a, unused, net_weight, cpu_weight, shared_db );
-      if( usage == nullptr ) {
-         usage = &db.create<resource_usage_object>( [&]( auto& bu ){
-            bu.owner = a;
-         });
-      }
 
-      db.modify( *usage, [&]( auto& bu ){
+      db.modify( usage, [&]( auto& bu ){
          bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
          bu.cpu_usage.add( cpu_usage, time_slot, config.account_cpu_usage_average_window );
 
@@ -196,7 +186,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
       if( cpu_weight >= 0 && state.total_cpu_weight > 0 ) {
          uint128_t window_size = config.account_cpu_usage_average_window;
          auto virtual_network_capacity_in_window = (uint128_t)shard_state->virtual_cpu_limit * window_size;
-         auto cpu_used_in_window                 = ((uint128_t)usage->cpu_usage.value_ex * window_size) / (uint128_t)config::rate_limiting_precision;
+         auto cpu_used_in_window                 = ((uint128_t)usage.cpu_usage.value_ex * window_size) / (uint128_t)config::rate_limiting_precision;
 
          uint128_t user_weight     = (uint128_t)cpu_weight;
          uint128_t all_user_weight = state.total_cpu_weight;
@@ -217,7 +207,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
          uint128_t window_size = config.account_net_usage_average_window;
          //${virtual_net_limit} was updated in process_block_usage(), which is directly related to ${_block_pending_net_usage}.
          auto virtual_network_capacity_in_window = (uint128_t)state.virtual_net_limit * window_size;
-         auto net_used_in_window                 = ((uint128_t)usage->net_usage.value_ex * window_size) / (uint128_t)config::rate_limiting_precision;
+         auto net_used_in_window                 = ((uint128_t)usage.net_usage.value_ex * window_size) / (uint128_t)config::rate_limiting_precision;
 
          uint128_t user_weight     = (uint128_t)net_weight;
          uint128_t all_user_weight = state.total_net_weight;
@@ -241,18 +231,18 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
    //    rls.pending_cpu_usage += cpu_usage;
    //    rls.pending_net_usage += net_usage;
    // });
-   
+
    db.modify( *shard_state, [&](resource_limits_state_object& rls){
       rls.pending_cpu_usage += cpu_usage;
       //instead of using this in shard db, using ${block_pending_net_usage}.
       //rls.pending_net_usage += net_usage; don't use this, use ${block_pending_net_usage}
    });
-   
+
    //Thread safe
-   
+
    add_block_pending_net(net_usage);
    EOS_ASSERT( get_block_pending_net() <= config.net_limit_parameters.max, block_resource_exhausted, "Block has insufficient net resources" );
-   
+
    EOS_ASSERT( shard_state->pending_cpu_usage <= config.cpu_limit_parameters.max, block_resource_exhausted, "Block has insufficient cpu resources" );
 }
 
@@ -261,18 +251,13 @@ void resource_limits_manager::add_pending_ram_usage( const account_name account,
       return;
    }
 
-   const auto* usage  = db.find<resource_usage_object,by_owner>( account );
-   if( usage == nullptr ) {
-      usage = &db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
-         bu.owner = account;
-      });
-   }
-   EOS_ASSERT( ram_delta <= 0 || UINT64_MAX - usage->ram_usage >= (uint64_t)ram_delta, transaction_exception,
+   const auto& usage  = get_or_create_usage_object( account, db );
+   EOS_ASSERT( ram_delta <= 0 || UINT64_MAX - usage.ram_usage >= (uint64_t)ram_delta, transaction_exception,
               "Ram usage delta would overflow UINT64_MAX");
-   EOS_ASSERT(ram_delta >= 0 || (usage->ram_usage) >= (uint64_t)(-ram_delta), transaction_exception,
+   EOS_ASSERT(ram_delta >= 0 || (usage.ram_usage) >= (uint64_t)(-ram_delta), transaction_exception,
               "Ram usage delta would underflow UINT64_MAX");
 
-   db.modify( *usage, [&]( auto& u ) {
+   db.modify( usage, [&]( auto& u ) {
       u.ram_usage += ram_delta;
 
       if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
@@ -284,28 +269,25 @@ void resource_limits_manager::add_pending_ram_usage( const account_name account,
 void resource_limits_manager::verify_account_ram_usage( const account_name account, chainbase::database& db, chainbase::database& shared_db )const {
    int64_t ram_bytes; int64_t net_weight; int64_t cpu_weight;
    get_account_limits( account, ram_bytes, net_weight, cpu_weight, shared_db );
-   const auto* usage  = db.find<resource_usage_object,by_owner>( account );
-   if( usage == nullptr ) {
-      usage = &db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
-         bu.owner = account;
-      });
-   }
-
+   const auto* usage  = db.find<resource_usage_object, by_owner>( account );
+   EOS_ASSERT( usage != nullptr, transaction_exception, "Account resource usage object not found");
    if( ram_bytes >= 0 ) {
       EOS_ASSERT( usage->ram_usage <= static_cast<uint64_t>(ram_bytes), ram_usage_exceeded,
                   "account ${account} has insufficient ram; needs ${needs} bytes has ${available} bytes",
-                  ("account", account)("needs",usage->ram_usage)("available",ram_bytes)              );
+                  ("account", account)("needs",usage->ram_usage)("available", ram_bytes)              );
    }
+}
+
+int64_t resource_limits_manager::get_account_ram_usage( const account_name& name ) const {
+   return get_account_ram_usage(name, _dbm.main_db());
 }
 
 int64_t resource_limits_manager::get_account_ram_usage( const account_name& name, chainbase::database& db )const{
    const auto* usage  = db.find<resource_usage_object,by_owner>( name );
-   if( usage == nullptr ) {
-      usage = &db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
-         bu.owner = name;
-      });
+   if( usage != nullptr ) {
+      return usage->ram_usage;
    }
-   return usage->ram_usage;
+   return 0;
 }
 
 void resource_limits_manager::ensure_resource_limits_state_object(chainbase::database& db, const chainbase::database& shared_db) const {
@@ -319,7 +301,7 @@ void resource_limits_manager::ensure_resource_limits_state_object(chainbase::dat
       });
    }
 }
-         
+
 
 bool resource_limits_manager::set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight,  chainbase::database& shared_db, bool is_trx_transient) {
    //const auto& usage = _db.get<resource_usage_object,by_owner>( account );
@@ -373,6 +355,11 @@ bool resource_limits_manager::set_account_limits( const account_name& account, i
    });
 
    return decreased_limit;
+}
+
+
+void resource_limits_manager::get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight ) const {
+   get_account_limits( account, ram_bytes, net_weight, cpu_weight, _dbm.shared_db());
 }
 
 void resource_limits_manager::get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight, const chainbase::database& shared_db ) const {
@@ -453,7 +440,7 @@ void resource_limits_manager::process_block_usage(uint32_t block_num, std::vecto
       state.average_block_cpu_usage.add(state.pending_cpu_usage, block_num, config.cpu_limit_parameters.periods);
       state.update_virtual_cpu_limit(config);
       state.pending_cpu_usage = 0;
-      
+
       state.average_block_net_usage.add( get_block_pending_net(), block_num, config.net_limit_parameters.periods);
       state.update_virtual_net_limit(config);
       state.pending_net_usage = 0;
@@ -464,14 +451,14 @@ void resource_limits_manager::process_block_usage(uint32_t block_num, std::vecto
          dm_logger->on_update_resource_limits_state(state);
       }
    });
-   
+
    for(auto& sdb : processing_shard ){
       const auto* ss = sdb->find<resource_limits_state_object>();
-      
+
       //Statistics of CPU bandwidth usage on shards executed by nodes
       sdb->modify( *ss, [&](resource_limits_state_object& shard_state){
          // apply pending usage, update virtual limits and reset the pending
-         // management of sharded CPU bandwidth is performed on shard. 
+         // management of sharded CPU bandwidth is performed on shard.
          shard_state.average_block_cpu_usage.add(shard_state.pending_cpu_usage, block_num, config.cpu_limit_parameters.periods);
          shard_state.update_virtual_cpu_limit(config);
          shard_state.pending_cpu_usage = 0;
@@ -529,20 +516,8 @@ uint64_t resource_limits_manager::get_block_net_limit(const chainbase::database&
 }
 
 std::pair<int64_t, bool> resource_limits_manager::get_account_cpu_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit ) const {
-   auto [arl, greylisted] = get_account_cpu_limit_ex_writable(name, db, shared_db, greylist_limit);
+   auto [arl, greylisted] = get_account_cpu_limit_ex(name, db, shared_db, greylist_limit);
    return {arl.available, greylisted};
-}
-
-std::pair<account_resource_limit, bool>
-resource_limits_manager::get_account_cpu_limit_ex_writable( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time ) const{
-   const auto* usage  = db.find<resource_usage_object,by_owner>( name );
-   if( usage == nullptr ) {
-      db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
-         bu.owner = name;
-      });
-   }
-
-   return get_account_cpu_limit_ex( name, db, shared_db, greylist_limit, current_time);
 }
 
 std::pair<account_resource_limit, bool>
@@ -550,16 +525,20 @@ resource_limits_manager::get_account_cpu_limit_ex( const account_name& name, con
 
    const auto& state = shared_db.get<resource_limits_state_object>();
    const auto* usage  = db.find<resource_usage_object,by_owner>( name );
-   EOS_ASSERT(usage,eosio::chain::shard_exception, "resource_usage_object not found on shard");
+   usage_accumulator cpu_usage;
+   if (usage) {
+      cpu_usage = usage->net_usage;
+   }
+
    const auto& config = shared_db.get<resource_limits_config_object>();
-   
+
    const auto* shard_state = db.find<resource_limits_state_object>();
-   EOS_ASSERT(shard_state,eosio::chain::shard_exception, "resource_limits_state_object not found on shard");
+   EOS_ASSERT(shard_state, eosio::chain::shard_exception, "resource_limits_state_object not found on shard");
    int64_t cpu_weight, x, y;
    get_account_limits( name, x, y, cpu_weight, shared_db );
 
    if( cpu_weight < 0 || state.total_cpu_weight == 0 ) {
-      return {{ -1, -1, -1, block_timestamp_type(usage->cpu_usage.last_ordinal), -1 }, false};
+      return {{ -1, -1, -1, block_timestamp_type(cpu_usage.last_ordinal), -1 }, false};
    }
 
    account_resource_limit arl;
@@ -584,7 +563,7 @@ resource_limits_manager::get_account_cpu_limit_ex( const account_name& name, con
    uint128_t all_user_weight = (uint128_t)state.total_cpu_weight;
 
    auto max_user_use_in_window = (virtual_cpu_capacity_in_window * user_weight) / all_user_weight;
-   auto cpu_used_in_window  = impl::integer_divide_ceil((uint128_t)usage->cpu_usage.value_ex * window_size, (uint128_t)config::rate_limiting_precision);
+   auto cpu_used_in_window  = impl::integer_divide_ceil((uint128_t)cpu_usage.value_ex * window_size, (uint128_t)config::rate_limiting_precision);
 
    if( max_user_use_in_window <= cpu_used_in_window )
       arl.available = 0;
@@ -593,46 +572,38 @@ resource_limits_manager::get_account_cpu_limit_ex( const account_name& name, con
 
    arl.used = impl::downgrade_cast<int64_t>(cpu_used_in_window);
    arl.max = impl::downgrade_cast<int64_t>(max_user_use_in_window);
-   arl.last_usage_update_time = block_timestamp_type(usage->cpu_usage.last_ordinal);
+   arl.last_usage_update_time = block_timestamp_type(cpu_usage.last_ordinal);
    arl.current_used = arl.used;
    if ( current_time ) {
-      if (current_time->slot > usage->cpu_usage.last_ordinal) {
-         auto history_usage = usage->cpu_usage;
-         history_usage.add(0, current_time->slot, window_size);
-         arl.current_used = impl::downgrade_cast<int64_t>(impl::integer_divide_ceil((uint128_t)history_usage.value_ex * window_size, (uint128_t)config::rate_limiting_precision));
+      if (current_time->slot > cpu_usage.last_ordinal) {
+         // auto history_usage = usage->cpu_usage;
+         cpu_usage.add(0, current_time->slot, window_size);
+         arl.current_used = impl::downgrade_cast<int64_t>(impl::integer_divide_ceil((uint128_t)cpu_usage.value_ex * window_size, (uint128_t)config::rate_limiting_precision));
       }
    }
    return {arl, greylisted};
 }
 
 std::pair<int64_t, bool> resource_limits_manager::get_account_net_limit( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit ) const {
-   auto [arl, greylisted] = get_account_net_limit_ex_writable(name, db, shared_db, greylist_limit);
+   auto [arl, greylisted] = get_account_net_limit_ex(name, db, shared_db, greylist_limit);
    return {arl.available, greylisted};
 }
 
 std::pair<account_resource_limit, bool>
-resource_limits_manager::get_account_net_limit_ex_writable( const account_name& name, chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time ) const{
-   const auto* usage  = db.find<resource_usage_object,by_owner>( name );
-   if( usage == nullptr ) {
-      db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
-         bu.owner = name;
-      });
-   }
-   return get_account_net_limit_ex( name, db, shared_db, greylist_limit, current_time);
-}
-         
-std::pair<account_resource_limit, bool>
 resource_limits_manager::get_account_net_limit_ex( const account_name& name, const chainbase::database& db, const chainbase::database& shared_db, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time) const {
    const auto& config = shared_db.get<resource_limits_config_object>();
    const auto& state  = shared_db.get<resource_limits_state_object>();
-   const auto* usage  = db.find<resource_usage_object,by_owner>( name );
-   EOS_ASSERT(usage,eosio::chain::shard_exception, "resource_usage_object not found on shard");
-   
+   const auto* usage  = db.find<resource_usage_object, by_owner>( name );
+   usage_accumulator net_usage;
+   if (usage) {
+      net_usage = usage->net_usage;
+   }
+
    int64_t net_weight, x, y;
    get_account_limits( name, x, net_weight, y, shared_db );
 
    if( net_weight < 0 || state.total_net_weight == 0) {
-      return {{ -1, -1, -1, block_timestamp_type(usage->net_usage.last_ordinal), -1 }, false};
+      return {{ -1, -1, -1, block_timestamp_type(net_usage.last_ordinal), -1 }, false};
    }
 
    account_resource_limit arl;
@@ -657,7 +628,7 @@ resource_limits_manager::get_account_net_limit_ex( const account_name& name, con
    uint128_t all_user_weight = (uint128_t)state.total_net_weight;
 
    auto max_user_use_in_window = (virtual_network_capacity_in_window * user_weight) / all_user_weight;
-   auto net_used_in_window  = impl::integer_divide_ceil((uint128_t)usage->net_usage.value_ex * window_size, (uint128_t)config::rate_limiting_precision);
+   auto net_used_in_window  = impl::integer_divide_ceil((uint128_t)net_usage.value_ex * window_size, (uint128_t)config::rate_limiting_precision);
 
    if( max_user_use_in_window <= net_used_in_window )
       arl.available = 0;
@@ -666,16 +637,26 @@ resource_limits_manager::get_account_net_limit_ex( const account_name& name, con
 
    arl.used = impl::downgrade_cast<int64_t>(net_used_in_window);
    arl.max = impl::downgrade_cast<int64_t>(max_user_use_in_window);
-   arl.last_usage_update_time = block_timestamp_type(usage->net_usage.last_ordinal);
+   arl.last_usage_update_time = block_timestamp_type(net_usage.last_ordinal);
    arl.current_used = arl.used;
    if ( current_time ) {
-      if (current_time->slot > usage->net_usage.last_ordinal) {
-         auto history_usage = usage->net_usage;
-         history_usage.add(0, current_time->slot, window_size);
-         arl.current_used = impl::downgrade_cast<int64_t>(impl::integer_divide_ceil((uint128_t)history_usage.value_ex * window_size, (uint128_t)config::rate_limiting_precision));
+      if (current_time->slot > net_usage.last_ordinal) {
+         net_usage.add(0, current_time->slot, window_size);
+         arl.current_used = impl::downgrade_cast<int64_t>(impl::integer_divide_ceil((uint128_t)net_usage.value_ex * window_size, (uint128_t)config::rate_limiting_precision));
       }
    }
    return {arl, greylisted};
+}
+
+const resource_usage_object& resource_limits_manager::get_or_create_usage_object(const account_name& name, chainbase::database& db) {
+   const auto* usage  = db.find<resource_usage_object,by_owner>( name );
+   if( usage != nullptr ) {
+      return *usage;
+   }
+
+   return db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
+         bu.owner = name;
+   });
 }
 
 } } } /// eosio::chain::resource_limits
