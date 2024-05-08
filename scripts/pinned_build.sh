@@ -20,7 +20,7 @@ fi
 if [ $# -eq 0 ] || [ -z "$1" ]; then
     echo "Please supply a directory for the build dependencies to be placed and a directory for leap build and a value for the number of jobs to use for building."
     echo "The binary packages will be created and placed into the leap build directory."
-    echo "./pinned_build.sh <dependencies directory> <leap build directory> <1-100>"
+    echo "./pinned_build.sh <dependencies directory> <leap build directory> [JOBS]"
     exit 255
 fi
 
@@ -28,7 +28,7 @@ export CORE_SYM='EOS'
 # CMAKE_C_COMPILER requires absolute path
 DEP_DIR="$(realpath "$1")"
 LEAP_DIR="$2"
-JOBS="$3"
+export JOBS=${3:-$(nproc)}
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 START_DIR="$(pwd)"
 
