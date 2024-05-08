@@ -1,6 +1,7 @@
 #!/bin/bash
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
+START_DIR="$(pwd)"
 
 if [[ "X$1" == "X" ]]; then
     echo "Missing arg: DEP_DIR"
@@ -39,7 +40,13 @@ ${APT_CMD} install -y \
     zip \
     zlib1g-dev
 
+
 source "${SCRIPT_DIR}/utils.sh"
+
+pushdir "${DEP_DIR}"
+
 install_clang "${DEP_DIR}/clang-${CLANG_VER}"
 install_llvm "${DEP_DIR}/llvm-${LLVM_VER}"
 install_boost "${DEP_DIR}/boost_${BOOST_VER//\./_}patched"
+
+popdir "${START_DIR}"
