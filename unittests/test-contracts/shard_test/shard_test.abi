@@ -1,0 +1,62 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "version": "eosio::abi/1.2",
+    "types": [],
+    "structs": [
+        {
+            "name": "registered_shard",
+            "base": "",
+            "fields": [
+                {
+                    "name": "name",
+                    "type": "name"
+                },
+                {
+                    "name": "shard_type",
+                    "type": "uint8"
+                },
+                {
+                    "name": "owner",
+                    "type": "name"
+                },
+                {
+                    "name": "enabled",
+                    "type": "bool"
+                },
+                {
+                    "name": "opts",
+                    "type": "uint8"
+                }
+            ]
+        },
+        {
+            "name": "regshard",
+            "base": "",
+            "fields": [
+                {
+                    "name": "reg_type",
+                    "type": "uint8"
+                },
+                {
+                    "name": "shard",
+                    "type": "registered_shard"
+                },
+                {
+                    "name": "expected_result",
+                    "type": "int64?"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "name": "regshard",
+            "type": "regshard",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": [],
+    "action_results": []
+}
