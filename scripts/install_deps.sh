@@ -5,13 +5,14 @@ START_DIR="$(pwd)"
 
 if [[ "X$1" == "X" ]]; then
     echo "Missing arg: DEP_DIR"
-    echo "./install_deps.sh <DEP_DIR>"
+    echo "./install_deps.sh <DEP_DIR> [APT_CMD] [JOBS]"
     exit 1
 fi
 
 # CMAKE_C_COMPILER requires absolute path
 DEP_DIR="$(realpath "$1")"
 APT_CMD=${2:-"apt-get"}
+export JOBS=${3:-$(nproc)}
 
 ${APT_CMD} update
 ${APT_CMD} update --fix-missing
