@@ -497,7 +497,20 @@ public:
    };
 
    get_shards_results get_shards( const get_shards_params& params, const fc::time_point& deadline )const;
+   
+   struct get_xshard_obj_params {
+      string                  lower_bound;
+      uint32_t                limit = 50;
+      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+   };
 
+   struct get_xshard_obj_results {
+      vector<fc::variant> xshards;
+      string              more; ///< fill lower_bound with this value to fetch more rows
+   };
+
+   get_xshard_obj_results get_xshard_obj( const get_xshard_obj_params& params, const fc::time_point& deadline )const;
+   
    struct send_read_only_transaction_results {
       chain::transaction_id_type  transaction_id;
       fc::variant                 processed;
@@ -982,4 +995,6 @@ FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_results, (t
 FC_REFLECT( eosio::chain_apis::read_only::get_consensus_parameters_results, (chain_config)(wasm_config))
 FC_REFLECT( eosio::chain_apis::read_only::get_shards_params, (lower_bound)(limit)(time_limit_ms) )
 FC_REFLECT( eosio::chain_apis::read_only::get_shards_results, (shards)(more) )
+FC_REFLECT( eosio::chain_apis::read_only::get_xshard_obj_params, (lower_bound)(limit)(time_limit_ms) )
+FC_REFLECT( eosio::chain_apis::read_only::get_xshard_obj_results, (xshards)(more) )
 
