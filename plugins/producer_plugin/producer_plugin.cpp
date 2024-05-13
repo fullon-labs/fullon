@@ -2905,7 +2905,7 @@ bool producer_plugin_impl::process_scheduled_trxs( const fc::time_point& deadlin
       assert(sch_itr != sch_idx.end());
       auto sch_itr_next = sch_itr; // save off next since sch_itr may be invalidated by loop
       ++sch_itr_next;
-      if (sch_itr_next != sch_idx.end()) {
+      if (sch_itr_next != sch_idx.end() && sch_itr->shard_name == shard_name) {
          shard.next_schedule_trx_delay_until    = sch_itr_next->delay_until;
          shard.next_schedule_trx_id             = sch_itr_next->id;
       }
