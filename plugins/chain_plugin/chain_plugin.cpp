@@ -19,6 +19,7 @@
 #include <eosio/chain/database_manager.hpp>
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 #include <eosio/chain/shard_object.hpp>
+#include <eosio/chain/xshard_object.hpp>
 
 #include <chainbase/environment.hpp>
 
@@ -1926,6 +1927,29 @@ read_only::get_shards( const read_only::get_shards_params& params, const fc::tim
    }
    if (itr != idx.end()) {
       result.more = itr->name.to_string();
+   }
+   return result;
+}
+
+read_only::get_xshards_results 
+read_only::get_xshards( const read_only::get_xshards_params& params, const fc::time_point& deadline )const{
+   fc::microseconds params_time_limit = params.time_limit_ms ? fc::milliseconds(*params.time_limit_ms) : fc::milliseconds(10);
+   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+   read_only::get_xshards_results result;
+   const auto& d = db.dbm().shared_db();
+
+   uint32_t remaining = params.limit;
+   const auto& idx = d.get_index<xshard_index, by_xshard_id>();
+   const auto lower = xshard_id_type{params.lower_bound};
+   auto itr = idx.lower_bound(lower);
+   for (; itr != idx.end() && remaining > 0 && params_deadline > fc::time_point::now(); itr++, remaining--)
+   {
+      FC_CHECK_DEADLINE(deadline);
+      auto row = fc::variant(*itr);
+      result.xshards.emplace_back(std::move(row));
+   }
+   if (itr != idx.end()) {
+      result.more = itr->xsh_id.str();
    }
    return result;
 }
