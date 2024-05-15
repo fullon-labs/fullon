@@ -1931,11 +1931,11 @@ read_only::get_shards( const read_only::get_shards_params& params, const fc::tim
    return result;
 }
 
-read_only::get_xshard_obj_results 
-read_only::get_xshard_obj( const read_only::get_xshard_obj_params& params, const fc::time_point& deadline )const{
+read_only::get_xshards_results 
+read_only::get_xshards( const read_only::get_xshards_params& params, const fc::time_point& deadline )const{
    fc::microseconds params_time_limit = params.time_limit_ms ? fc::milliseconds(*params.time_limit_ms) : fc::milliseconds(10);
    fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
-   read_only::get_xshard_obj_results result;
+   read_only::get_xshards_results result;
    const auto& d = db.dbm().shared_db();
 
    uint32_t remaining = params.limit;
