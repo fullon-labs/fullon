@@ -51,6 +51,13 @@ popdir "${START_DIR}"
 
 pushdir "${LEAP_DIR}"
 
+# generate pinned_build helper files for unittest of contract
+mkdir -p pinned_build
+cat <<EOF > pinned_build/pinned_toolchain.cmake
+set(ENV{CLANG_DIR} "${CLANG_DIR}")
+$(cat "${SCRIPT_DIR}/pinned_toolchain.cmake")
+EOF
+
 # build Leap
 echo "Building Leap ${SCRIPT_DIR}"
 try cmake ${CMAKE_ARGS} -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX=${LEAP_PINNED_INSTALL_PREFIX:-/usr/local} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_PREFIX_PATH="${LLVM_DIR}/lib/cmake" "${SCRIPT_DIR}/.."
