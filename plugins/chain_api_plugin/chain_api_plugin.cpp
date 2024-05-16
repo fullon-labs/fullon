@@ -155,7 +155,7 @@ void chain_api_plugin::plugin_startup() {
 
       // shard related APIs
       CHAIN_RO_CALL(get_shards, 200, http_params_types::params_required),
-      CHAIN_RO_CALL(get_xshard_obj, 200, http_params_types::params_required)
+      CHAIN_RO_CALL(get_xshards, 200, http_params_types::params_required)
    }, appbase::exec_queue::read_only);
 
    // Not safe to run in parallel with read-only transactions
