@@ -18,7 +18,7 @@ extern const char* const state_history_plugin_abi = R"({
                 { "name": "trace_end_block", "type": "uint32" },
                 { "name": "chain_state_begin_block", "type": "uint32" },
                 { "name": "chain_state_end_block", "type": "uint32" },
-                { "name": "chain_id", "type": "checksum256$" }
+                { "name": "chain_id", "type": "checksum256" }
             ]
         },
         {
@@ -228,16 +228,21 @@ extern const char* const state_history_plugin_abi = R"({
         {
             "name": "account_v0", "fields": [
                 { "type": "name", "name": "name" },
+                { "type": "bool", "name": "privileged" },
                 { "type": "block_timestamp_type", "name": "creation_date" },
-                { "type": "bytes", "name": "abi" }
+                { "type": "time_point", "name": "last_code_update" },
+                { "type": "bytes", "name": "abi" },
+                { "type": "uint64", "name": "code_sequence"},
+                { "type": "uint64", "name": "abi_sequence"},
+                { "type": "code_id?", "name": "code" }
+
             ]
         },
         {
             "name": "account_metadata_v0", "fields": [
                 { "type": "name", "name": "name" },
-                { "type": "bool", "name": "privileged" },
-                { "type": "time_point", "name": "last_code_update" },
-                { "type": "code_id?", "name": "code" }
+                { "type": "uint64", "name": "recv_sequence"},
+                { "type": "uint64", "name": "auth_sequence"}
             ]
         },
         {
@@ -417,7 +422,7 @@ extern const char* const state_history_plugin_abi = R"({
                 { "type": "producer_authority_schedule", "name": "proposed_schedule" },
                 { "type": "chain_config", "name": "configuration" },
                 { "type": "checksum256", "name": "chain_id" },
-                { "type": "wasm_config$", "name": "wasm_configuration" }
+                { "type": "wasm_config", "name": "wasm_configuration" }
             ]
         },
         {
