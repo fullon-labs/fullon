@@ -440,36 +440,37 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
                                              && !control.sender_avoids_whitelist_blacklist_enforcement( receiver );
    trx_context.validate_referenced_accounts( trx, enforce_actor_whitelist_blacklist );
 
-   if( control.is_builtin_activated( builtin_protocol_feature_t::no_duplicate_deferred_id ) ) {
-      auto exts = trx.validate_and_extract_extensions();
-      if( exts.size() > 0 ) {
-         auto itr = exts.lower_bound( deferred_transaction_generation_context::extension_id() );
+   const auto& exts = trx.get_extracted_extensions();
+   bool is_no_duplicate_deferred_id = control.is_builtin_activated( builtin_protocol_feature_t::no_duplicate_deferred_id );
+   if( exts.size() > 0 ) {
+      // auto itr = exts.lower_bound( deferred_transaction_generation_context::extension_id() );
+      auto itr = exts.begin();
 
-         EOS_ASSERT( exts.size() == 1 && itr != exts.end(), invalid_transaction_extension,
-                     "only the deferred_transaction_generation_context extension is currently supported for deferred transactions"
-         );
+      EOS_ASSERT( exts.size() == 1 && itr != exts.end() && itr->first == deferred_transaction_generation_context::extension_id(), invalid_transaction_extension,
+                  "only the deferred_transaction_generation_context extension is currently supported for deferred transactions"
+      );
 
-         const auto& context = std::get<deferred_transaction_generation_context>(itr->second);
+      const auto& context = std::get<deferred_transaction_generation_context>(itr->second);
 
-         EOS_ASSERT( context.sender == receiver, ill_formed_deferred_transaction_generation_context,
-                     "deferred transaction generaction context contains mismatching sender",
-                     ("expected", receiver)("actual", context.sender)
-         );
-         EOS_ASSERT( context.sender_id == sender_id, ill_formed_deferred_transaction_generation_context,
-                     "deferred transaction generaction context contains mismatching sender_id",
-                     ("expected", sender_id)("actual", context.sender_id)
-         );
-         EOS_ASSERT( context.sender_trx_id == trx_context.packed_trx.id(), ill_formed_deferred_transaction_generation_context,
-                     "deferred transaction generaction context contains mismatching sender_trx_id",
-                     ("expected", trx_context.packed_trx.id())("actual", context.sender_trx_id)
-         );
-      } else {
-         emplace_extension(
-            trx.transaction_extensions,
-            deferred_transaction_generation_context::extension_id(),
-            fc::raw::pack( deferred_transaction_generation_context( trx_context.packed_trx.id(), sender_id, receiver ) )
-         );
+      EOS_ASSERT( context.sender == receiver, ill_formed_deferred_transaction_generation_context,
+                  "deferred transaction generaction context contains mismatching sender",
+                  ("expected", receiver)("actual", context.sender)
+      );
+      EOS_ASSERT( context.sender_id == sender_id, ill_formed_deferred_transaction_generation_context,
+                  "deferred transaction generaction context contains mismatching sender_id",
+                  ("expected", sender_id)("actual", context.sender_id)
+      );
+      EOS_ASSERT( context.sender_trx_id == trx_context.packed_trx.id(), ill_formed_deferred_transaction_generation_context,
+                  "deferred transaction generaction context contains mismatching sender_trx_id",
+                  ("expected", trx_context.packed_trx.id())("actual", context.sender_trx_id)
+      );
+   } else {
+      if (is_no_duplicate_deferred_id) {
+         transaction_extension ext = deferred_transaction_generation_context( trx_context.packed_trx.id(), sender_id, receiver );
+         trx.emplace_extension_unique(std::move(ext));
       }
+   }
+   if (is_no_duplicate_deferred_id) {
       trx.expiration = time_point_sec();
       trx.ref_block_num = 0;
       trx.ref_block_prefix = 0;

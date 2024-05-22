@@ -70,8 +70,11 @@ class transaction_metadata {
 
       const packed_transaction_ptr& packed_trx()const { return _packed_trx; }
       const transaction_id_type& id()const { return _packed_trx->id(); }
-      const eosio::chain::shard_name& get_shard_name() const {
+      inline const eosio::chain::shard_name& get_shard_name() const {
          return _packed_trx->get_shard_name();
+      }
+      inline const eosio::chain::shard_type& get_shard_type() const {
+         return _packed_trx->get_shard_type();
       }
       fc::microseconds signature_cpu_usage()const { return _sig_cpu_usage; }
       const flat_set<public_key_type>& recovered_keys()const { return _recovered_pub_keys; }

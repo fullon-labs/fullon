@@ -25,16 +25,44 @@ namespace eosio { namespace chain {
       account_name        sender;
    };
 
+   enum class shard_type: uint8_t {
+      normal      = 0,
+      privacy     = 1
+   };
+
+   using shard_type_enum = fc::enum_type<uint8_t, shard_type>;
+
+   struct transaction_shard : fc::reflect_init {
+      static constexpr uint16_t extension_id() { return 1; }
+      static constexpr bool     enforce_unique() { return true; }
+
+      transaction_shard() = default;
+      transaction_shard( const chain::shard_name& shard_name, chain::shard_type shard_type)
+      :shard_name(shard_name)
+      ,shard_type(shard_type){}
+
+      eosio::chain::shard_name   shard_name = default_shard_name; // shard name
+      shard_type_enum            shard_type = shard_type_enum(chain::shard_type::normal);
+      void reflector_init();
+
+      static chain::shard_name default_shard_name;
+   };
+
    namespace detail {
       template<typename... Ts>
       struct transaction_extension_types {
          using transaction_extension_t = std::variant< Ts... >;
          using decompose_t = decompose< Ts... >;
+
+         inline static std::vector<char> pack_data(const transaction_extension_t& ext) {
+            return std::visit([](const auto& t) -> auto { return fc::raw::pack(t); }, ext);
+         }
       };
    }
 
    using transaction_extension_types = detail::transaction_extension_types<
-      deferred_transaction_generation_context
+      deferred_transaction_generation_context,
+      transaction_shard
    >;
 
    using transaction_extension = transaction_extension_types::transaction_extension_t;
@@ -52,15 +80,7 @@ namespace eosio { namespace chain {
     *  will never be included.
     */
 
-
-   enum class shard_type: uint8_t {
-      normal      = 0,
-      privacy     = 1
-   };
-
-   using shard_type_enum = fc::enum_type<uint8_t, shard_type>;
-
-   struct transaction_header {
+   struct transaction_header : fc::reflect_init {
       time_point_sec             expiration;   ///< the time at which a transaction expires
       uint16_t                   ref_block_num       = 0U; ///< specifies a block num in the last 2^16 blocks.
       uint32_t                   ref_block_prefix    = 0UL; ///< specifies the lower 32 bits of the blockid at get_ref_blocknum
@@ -68,15 +88,19 @@ namespace eosio { namespace chain {
       uint8_t                    max_cpu_usage_ms    = 0; /// upper limit on the total CPU time billed for this transaction
       fc::unsigned_int           delay_sec           = 0UL; /// number of seconds to delay this transaction for during which it may be canceled.
 
-      eosio::chain::shard_name   shard_name          = default_shard_name; // shard name
-      shard_type_enum            shard_type          = shard_type_enum(eosio::chain::shard_type::normal);
-
-
-      static chain::shard_name default_shard_name;
-      const chain::shard_name& get_shard_name() const;
-      void set_shard_name(const eosio::chain::shard_name& name);
-
-      const eosio::chain::shard_type& get_shard_type() const  { return shard_type.value; }
+      transaction_header() = default;
+      transaction_header(  const time_point_sec&      expiration,
+                           uint16_t                   ref_block_num,
+                           uint32_t                   ref_block_prefix,
+                           fc::unsigned_int           max_net_usage_words,
+                           uint8_t                    max_cpu_usage_ms,
+                           fc::unsigned_int           delay_sec)
+                             :expiration(expiration),
+                              ref_block_num(ref_block_num),
+                              ref_block_prefix(ref_block_prefix),
+                              max_net_usage_words(max_net_usage_words),
+                              max_cpu_usage_ms(max_cpu_usage_ms),
+                              delay_sec(delay_sec) {}
 
       /**
        * @return the absolute block number given the relative ref_block_num
@@ -87,6 +111,8 @@ namespace eosio { namespace chain {
       void set_reference_block( const block_id_type& reference_block );
       bool verify_reference_block( const block_id_type& reference_block )const;
       void validate()const;
+
+      void reflector_init() {}
    };
 
    /**
@@ -99,6 +125,7 @@ namespace eosio { namespace chain {
       vector<action>         actions;
       extensions_type        transaction_extensions;
 
+      using transaction_header::transaction_header;
       transaction_id_type        id()const;
       digest_type                sig_digest( const chain_id_type& chain_id, const vector<bytes>& cfd = vector<bytes>() )const;
       fc::microseconds           get_signature_keys( const vector<signature_type>& signatures,
@@ -118,7 +145,25 @@ namespace eosio { namespace chain {
          return account_name();
       }
 
-      flat_multimap<uint16_t, transaction_extension> validate_and_extract_extensions()const;
+      typedef flat_multimap<uint16_t, transaction_extension> transaction_extension_map;
+
+      const transaction_extension_map& get_extracted_extensions()const;
+
+      transaction_extension_map::iterator emplace_extension_unique( transaction_extension&& ext);
+
+      void reflector_init();
+
+      const chain::shard_name& get_shard_name() const { return _shard_name; }
+      void set_shard(const eosio::chain::shard_name& shard_name, chain::shard_type shard_type = chain::shard_type::normal);
+      const eosio::chain::shard_type& get_shard_type() const  { return _shard_type; }
+      bool has_shard_extension() const;
+   private:
+      flat_multimap<uint16_t, transaction_extension>  _extracted_extensions;
+
+      eosio::chain::shard_name   _shard_name          = transaction_shard::default_shard_name; // shard name
+      eosio::chain::shard_type   _shard_type          = eosio::chain::shard_type::normal;
+
+      void extract_extensions();
    };
 
    struct signed_transaction : public transaction
@@ -194,6 +239,9 @@ namespace eosio { namespace chain {
       const eosio::chain::shard_name& get_shard_name() const {
          return unpacked_trx.get_shard_name();
       }
+      const eosio::chain::shard_type& get_shard_type() const {
+         return unpacked_trx.get_shard_type();
+      }
       bytes               get_raw_transaction()const;
 
       time_point_sec                expiration()const { return unpacked_trx.expiration; }
@@ -236,8 +284,9 @@ namespace eosio { namespace chain {
 
 FC_REFLECT_ENUM( eosio::chain::shard_type, (normal)(privacy))
 FC_REFLECT(eosio::chain::deferred_transaction_generation_context, (sender_trx_id)(sender_id)(sender) )
+FC_REFLECT(eosio::chain::transaction_shard, (shard_name)(shard_type) )
 FC_REFLECT( eosio::chain::transaction_header, (expiration)(ref_block_num)(ref_block_prefix)
-                                              (max_net_usage_words)(max_cpu_usage_ms)(delay_sec)(shard_name)(shard_type) )
+                                              (max_net_usage_words)(max_cpu_usage_ms)(delay_sec) )
 FC_REFLECT_DERIVED( eosio::chain::transaction, (eosio::chain::transaction_header), (context_free_actions)(actions)(transaction_extensions) )
 FC_REFLECT_DERIVED( eosio::chain::signed_transaction, (eosio::chain::transaction), (signatures)(context_free_data) )
 FC_REFLECT_ENUM( eosio::chain::packed_transaction::compression_type, (none)(zlib))

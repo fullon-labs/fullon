@@ -388,7 +388,7 @@ namespace eosio { namespace testing {
          const auto& idx = control->dbm().main_db().get_index<generated_transaction_multi_index,by_delay>();
          auto pbt = control->pending_block_time();
          for( auto itr = idx.begin(); itr != idx.end() && itr->delay_until <= pbt; ++itr) {
-            auto& building_shard = control->init_building_shard(itr->shard_name);
+            auto& building_shard = control->init_building_shard(itr->shard_name, shard_type::normal);
             if (itr->is_xshard) {
                auto obj_id = xshard_object::id_from_sender_id(itr->sender_id);
                const auto *xsh = control->dbm().main_db().find<xshard_object, by_id>(obj_id);
@@ -542,13 +542,17 @@ namespace eosio { namespace testing {
 
   void base_tester::set_transaction_headers( transaction& trx, uint32_t expiration, uint32_t delay_sec ) const {
 
-      trx.shard_name = trx_shard_name;
       trx.expiration = control->head_block_time() + fc::seconds(expiration);
       trx.set_reference_block( control->head_block_id() );
 
       trx.max_net_usage_words = 0; // No limit
       trx.max_cpu_usage_ms = 0; // No limit
       trx.delay_sec = delay_sec;
+
+      if (!trx.has_shard_extension()) {
+         transaction_extension ext = transaction_shard{trx_shard_name, chain::shard_type::normal};
+         trx.emplace_extension_unique(std::move(ext));
+      }
   }
 
 
@@ -650,7 +654,7 @@ namespace eosio { namespace testing {
                                        fc::time_point deadline, fc::microseconds max_transaction_time,
                                        uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time,
                                        int64_t subjective_cpu_bill_us ) {
-      auto& building_shard = control->init_building_shard(trx->get_shard_name());
+      auto& building_shard = control->init_building_shard(trx->get_shard_name(), shard_type::normal);
       return control->push_transaction( building_shard, trx, deadline, max_transaction_time,
          billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
    }
@@ -666,7 +670,7 @@ namespace eosio { namespace testing {
                                        const transaction_id_type& scheduled,
                                        fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                        uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time ) {
-      auto& building_shard = control->init_building_shard(shard_name);
+      auto& building_shard = control->init_building_shard(shard_name, shard_type::normal);
       return control->push_scheduled_transaction( building_shard, scheduled, block_deadline,
           max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
    }

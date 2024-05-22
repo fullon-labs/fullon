@@ -346,6 +346,7 @@ struct expired_blacklisted_trx_tracker {
 struct processing_shard {
    typedef generated_transaction_object::id_type generated_trx_id_type;
 
+   chain::shard_type             shard_type                    = chain::shard_type::normal;
    unapplied_transaction_queue   unapplied_transactions;
    uint64_t                      trx_seq                       = 0;
    std::future<bool>             trx_task_fut;
@@ -930,7 +931,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                return true;
             }
 
-            chain.check_shard_available(trx->get_shard_name());
+            chain.validate_shard(trx->get_shard_name(), trx->get_shard_type());
 
             if( chain.is_known_unexpired_transaction( id, trx->get_shard_name() )) {
                auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
@@ -2588,7 +2589,7 @@ producer_plugin_impl::push_transaction_one( const fc::time_point& block_deadline
    chain::building_shard* building_shard_ptr = nullptr;
    auto exception_handler = make_trx_exception_handler(shard_itr, trx->packed_trx(), unapplied_trx.next, start, trx->is_transient(), true);
    try {
-      building_shard_ptr = &chain.init_building_shard(shard_itr->first);
+      building_shard_ptr = &chain.init_building_shard(shard_itr->first, shard_itr->second.shard_type);
    }TRX_CATCH_AND_CALL(exception_handler);
    if (!building_shard_ptr) {
       return;
@@ -2926,7 +2927,7 @@ void producer_plugin_impl::push_schedule_transaction( const fc::time_point& dead
    chain::controller& chain = chain_plug->chain();
    chain::building_shard* building_shard_ptr = nullptr;
    try {
-      building_shard_ptr = &chain.init_building_shard(shard_itr->first);
+      building_shard_ptr = &chain.init_building_shard(shard_itr->first, shard_itr->second.shard_type);
    } LOG_AND_DROP();
    if (!building_shard_ptr) {
       return;

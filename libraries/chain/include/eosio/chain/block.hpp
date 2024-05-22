@@ -32,6 +32,7 @@ namespace eosio { namespace chain {
 
    struct shard_transaction_id_type {
       eosio::chain::shard_name shard_name;
+      shard_type_enum          shard_type = shard_type_enum(chain::shard_type::normal);
       transaction_id_type      id;
    };
 
@@ -62,6 +63,13 @@ namespace eosio { namespace chain {
          return std::visit(overloaded{ [](const transaction_id_type& id) -> const shard_name& { return config::main_shard_name; },
                                        [](const packed_transaction& ptrx) ->const shard_name& { return ptrx.get_shard_name(); },
                                        [](const shard_transaction_id_type& strx) -> const shard_name& { return strx.shard_name; } },
+                           trx);
+      }
+
+      const shard_type get_shard_type() const {
+         return std::visit(overloaded{ [](const transaction_id_type& id) -> shard_type { return shard_type::normal; },
+                                       [](const packed_transaction& ptrx) -> shard_type { return ptrx.get_shard_type(); },
+                                       [](const shard_transaction_id_type& strx) -> shard_type { return strx.shard_type.value; } },
                            trx);
       }
 
@@ -150,4 +158,4 @@ FC_REFLECT(eosio::chain::transaction_receipt_header, (status)(cpu_usage_us)(net_
 FC_REFLECT_DERIVED(eosio::chain::transaction_receipt, (eosio::chain::transaction_receipt_header), (trx) )
 FC_REFLECT(eosio::chain::additional_block_signatures_extension, (signatures));
 FC_REFLECT_DERIVED(eosio::chain::signed_block, (eosio::chain::signed_block_header), (transactions)(block_extensions) )
-FC_REFLECT(eosio::chain::shard_transaction_id_type, (shard_name)(id));
+FC_REFLECT(eosio::chain::shard_transaction_id_type, (shard_name)(shard_type)(id));

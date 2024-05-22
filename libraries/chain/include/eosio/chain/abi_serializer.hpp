@@ -615,7 +615,7 @@ namespace impl {
       template<typename Resolver>
       static void add( mutable_variant_object &out, const char* name, const transaction& trx, Resolver resolver, abi_traverse_context& ctx )
       {
-         static_assert(fc::reflector<transaction>::total_member_count == 11);
+         static_assert(fc::reflector<transaction>::total_member_count == 9);
          auto h = ctx.enter_scope();
          mutable_variant_object mvo;
          mvo("expiration", trx.expiration);
@@ -624,14 +624,16 @@ namespace impl {
          mvo("max_net_usage_words", trx.max_net_usage_words);
          mvo("max_cpu_usage_ms", trx.max_cpu_usage_ms);
          mvo("delay_sec", trx.delay_sec);
-         mvo("shard_name", trx.shard_name); // TODO: may be change to trx ext
-         mvo("shard_type", trx.shard_type); // TODO: may be change to trx ext
          add(mvo, "context_free_actions", trx.context_free_actions, resolver, ctx);
          add(mvo, "actions", trx.actions, resolver, ctx);
 
          // process contents of block.transaction_extensions
-         auto exts = trx.validate_and_extract_extensions();
-         if (exts.count(deferred_transaction_generation_context::extension_id()) > 0) {
+         const auto& exts = trx.get_extracted_extensions();
+         mvo("shard_name", trx.get_shard_name());
+         mvo("shard_type", shard_type_enum(trx.get_shard_type()));
+         mvo("has_shard_extension", exts.find(transaction_shard::extension_id()) != exts.end());
+         auto ext_itr = exts.lower_bound(deferred_transaction_generation_context::extension_id());
+         if (ext_itr != exts.end() && ext_itr->first == deferred_transaction_generation_context::extension_id() ) {
             const auto& deferred_transaction_generation = std::get<deferred_transaction_generation_context>(exts.lower_bound(deferred_transaction_generation_context::extension_id())->second);
             mvo("deferred_transaction_generation", deferred_transaction_generation);
          }

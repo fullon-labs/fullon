@@ -252,10 +252,10 @@ namespace eosio { namespace chain {
 
    void transaction_context::init_for_implicit_trx( uint64_t initial_net_usage  )
    {
-      const transaction& trx = packed_trx.get_transaction();
-      if( trx.transaction_extensions.size() > 0 ) {
-         disallow_transaction_extensions( "no transaction extensions supported yet for implicit transactions" );
-      }
+      // const transaction& trx = packed_trx.get_transaction();
+      // if( trx.transaction_extensions.size() > 0 ) {
+      //    disallow_transaction_extensions( "no transaction extensions supported yet for implicit transactions" );
+      // }
 
       published = control.pending_block_time();
       init( initial_net_usage);
@@ -268,9 +268,9 @@ namespace eosio { namespace chain {
       if ( is_transient() ) {
          EOS_ASSERT( trx.delay_sec.value == 0, transaction_exception, "dry-run or read-only transaction cannot be delayed" );
       }
-      if( trx.transaction_extensions.size() > 0 ) {
-         disallow_transaction_extensions( "no transaction extensions supported yet for input transactions" );
-      }
+      // if( trx.transaction_extensions.size() > 0 ) {
+      //    disallow_transaction_extensions( "no transaction extensions supported yet for input transactions" );
+      // }
 
       const auto& cfg = control.get_global_properties().configuration;
 
@@ -312,10 +312,10 @@ namespace eosio { namespace chain {
 
    void transaction_context::init_for_deferred_trx( fc::time_point p )
    {
-      const transaction& trx = packed_trx.get_transaction();
-      if( (trx.expiration.sec_since_epoch() != 0) && (trx.transaction_extensions.size() > 0) ) {
-         disallow_transaction_extensions( "no transaction extensions supported yet for deferred transactions" );
-      }
+      // const transaction& trx = packed_trx.get_transaction();
+      // if( (trx.expiration.sec_since_epoch() != 0) && (trx.transaction_extensions.size() > 0) ) {
+      //    disallow_transaction_extensions( "no transaction extensions supported yet for deferred transactions" );
+      // }
       // If (trx.expiration.sec_since_epoch() == 0) then it was created after NO_DUPLICATE_DEFERRED_ID activation,
       // and so validation of its extensions was done either in:
       //   * apply_context::schedule_deferred_transaction for contract-generated transactions;
@@ -431,7 +431,7 @@ namespace eosio { namespace chain {
       rl.ensure_resource_limits_state_object(this->db, this->shared_db);
       rl.add_transaction_usage( bill_to_accounts, static_cast<uint64_t>(billed_cpu_time_us), net_usage,
                                 block_timestamp_type(control.pending_block_time()).slot, this->db, this->shared_db, is_transient() ); // Should never fail
-      is_net_added = true;                          
+      is_net_added = true;
    }
 
    void transaction_context::squash() {

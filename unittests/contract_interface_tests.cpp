@@ -27,7 +27,7 @@ BOOST_FIXTURE_TEST_CASE(check_shard_name_interface_test,TEST){
     set_code("test"_n, eosio::testing::test_contracts::shard_contract_interface_tests_wasm());
     produce_block();
     eosio::chain::signed_transaction trx;
-    trx.set_shard_name("main"_n);
+    trx.set_shard("main"_n);
     shard_action         shard{"main"_n};
     eosio::chain::action act(
        std::vector<eosio::chain::permission_level>{{"test"_n, eosio::chain::config::active_name}}, shard);
@@ -36,7 +36,7 @@ BOOST_FIXTURE_TEST_CASE(check_shard_name_interface_test,TEST){
     auto sigs = trx.sign(get_private_key("test"_n, "active"), control->get_chain_id());
     push_transaction(trx);
     produce_block();
-    
+
     produce_block();
 }
 

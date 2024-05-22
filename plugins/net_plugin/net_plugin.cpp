@@ -3938,7 +3938,7 @@ namespace eosio {
       try {
          fc_ilog( logger, "shutdown.." );
 
-         my->plugin_shutdown();   
+         my->plugin_shutdown();
          app().executor().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
          fc_ilog( logger, "exit shutdown" );
       }
