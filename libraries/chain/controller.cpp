@@ -1912,7 +1912,9 @@ struct controller_impl {
                // TODO: xshard_exception
                EOS_ASSERT( xsh, action_validate_exception, "xshard object not found" );
                EOS_ASSERT( xsh->owner == xsh_in.owner, action_validate_exception, "owner of xshard mismatch" );
-               EOS_ASSERT( xsh->to_shard == shard._name, action_validate_exception, "to_shard of xshard mismatch" );
+               EOS_ASSERT( xsh->to_shard == shard._name, action_validate_exception,
+                           "to_shard of xshard mismatch, expected=${e}, actual=${a}",
+                           ("e", xsh->to_shard)("a", shard._name));
                xsh_in_queue.emplace_back(xsh_in.xsh_id);
             }
          }

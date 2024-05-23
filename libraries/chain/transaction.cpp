@@ -179,6 +179,12 @@ void transaction::extract_extensions() {
          );
       }
 
+      if (id == transaction_shard::extension_id() && std::holds_alternative<transaction_shard>(iter->second)) {
+         auto& s = std::get<transaction_shard>(iter->second);
+         _shard_name = s.shard_name;
+         _shard_type = s.shard_type;
+      }
+
       id_type_lower_bound = id;
    }
 }

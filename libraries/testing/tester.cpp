@@ -548,10 +548,8 @@ namespace eosio { namespace testing {
       trx.max_net_usage_words = 0; // No limit
       trx.max_cpu_usage_ms = 0; // No limit
       trx.delay_sec = delay_sec;
-
       if (!trx.has_shard_extension()) {
-         transaction_extension ext = transaction_shard{trx_shard_name, chain::shard_type::normal};
-         trx.emplace_extension_unique(std::move(ext));
+         trx.set_shard(trx_shard_name);
       }
   }
 
