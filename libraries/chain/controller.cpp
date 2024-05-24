@@ -1583,6 +1583,8 @@ struct controller_impl {
       signed_transaction dtrx;
       fc::raw::unpack(ds,static_cast<transaction&>(dtrx) );
 
+      EOS_ASSERT( dtrx.get_shard_name() == shard._name, transaction_exception,
+                  "transaction shard name mismatch with current shard, trx_shard=${ts}, cur_shard=${cs}", ("ts", dtrx.get_shard_name())("cs", shard._name));
       xshard_id_type xsh_id;
       if (gtrx.is_xshard) {
          EOS_ASSERT( dtrx.actions.size() == 1, transaction_exception, "Schedule xshard transaction must have one action");
@@ -1867,6 +1869,8 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
 
+         EOS_ASSERT( trn.get_shard_name() == shard._name, transaction_exception,
+                     "transaction shard name mismatch with current shard, trx_shard=${ts}, cur_shard=${cs}", ("ts", trn.get_shard_name())("cs", shard._name));
          deque<xshard_id_type> xsh_in_queue;
          deque<xsh_out_action> xsh_out_actions;
 
@@ -1880,6 +1884,7 @@ struct controller_impl {
                xsh_out_act.xsh_id      = xshard_object::make_xsh_id( trx->id(), i );
 
                signed_transaction gen_xsh_in_trx;
+               gen_xsh_in_trx.set_shard(shard._name, shard._shard_type);
 
                xshin xsh_in = {
                   .owner = xsh_out_act.xsh_out.owner,
