@@ -1883,8 +1883,15 @@ struct controller_impl {
                xsh_out_act.xsh_out     = act.data_as<xshout>();
                xsh_out_act.xsh_id      = xshard_object::make_xsh_id( trx->id(), i );
 
+               auto to_shard_type = eosio::chain::shard_type::normal;
+               if (xsh_out_act.xsh_out.to_shard != config::main_shard_name) {
+                  const auto* to_shard_obj = dbm.shared_db().find<shard_object, by_name>( xsh_out_act.xsh_out.to_shard );
+                  EOS_ASSERT( to_shard_obj, unavailable_shard_exception, "to_shard of xshout not found: ${s}", ("s", xsh_out_act.xsh_out.to_shard) );
+                  EOS_ASSERT( to_shard_obj->enabled, unavailable_shard_exception, "to_shard of xshout is disabled: ${s}", ("s", xsh_out_act.xsh_out.to_shard) );
+                  to_shard_type = to_shard_obj->shard_type;
+               }
                signed_transaction gen_xsh_in_trx;
-               gen_xsh_in_trx.set_shard(shard._name, shard._shard_type);
+               gen_xsh_in_trx.set_shard(xsh_out_act.xsh_out.to_shard, to_shard_type);
 
                xshin xsh_in = {
                   .owner = xsh_out_act.xsh_out.owner,
@@ -3204,6 +3211,8 @@ struct controller_impl {
          EOS_ASSERT( sp, unavailable_shard_exception, "shard not found: ${s}", ("s", name) );
          EOS_ASSERT( sp->enabled, unavailable_shard_exception, "shard is disabled: ${s}", ("s", name) );
          EOS_ASSERT( sp->shard_type == shard_type, transaction_exception, "shard type mismatch, name=${s}", ("s", name) );
+      } else {
+         EOS_ASSERT( shard_type == eosio::chain::shard_type::normal, transaction_exception, "shard type mismatch, name=${s}", ("s", name) );
       }
    }
 

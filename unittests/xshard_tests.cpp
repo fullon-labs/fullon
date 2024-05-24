@@ -226,6 +226,15 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
    BOOST_REQUIRE(schedule_trx_obj2->delay_until == schedule_trx_obj2->published + fc::milliseconds(config::block_interval_ms));
    BOOST_REQUIRE(schedule_trx_obj2->expiration == schedule_trx_obj2->delay_until + fc::seconds(gpo.configuration.deferred_trx_expiration_window));
    BOOST_REQUIRE_EQUAL(schedule_trx_obj2->is_xshard, true);
+   BOOST_REQUIRE_EQUAL(schedule_trx_obj2->shard_name, shard1_name);
+
+   {
+      fc::datastream<const char*> ds( schedule_trx_obj2->packed_trx.data(), schedule_trx_obj2->packed_trx.size() );
+      signed_transaction schedule_trx2;
+      fc::raw::unpack(ds, static_cast<transaction&>(schedule_trx2) );
+      BOOST_REQUIRE(schedule_trx2.has_shard_extension());
+      BOOST_REQUIRE_EQUAL(schedule_trx2.get_shard_name(), shard1_name);
+   }
 
    {
       // shard_name_scope scope(*this, shard1_name);
