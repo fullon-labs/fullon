@@ -424,7 +424,9 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       trx.expiration = info.head_block_time + tx_expiration;
 
       EOSC_ASSERT( !tx_shard_name.empty(), "ERROR: --shard can not be empty" );
-      trx.shard_name = tx_shard_name;
+      if (!trx.has_shard_extension()) {
+         trx.set_shard(tx_shard_name);
+      }
 
       // Set tapos, default to last irreversible block if it's not specified by the user
       block_id_type ref_block_id = info.last_irreversible_block_id;

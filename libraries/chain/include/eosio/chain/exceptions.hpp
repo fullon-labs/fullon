@@ -655,7 +655,9 @@ namespace eosio { namespace chain {
                                     3510002, "Unavailable shard exception" )
       FC_DECLARE_DERIVED_EXCEPTION( only_main_shard_allowed_exception,      shard_exception,
                                     3510003, "Only main shard allowed" )
-                                    
+      FC_DECLARE_DERIVED_EXCEPTION( invalid_shard_name, shard_exception,
+                                    3040016, "Invalid shard name" )
+
       FC_DECLARE_DERIVED_EXCEPTION( shard_db_exception,      shard_exception,
                                     3511000, "shard database exception" )
       FC_DECLARE_DERIVED_EXCEPTION( shard_db_catalog_exception,   shard_db_exception,

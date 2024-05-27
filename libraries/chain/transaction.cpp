@@ -13,26 +13,28 @@
 
 namespace eosio { namespace chain {
 
-
-const chain::shard_name& transaction_header::get_shard_name() const {
-    return shard_name;
-}
-
-void transaction_header::set_shard_name(const eosio::chain::shard_name& name) {
-   shard_name = name;
-}
-
 void deferred_transaction_generation_context::reflector_init() {
-      static_assert( fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
-                     "deferred_transaction_generation_context expects FC to support reflector_init" );
+   static_assert( fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
+                  "deferred_transaction_generation_context expects FC to support reflector_init" );
 
 
-      EOS_ASSERT( sender != account_name(), ill_formed_deferred_transaction_generation_context,
-                  "Deferred transaction generation context extension must have a non-empty sender account",
-      );
+   EOS_ASSERT( sender != account_name(), ill_formed_deferred_transaction_generation_context,
+               "Deferred transaction generation context extension must have a non-empty sender account",
+   );
 }
 
-chain::shard_name transaction_header::default_shard_name = config::main_shard_name;
+chain::shard_name transaction_shard::default_shard_name = config::main_shard_name;
+
+void transaction_shard::reflector_init() {
+   static_assert( fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
+                  "transaction_shard expects FC to support reflector_init" );
+   EOS_ASSERT( !shard_name.empty(), invalid_shard_name,
+               "Shard name of transaction shard extension can not be empty",
+   );
+   EOS_ASSERT( shard_type == eosio::chain::shard_type::normal, invalid_shard_name,
+               "Only supported normal shard type",
+   );
+}
 
 void transaction_header::set_reference_block( const block_id_type& reference_block ) {
    ref_block_num    = fc::endian_reverse_u32(reference_block._hash[0]);
@@ -91,10 +93,63 @@ fc::microseconds transaction::get_signature_keys( const vector<signature_type>& 
    return fc::time_point::now() - start;
 } FC_CAPTURE_AND_RETHROW() }
 
-flat_multimap<uint16_t, transaction_extension> transaction::validate_and_extract_extensions()const {
-   using decompose_t = transaction_extension_types::decompose_t;
+void transaction::reflector_init()
+{
+   // called after construction, but always on the same thread and before transaction passed to any other threads
+   static_assert( fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
+                  "extracted extensions expect FC to support reflector_init" );
+   EOS_ASSERT( _extracted_extensions.empty(), tx_decompression_error, "extracted extensions already unpacked" );
+   extract_extensions();
+}
 
-   flat_multimap<uint16_t, transaction_extension> results;
+const flat_multimap<uint16_t, transaction_extension>& transaction::get_extracted_extensions() const {
+   return _extracted_extensions;
+}
+
+transaction::transaction_extension_map::iterator transaction::emplace_extension_unique( transaction_extension&& ext) {
+   auto id = ext.index();
+
+   auto extracted_itr = _extracted_extensions.lower_bound(id);
+   bool extracted_existed = extracted_itr != _extracted_extensions.end() && extracted_itr->first == id;
+
+   auto trx_ext_itr = std::lower_bound(transaction_extensions.begin(), transaction_extensions.end(), id, [](const auto& ext_value, size_t id){
+      return ext_value.first < id;
+   });
+   bool trx_ext_existed = trx_ext_itr != transaction_extensions.end() && trx_ext_itr->first == id;
+
+   assert(extracted_existed == trx_ext_existed);
+   auto data = transaction_extension_types::pack_data(ext);
+   if (trx_ext_existed) {
+      trx_ext_itr->second = std::move(data);
+   } else {
+      transaction_extensions.emplace(trx_ext_itr, id, std::move(data));
+   }
+
+   if (extracted_existed) {
+      extracted_itr->second = std::move(ext);
+   } else {
+      extracted_itr = _extracted_extensions.emplace(std::piecewise_construct,
+         std::forward_as_tuple(id),
+         std::forward_as_tuple(std::move(ext))
+      );
+   }
+   return extracted_itr;
+}
+
+void transaction::set_shard(const eosio::chain::shard_name& shard_name, chain::shard_type shard_type) {
+   _shard_name = shard_name;
+   _shard_type = shard_type;
+   transaction_extension ext = transaction_shard(shard_name, shard_type);
+   emplace_extension_unique(std::move(ext));
+}
+
+bool transaction::has_shard_extension() const {
+   return _extracted_extensions.find(transaction_shard::extension_id()) != _extracted_extensions.end();
+}
+
+void transaction::extract_extensions() {
+
+   using decompose_t = transaction_extension_types::decompose_t;
 
    uint16_t id_type_lower_bound = 0;
 
@@ -106,7 +161,7 @@ flat_multimap<uint16_t, transaction_extension> transaction::validate_and_extract
                   "Transaction extensions are not in the correct order (ascending id types required)"
       );
 
-      auto iter = results.emplace(std::piecewise_construct,
+      auto iter = _extracted_extensions.emplace(std::piecewise_construct,
          std::forward_as_tuple(id),
          std::forward_as_tuple()
       );
@@ -124,10 +179,14 @@ flat_multimap<uint16_t, transaction_extension> transaction::validate_and_extract
          );
       }
 
+      if (id == transaction_shard::extension_id() && std::holds_alternative<transaction_shard>(iter->second)) {
+         auto& s = std::get<transaction_shard>(iter->second);
+         _shard_name = s.shard_name;
+         _shard_type = s.shard_type;
+      }
+
       id_type_lower_bound = id;
    }
-
-   return results;
 }
 
 const signature_type& signed_transaction::sign(const private_key_type& key, const chain_id_type& chain_id) {

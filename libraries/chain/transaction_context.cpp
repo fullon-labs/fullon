@@ -23,6 +23,76 @@
 
 namespace eosio { namespace chain {
 
+
+   namespace trx_extension_validator {
+      #define TRX_EXT_VALID_LIST_ITEM( T ) \
+            { T::extension_id(), T::enforce_unique() }
+
+      static const std::map<uint16_t, bool> transaction_shard_only = {
+         TRX_EXT_VALID_LIST_ITEM(transaction_shard)
+      };
+
+      static const std::map<uint16_t, bool> all_extensions = {
+         TRX_EXT_VALID_LIST_ITEM(deferred_transaction_generation_context),
+         TRX_EXT_VALID_LIST_ITEM(transaction_shard)
+      };
+
+      static void validate(const transaction& trx, const std::map<uint16_t, bool>& valid_exts) {
+         // const transaction& trx = packed_trx.get_transaction();
+         const auto& exts = trx.get_extracted_extensions();
+
+         uint16_t last_id = 0;
+         size_t ext_num_of_id = 0;
+         bool enforce_unique = false;
+         for (const auto& ext_pair : exts ) {
+            const auto& id = ext_pair.first;
+
+            EOS_ASSERT( id >= last_id, invalid_transaction_extension,
+                        "Transaction extensions are not in the correct order (ascending id types required)"
+            );
+
+            if (id != last_id) {
+               ext_num_of_id = 0;
+            }
+
+            if (ext_num_of_id == 0) {
+               auto itr = valid_exts.find(id);
+               EOS_ASSERT( itr != valid_exts.end(), invalid_transaction_extension,
+                           "Transaction extension with id type ${id} is not supported",
+                           ("id", id)
+               );
+               enforce_unique = itr->second;
+            }
+
+            last_id = id;
+            ext_num_of_id++;
+
+            if (enforce_unique) {
+               EOS_ASSERT( ext_num_of_id == 1, invalid_transaction_extension,
+                           "Transaction extension with id type ${id} is not allowed to repeat",
+                           ("id", id)
+               );
+            }
+         }
+
+         // if( exts.size() > 0 ) {
+         //    auto itr = exts.begin();
+         //    EOS_ASSERT( exts.size() == 1 && itr != exts.end() && itr->first == transaction_shard::extension_id(),
+         //                invalid_transaction_extension,
+         //                "only the unique transaction shard extension is currently supported for deferred transactions"
+         //    );
+         // }
+      }
+
+      static void validate_transaction_shard_only(const transaction& trx) {
+         validate(trx, transaction_shard_only);
+      }
+
+      static void validate_all_extensions(const transaction& trx) {
+         validate(trx, all_extensions);
+      }
+   };
+
    transaction_checktime_timer::transaction_checktime_timer(platform_timer& timer)
          : expired(timer.expired), _timer(timer) {
       expired = 0;
@@ -253,9 +323,10 @@ namespace eosio { namespace chain {
    void transaction_context::init_for_implicit_trx( uint64_t initial_net_usage  )
    {
       const transaction& trx = packed_trx.get_transaction();
-      if( trx.transaction_extensions.size() > 0 ) {
-         disallow_transaction_extensions( "no transaction extensions supported yet for implicit transactions" );
-      }
+      trx_extension_validator::validate_transaction_shard_only(trx);
+      // if( trx.transaction_extensions.size() > 0 ) {
+      //    disallow_transaction_extensions( "no transaction extensions supported yet for implicit transactions" );
+      // }
 
       published = control.pending_block_time();
       init( initial_net_usage);
@@ -268,9 +339,10 @@ namespace eosio { namespace chain {
       if ( is_transient() ) {
          EOS_ASSERT( trx.delay_sec.value == 0, transaction_exception, "dry-run or read-only transaction cannot be delayed" );
       }
-      if( trx.transaction_extensions.size() > 0 ) {
-         disallow_transaction_extensions( "no transaction extensions supported yet for input transactions" );
-      }
+      trx_extension_validator::validate_transaction_shard_only(trx);
+      // if( trx.transaction_extensions.size() > 0 ) {
+      //    disallow_transaction_extensions( "no transaction extensions supported yet for input transactions" );
+      // }
 
       const auto& cfg = control.get_global_properties().configuration;
 
@@ -313,8 +385,10 @@ namespace eosio { namespace chain {
    void transaction_context::init_for_deferred_trx( fc::time_point p )
    {
       const transaction& trx = packed_trx.get_transaction();
-      if( (trx.expiration.sec_since_epoch() != 0) && (trx.transaction_extensions.size() > 0) ) {
-         disallow_transaction_extensions( "no transaction extensions supported yet for deferred transactions" );
+      if (trx.expiration.sec_since_epoch() != 0) {
+         trx_extension_validator::validate_transaction_shard_only(trx);
+      } else {
+         trx_extension_validator::validate_all_extensions(trx);
       }
       // If (trx.expiration.sec_since_epoch() == 0) then it was created after NO_DUPLICATE_DEFERRED_ID activation,
       // and so validation of its extensions was done either in:
@@ -431,7 +505,7 @@ namespace eosio { namespace chain {
       rl.ensure_resource_limits_state_object(this->db, this->shared_db);
       rl.add_transaction_usage( bill_to_accounts, static_cast<uint64_t>(billed_cpu_time_us), net_usage,
                                 block_timestamp_type(control.pending_block_time()).slot, this->db, this->shared_db, is_transient() ); // Should never fail
-      is_net_added = true;                          
+      is_net_added = true;
    }
 
    void transaction_context::squash() {

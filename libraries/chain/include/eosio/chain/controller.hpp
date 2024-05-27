@@ -144,7 +144,7 @@ namespace eosio { namespace chain {
           */
          transaction_metadata_map abort_block();
 
-         building_shard& init_building_shard(const shard_name& name);
+         building_shard& init_building_shard(const shard_name& name, eosio::chain::shard_type shard_type);
          building_shard* find_building_shard(const shard_name& name);
 
        /**
@@ -268,7 +268,7 @@ namespace eosio { namespace chain {
          void check_contract_list( account_name code )const;
          void check_action_list( account_name code, action_name action )const;
          void check_key_list( const public_key_type& key )const;
-         void check_shard_available( const shard_name name) const;
+         void validate_shard( const shard_name& name, eosio::chain::shard_type shard_type ) const;
          bool is_shard_available( const shard_name name) const;
 
          bool is_building_block()const;

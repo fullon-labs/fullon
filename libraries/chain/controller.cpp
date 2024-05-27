@@ -161,6 +161,7 @@ struct xsh_out_action
 
 struct building_shard {
    shard_name                                   _name;
+   eosio::chain::shard_type                     _shard_type;
    database&                                    _db;
    database&                                    _shared_db;
    deque<transaction_metadata_ptr>              _pending_trx_metas;
@@ -174,8 +175,8 @@ struct building_shard {
    deque<transaction_id_type>                   _xsh_scheduled_trx_queue;
    flat_set<transaction_id_type>                _xsh_scheduled_trx_set;
 
-   building_shard(const shard_name& name, database& db, database& shared_db):
-      _name(name), _db(db), _shared_db(shared_db) {}
+   building_shard(const shard_name& name, eosio::chain::shard_type& shard_type, database& db, database& shared_db):
+      _name(name), _shard_type(shard_type), _db(db), _shared_db(shared_db) {}
    building_shard(const building_shard&) = delete;
    building_shard() = delete;
    building_shard& operator=(const building_shard&) = delete;
@@ -958,18 +959,18 @@ struct controller_impl {
       }
    }
 
-   inline building_shard& init_building_shard(const shard_name& name) {
+   inline building_shard& init_building_shard(const shard_name& name, eosio::chain::shard_type shard_type) {
       // must run in main thread
       auto& bb = std::get<building_block>(pending->_block_stage);
       auto itr = bb._shards.find(name);
       if ( itr == bb._shards.end() ) {
-         check_shard_available( name );
+         validate_shard( name, shard_type );
          auto db_ptr = dbm.find_shard_db(name);
          EOS_ASSERT( db_ptr, unavailable_shard_exception, "shard db not found" );
          auto& shared_db = (name == config::main_shard_name) ? dbm.main_db() : dbm.shared_db();
          auto new_ret = bb._shards.emplace( std::piecewise_construct,
                                         std::forward_as_tuple( name ),
-                                        std::forward_as_tuple( name, *db_ptr, shared_db ) );
+                                        std::forward_as_tuple( name, shard_type, *db_ptr, shared_db ) );
          itr = new_ret.first;
       }
       return itr->second;
@@ -1582,6 +1583,8 @@ struct controller_impl {
       signed_transaction dtrx;
       fc::raw::unpack(ds,static_cast<transaction&>(dtrx) );
 
+      EOS_ASSERT( dtrx.get_shard_name() == shard._name, transaction_exception,
+                  "transaction shard name mismatch with current shard, trx_shard=${ts}, cur_shard=${cs}", ("ts", dtrx.get_shard_name())("cs", shard._name));
       xshard_id_type xsh_id;
       if (gtrx.is_xshard) {
          EOS_ASSERT( dtrx.actions.size() == 1, transaction_exception, "Schedule xshard transaction must have one action");
@@ -1827,7 +1830,7 @@ struct controller_impl {
                                                      transaction_receipt_header::status_enum status,
                                                      uint64_t cpu_usage_us, uint64_t net_usage ) {
       if (is_xshard) {
-         return push_receipt(shard, shard_transaction_id_type{shard._name, trx}, status,  cpu_usage_us, net_usage);
+         return push_receipt(shard, shard_transaction_id_type{shard._name, shard_type_enum(shard._shard_type), trx}, status,  cpu_usage_us, net_usage);
       } else {
          return push_receipt(shard, trx, status,  cpu_usage_us, net_usage);
       }
@@ -1866,6 +1869,8 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
 
+         EOS_ASSERT( trn.get_shard_name() == shard._name, transaction_exception,
+                     "transaction shard name mismatch with current shard, trx_shard=${ts}, cur_shard=${cs}", ("ts", trn.get_shard_name())("cs", shard._name));
          deque<xshard_id_type> xsh_in_queue;
          deque<xsh_out_action> xsh_out_actions;
 
@@ -1878,7 +1883,15 @@ struct controller_impl {
                xsh_out_act.xsh_out     = act.data_as<xshout>();
                xsh_out_act.xsh_id      = xshard_object::make_xsh_id( trx->id(), i );
 
+               auto to_shard_type = eosio::chain::shard_type::normal;
+               if (xsh_out_act.xsh_out.to_shard != config::main_shard_name) {
+                  const auto* to_shard_obj = dbm.shared_db().find<shard_object, by_name>( xsh_out_act.xsh_out.to_shard );
+                  EOS_ASSERT( to_shard_obj, unavailable_shard_exception, "to_shard of xshout not found: ${s}", ("s", xsh_out_act.xsh_out.to_shard) );
+                  EOS_ASSERT( to_shard_obj->enabled, unavailable_shard_exception, "to_shard of xshout is disabled: ${s}", ("s", xsh_out_act.xsh_out.to_shard) );
+                  to_shard_type = to_shard_obj->shard_type;
+               }
                signed_transaction gen_xsh_in_trx;
+               gen_xsh_in_trx.set_shard(xsh_out_act.xsh_out.to_shard, to_shard_type);
 
                xshin xsh_in = {
                   .owner = xsh_out_act.xsh_out.owner,
@@ -1911,7 +1924,9 @@ struct controller_impl {
                // TODO: xshard_exception
                EOS_ASSERT( xsh, action_validate_exception, "xshard object not found" );
                EOS_ASSERT( xsh->owner == xsh_in.owner, action_validate_exception, "owner of xshard mismatch" );
-               EOS_ASSERT( xsh->to_shard == shard._name, action_validate_exception, "to_shard of xshard mismatch" );
+               EOS_ASSERT( xsh->to_shard == shard._name, action_validate_exception,
+                           "to_shard of xshard mismatch, expected=${e}, actual=${a}",
+                           ("e", xsh->to_shard)("a", shard._name));
                xsh_in_queue.emplace_back(xsh_in.xsh_id);
             }
          }
@@ -2202,7 +2217,7 @@ struct controller_impl {
                   in_trx_requiring_checks = old_value;
                });
             in_trx_requiring_checks = true;
-            auto& shard = init_building_shard(config::main_shard_name);
+            auto& shard = init_building_shard(config::main_shard_name, shard_type::normal);
             auto trace = push_transaction( shard, onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
                                            gpo.configuration.min_transaction_cpu_usage, true, 0 );
             if( trace->except ) {
@@ -2582,12 +2597,18 @@ struct controller_impl {
                   block_validate_exception, "transactions must sorted by shard name with ascending order, block_num ${bn}, block_id ${id}, shard ${s}",
                   ("bn", bsp->block_num)("id", bsp->id)("s", shard_name)
                );
-               pending_shard = &init_building_shard(shard_name);
+               pending_shard = &init_building_shard(shard_name, receipt.get_shard_type());
                shard_contexts.emplace_back(*pending_shard);
                last_shard_name = shard_name;
             }
             assert(!shard_contexts.empty());
             auto& shard_context = shard_contexts.back();
+
+
+            EOS_ASSERT( !shard_name.empty(),
+               block_validate_exception, "shard name of transaction is empty, block_num ${bn}, block_id ${id}, trx ${t}",
+               ("bn", bsp->block_num)("id", bsp->id)("t", receipt.get_trx_id())
+            );
 
             auto trx_receipt = transaction_receipt_ptr( b, &receipt ); // alias signed_block_ptr
             auto& shard_trx = shard_context.trx_metas.emplace_back(std::move(trx_receipt));
@@ -3184,11 +3205,14 @@ struct controller_impl {
       }
    }
 
-   void check_shard_available( const shard_name name) const {
+   void validate_shard( const shard_name& name, eosio::chain::shard_type shard_type) const {
       if ( name != config::main_shard_name ){
          const auto* sp = dbm.shared_db().find<shard_object, by_name>( name );
          EOS_ASSERT( sp, unavailable_shard_exception, "shard not found: ${s}", ("s", name) );
          EOS_ASSERT( sp->enabled, unavailable_shard_exception, "shard is disabled: ${s}", ("s", name) );
+         EOS_ASSERT( sp->shard_type == shard_type, transaction_exception, "shard type mismatch, name=${s}", ("s", name) );
+      } else {
+         EOS_ASSERT( shard_type == eosio::chain::shard_type::normal, transaction_exception, "shard type mismatch, name=${s}", ("s", name) );
       }
    }
 
@@ -3582,9 +3606,9 @@ void controller::commit_block() {
    my->commit_block(true);
 }
 
-building_shard& controller::init_building_shard(const shard_name& name) {
+building_shard& controller::init_building_shard(const shard_name& name, eosio::chain::shard_type shard_type) {
    EOS_ASSERT( my->pending && std::holds_alternative<building_block>(my->pending->_block_stage), transaction_exception, "Can not push transaction when state not in building block mode." );
-   return my->init_building_shard(name);
+   return my->init_building_shard(name, shard_type);
 }
 
 building_shard* controller::find_building_shard(const shard_name& name) {
@@ -4066,8 +4090,8 @@ void controller::check_key_list( const public_key_type& key )const {
 }
 
 
-void controller::check_shard_available( const shard_name name) const {
-   my->check_shard_available( name );
+void controller::validate_shard( const shard_name& name, eosio::chain::shard_type shard_type) const {
+   my->validate_shard( name, shard_type );
 }
 
 bool controller::is_shard_available( const shard_name name) const {

@@ -48,28 +48,31 @@ BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
 
    // run until the producers are installed and its the start of "a's" round
    BOOST_REQUIRE( produce_until_transition( bios, "e"_n, "a"_n ) );
+   const static int producer_repetitions_half = config::producer_repetitions / 2;
+   static_assert(producer_repetitions_half > 0);
 
    // sync remote node
    tester remote(setup_policy::none);
    push_blocks(bios, remote);
 
-   // produce 6 blocks on bios
-   for (int i = 0; i < 6; i ++) {
+   // produce producer_repetitions_half blocks on bios
+   for (int i = 0; i < producer_repetitions_half; i ++) {
       bios.produce_block();
       BOOST_REQUIRE_EQUAL( bios.control->head_block_state()->header.producer.to_string(), "a" );
    }
 
-   vector<fork_tracker> forks(7);
+   int fork_num = producer_repetitions_half + 1;
+   vector<fork_tracker> forks(fork_num);
    // enough to skip A's blocks
-   auto offset = fc::milliseconds(config::block_interval_ms * 13);
+   auto offset = fc::milliseconds(config::block_interval_ms * (config::producer_repetitions + 1) );
 
    // skip a's blocks on remote
    // create 7 forks of 7 blocks so this fork is longer where the ith block is corrupted
-   for (size_t i = 0; i < 7; i ++) {
+   for (size_t i = 0; i < fork_num; i ++) {
       auto b = remote.produce_block(offset);
       BOOST_REQUIRE_EQUAL( b->producer.to_string(), "b" );
 
-      for (size_t j = 0; j < 7; j ++) {
+      for (size_t j = 0; j < fork_num; j ++) {
          auto& fork = forks.at(j);
 
          if (j <= i) {

@@ -364,7 +364,7 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          }
       } FC_LOG_AND_RETHROW()
    }
-   
+
    static constexpr name contract_name   = "shard.test"_n;
    static constexpr name shard1_name     = "shard1"_n;
    static constexpr name shard1_owner    = "owner.shard1"_n;
@@ -388,7 +388,7 @@ BOOST_AUTO_TEST_SUITE(database_tests)
          BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
          abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
       }
-      
+
       transaction_trace_ptr push_action(const action& act, const account_name& signer)
       { try {
          signed_transaction trx;
@@ -440,14 +440,14 @@ BOOST_AUTO_TEST_SUITE(database_tests)
       auto regshard(const account_name& signer, const registered_shard &shard, const std::optional<int64_t>& expected_result) {
          return regshard(signer, 0, shard.name, uint8_t(shard.shard_type), shard.owner, shard.enabled, shard.opts, expected_result);
       }
-      
+
       abi_serializer abi_ser;
    };
 
    class sharding_tester : public shard_base_tester {
       public:
-         
-         sharding_tester(setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::HEAD, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}, std::optional<uint32_t> config_max_nonprivileged_inline_action_size = std::optional<uint32_t>{}) 
+
+         sharding_tester(setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::HEAD, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}, std::optional<uint32_t> config_max_nonprivileged_inline_action_size = std::optional<uint32_t>{})
             :shard_base_tester(policy, read_mode, genesis_max_inline_action_size, config_max_nonprivileged_inline_action_size)
          {
             registered_shard shard1 = registered_shard {
@@ -457,7 +457,7 @@ BOOST_AUTO_TEST_SUITE(database_tests)
             .enabled          = true,
             .opts             = 0
             };
-            
+
             base_tester::push_action(config::system_account_name, "setpriv"_n, config::system_account_name,  fc::mutable_variant_object()("account", contract_name)("is_priv", 1));
             produce_blocks();
             regshard( shard1_owner, shard1, 1 );
@@ -477,11 +477,9 @@ BOOST_AUTO_TEST_SUITE(database_tests)
             return _finish_block();
          }
 
-         bool validate() { return true; } 
-         
+         bool validate() { return true; }
+
          void set_transaction_headers( transaction& trx, uint32_t expiration = DEFAULT_EXPIRATION_DELTA, uint32_t delay_sec = 0 ) const {
-            if (!trx.shard_name)
-               trx.shard_name = config::main_shard_name;
             trx.expiration = control->head_block_time() + fc::seconds(expiration);
             trx.set_reference_block( control->head_block_id() );
 
