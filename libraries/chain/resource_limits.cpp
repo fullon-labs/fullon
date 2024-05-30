@@ -505,8 +505,10 @@ uint64_t resource_limits_manager::get_virtual_block_net_limit() const {
 uint64_t resource_limits_manager::get_block_cpu_limit(const chainbase::database& shared_db, const chainbase::database& db) const {
    const auto* state = db.find<resource_limits_state_object>();
    const auto& config = shared_db.get<resource_limits_config_object>();
-   EOS_ASSERT(state,eosio::chain::shard_exception, "resource_limits_state_object not found on shard");
-   return config.cpu_limit_parameters.max - state->pending_cpu_usage;
+   if( state ){
+      return config.cpu_limit_parameters.max - state->pending_cpu_usage;
+   }
+   return config.cpu_limit_parameters.max;
 }
 
 
