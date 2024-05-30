@@ -3093,8 +3093,6 @@ bool producer_plugin_impl::block_is_exhausted() const {
    if( net_limit < _max_block_net_usage_threshold_bytes ) return true;
    for( auto& sdb : _shards ){
       if( sdb.first != config::main_shard_name ) {
-         chainbase::database& shard_db = const_cast<chainbase::database&>(_dbm.shard_db( sdb.first));
-         rl.ensure_resource_limits_state_object( shard_db, _dbm.main_db() );
          cpu_limit = rl.get_block_cpu_limit( _dbm.main_db(), _dbm.shard_db( sdb.first ) );
          if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
       }
@@ -3111,8 +3109,6 @@ bool producer_plugin_impl::shard_is_exhausted( shard_name sname ) const {
    uint64_t net_limit = rl.get_block_net_limit( _dbm.main_db() );
    if( net_limit < _max_block_net_usage_threshold_bytes ) return true;
    if( sname != config::main_shard_name ){
-      chainbase::database& sdb = const_cast<chainbase::database&>(_dbm.shard_db( sname ));
-      rl.ensure_resource_limits_state_object( sdb, _dbm.main_db() );
       cpu_limit = rl.get_block_cpu_limit( _dbm.main_db(), _dbm.shard_db( sname ) );
       if( cpu_limit < _max_block_cpu_usage_threshold_us ) return true;
    }
