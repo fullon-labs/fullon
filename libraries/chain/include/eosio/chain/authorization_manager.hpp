@@ -47,6 +47,7 @@ namespace eosio { namespace chain {
 
          void remove_permission( const permission_object& permission, bool is_trx_transient );
 
+        // only call by main shard
          void update_permission_usage( const permission_object& permission );
 
          fc::time_point get_permission_last_used( const permission_object& permission )const;

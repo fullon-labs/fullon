@@ -76,6 +76,7 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    int64_t interface::get_permission_last_used( account_name account, permission_name permission ) const {
+      EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "get_permission_last_used only allowed in main shard");
       const auto& am = context.control.get_authorization_manager();
       return am.get_permission_last_used( am.get_permission({account, permission}) ).time_since_epoch().count();
    };

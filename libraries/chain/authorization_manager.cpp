@@ -241,10 +241,9 @@ namespace eosio { namespace chain {
 
    void authorization_manager::update_permission_usage( const permission_object& permission ) {
       const auto& puo = _db.get<permission_usage_object, by_id>( permission.usage_id );
-      //TODO:The execution behavior of parallel transactions may modify this time
-      // _db.modify( puo, [&](permission_usage_object& p) {
-      //    p.last_used = _control.pending_block_time();
-      // });
+      _db.modify( puo, [&](permission_usage_object& p) {
+         p.last_used = _control.pending_block_time();
+      });
    }
 
    fc::time_point authorization_manager::get_permission_last_used( const permission_object& permission )const {

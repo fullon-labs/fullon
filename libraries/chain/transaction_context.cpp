@@ -453,7 +453,7 @@ namespace eosio { namespace chain {
          return;
       }
 
-      if( is_input ) {
+      if( is_input && shard_name == config::main_shard_name ) {
          const transaction& trx = packed_trx.get_transaction();
          auto& am = control.get_mutable_authorization_manager();
          for( const auto& act : trx.actions ) {
