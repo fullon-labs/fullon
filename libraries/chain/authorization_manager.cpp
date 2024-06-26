@@ -27,6 +27,17 @@ namespace eosio { namespace chain {
    void authorization_manager::add_indices(chainbase::database& db) {
       authorization_index_set::add_indices(db);
    }
+   void authorization_manager::add_shared_indices(chainbase::database& shared_db) {
+      authorization_index_set::add_indices(shared_db);
+   }
+
+void authorization_manager::copy_data(chainbase::database& main_db, chainbase::database& shared_db) {
+   authorization_index_set::copy_data(main_db, shared_db);
+}
+
+void authorization_manager::copy_changes(chainbase::database& main_db, chainbase::database& shared_db) {
+   authorization_index_set::copy_changes(main_db, shared_db);
+}
 
    void authorization_manager::initialize_database() {
       _db.create<permission_object>([](auto&){}); /// reserve perm 0 (used else where)

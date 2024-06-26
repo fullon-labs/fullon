@@ -23,6 +23,9 @@ namespace eosio { namespace chain {
          explicit authorization_manager(controller& c, chainbase::database& db, chainbase::database& shared_db);
 
          static void add_indices(chainbase::database& db);
+         static void add_shared_indices(chainbase::database& shared_db);
+         static void copy_data(chainbase::database& main_db, chainbase::database& shared_db);
+         static void copy_changes(chainbase::database& main_db, chainbase::database& shared_db);
          void initialize_database();
          void add_to_snapshot( const snapshot_writer_ptr& snapshot ) const;
          void read_from_snapshot( const snapshot_reader_ptr& snapshot );

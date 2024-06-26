@@ -920,11 +920,15 @@ struct controller_impl {
 
    void init_db() {
       // TODO: move to database_manager
-      shared_index_set::add_indices(dbm.shared_db());
-	   resource_limits_manager::add_shared_indices(dbm.shared_db());
-      contract_shared_database_index_set::add_indices(dbm.shared_db()); // TODO: main shard only
+      auto& shared_db = dbm.shared_db();
+      shared_index_set::add_indices(shared_db);
+	   resource_limits_manager::add_shared_indices(shared_db);
+      authorization_manager::add_shared_indices(shared_db);
+      contract_shared_database_index_set::add_indices(shared_db); // TODO: main shard only
 
-      add_indices_to_shard_db(dbm.main_db());
+      auto& main_db = dbm.main_db();
+      authorization_manager::add_indices(main_db); // only in main_db and shared_db
+      add_indices_to_shard_db(main_db);
 
       auto catalog = shard_db_catalog::load(conf.state_dir);
       for (const auto& shard : catalog.shards) {
@@ -945,7 +949,7 @@ struct controller_impl {
       controller_index_set::add_indices(db);
       contract_database_index_set::add_indices(db);
       contract_shared_database_index_set::add_indices(db); // TODO: main shard only
-      authorization_manager::add_indices(db);
+      // authorization_manager::add_indices(db);
       resource_limits_manager::add_indices(db);
    }
 
@@ -989,6 +993,7 @@ struct controller_impl {
       shared_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
       contract_shared_database_index_set::copy_changes(dbm.main_db(), dbm.shared_db());
       resource_limits_manager::copy_changes(dbm.main_db(), dbm.shared_db());
+      authorization_manager::copy_changes(dbm.main_db(), dbm.shared_db());
    }
 
    void clear_all_undo() {
@@ -1353,6 +1358,7 @@ struct controller_impl {
 
       shared_index_set::copy_data(dbm.main_db(), dbm.shared_db());
       resource_limits_manager::copy_data(dbm.main_db(), dbm.shared_db());
+      authorization_manager::copy_data(dbm.main_db(), dbm.shared_db());
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
