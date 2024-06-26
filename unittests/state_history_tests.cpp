@@ -168,14 +168,13 @@ BOOST_AUTO_TEST_CASE(test_deltas_account_permission_creation_and_deletion) {
 
    chain.create_account("newacc"_n);
    chain.produce_block();
-   auto& authorization_manager = chain.control->get_authorization_manager();
-   const permission_object* ptr = authorization_manager.find_permission( {"newacc"_n, "active"_n} );
+   const permission_object* ptr = authorization_manager::find_permission( chain.control->dbm().shared_db(), {"newacc"_n, "active"_n} );
    BOOST_REQUIRE(ptr != nullptr);
 
    // Create new permission
    chain.set_authority("newacc"_n, "mypermission"_n, ptr->auth,  "active"_n);
    chain.produce_block();
-   const permission_object* ptr_sub = authorization_manager.find_permission( {"newacc"_n, "mypermission"_n} );
+   const permission_object* ptr_sub = authorization_manager::find_permission( chain.control->dbm().shared_db(), {"newacc"_n, "mypermission"_n} );
    BOOST_REQUIRE(ptr_sub != nullptr);
 
    // Verify that the new permission is present in the state delta

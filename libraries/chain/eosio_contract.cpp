@@ -47,7 +47,7 @@ void validate_authority_precondition( const apply_context& context, const author
          continue;
 
       try {
-         context.control.get_authorization_manager().get_permission({a.permission.actor, a.permission.permission});
+         context.trx_context.auth_manager.get_permission({a.permission.actor, a.permission.permission});
       } catch( const permission_query_exception& ) {
          EOS_THROW( action_validate_exception,
                     "permission '${perm}' does not exist",
@@ -73,7 +73,7 @@ void apply_flon_newaccount(apply_context& context) {
    try {
    context.require_authorization(create.creator);
 //   context.require_write_lock( config::eosio_auth_scope );
-   auto& authorization = context.control.get_mutable_authorization_manager();
+   auto& authorization = context.trx_context.auth_manager;
 
    EOS_ASSERT( validate(create.owner), action_validate_exception, "Invalid owner authority");
    EOS_ASSERT( validate(create.active), action_validate_exception, "Invalid active authority");
@@ -86,18 +86,18 @@ void apply_flon_newaccount(apply_context& context) {
    EOS_ASSERT( name_str.size() <= 12, action_validate_exception, "account names can only be 12 chars long" );
 
    // Check if the creator is privileged
-   const auto &creator = shared_db.get<account_object, by_name>(create.creator);
+   const auto &creator = db.get<account_object, by_name>(create.creator);
    if( !creator.is_privileged() ) {
       EOS_ASSERT( name_str.find( "flon." ) != 0, action_validate_exception,
                   "only privileged accounts can have names that start with 'flon.'" );
    }
 
-   auto existing_account = shared_db.find<account_object, by_name>(create.name);
+   auto existing_account = db.find<account_object, by_name>(create.name);
    EOS_ASSERT(existing_account == nullptr, account_name_exists_exception,
               "Cannot create account named ${name}, as that name is already taken",
               ("name", create.name));
 
-   shared_db.create<account_object>([&](auto& a) {
+   db.create<account_object>([&](auto& a) {
       a.name = create.name;
       a.creation_date = context.control.pending_block_time();
    });
@@ -262,7 +262,7 @@ void apply_flon_updateauth(apply_context& context) {
    auto update = context.get_action().data_as<updateauth>();
    context.require_authorization(update.account); // only here to mark the single authority on this action as used
 
-   auto& authorization = context.control.get_mutable_authorization_manager();
+   auto& authorization = context.trx_context.auth_manager;
    auto& db = context.shared_db;
 
    EOS_ASSERT(!update.permission.empty(), action_validate_exception, "Cannot create authority with empty name");
@@ -290,7 +290,7 @@ void apply_flon_updateauth(apply_context& context) {
 
 
 
-   auto permission = authorization.find_permission({update.account, update.permission});
+   auto permission = authorization.find_permission(context.shared_db, {update.account, update.permission});
 
    // If a parent_id of 0 is going to be used to indicate the absence of a parent, then we need to make sure that the chain
    // initializes permission_index with a dummy object that reserves the id of 0.
@@ -340,7 +340,7 @@ void apply_flon_deleteauth(apply_context& context) {
    EOS_ASSERT(remove.permission != config::active_name, action_validate_exception, "Cannot delete active authority");
    EOS_ASSERT(remove.permission != config::owner_name, action_validate_exception, "Cannot delete owner authority");
 
-   auto& authorization = context.control.get_mutable_authorization_manager();
+   auto& authorization = context.trx_context.auth_manager;
    auto& db = context.db;
 
 

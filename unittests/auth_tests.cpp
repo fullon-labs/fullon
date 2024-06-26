@@ -68,19 +68,20 @@ BOOST_FIXTURE_TEST_CASE( delegate_auth, TESTER ) { try {
                             { .permission = {"bob"_n,config::active_name}, .weight = 1}
                           });
 
-   auto original_auth = static_cast<authority>(control->get_authorization_manager().get_permission({"alice"_n, config::active_name}).auth);
+
+   auto original_auth = static_cast<authority>( authorization_manager::get_permission(control->dbm().shared_db(), {"alice"_n, config::active_name}).auth );
    wdump((original_auth));
 
    set_authority( "alice"_n, config::active_name,  delegated_auth );
 
-   auto new_auth = static_cast<authority>(control->get_authorization_manager().get_permission({"alice"_n, config::active_name}).auth);
+   auto new_auth = static_cast<authority>( authorization_manager::get_permission(control->dbm().shared_db(), {"alice"_n, config::active_name}).auth );
    wdump((new_auth));
    BOOST_CHECK_EQUAL((new_auth == delegated_auth), true);
 
    produce_block();
    produce_block();
 
-   auto auth = static_cast<authority>(control->get_authorization_manager().get_permission({"alice"_n, config::active_name}).auth);
+   auto auth = static_cast<authority>( authorization_manager::get_permission(control->dbm().shared_db(), {"alice"_n, config::active_name}).auth );
    wdump((auth));
    BOOST_CHECK_EQUAL((new_auth == auth), true);
 

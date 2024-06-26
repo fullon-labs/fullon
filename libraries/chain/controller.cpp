@@ -164,6 +164,7 @@ struct building_shard {
    eosio::chain::shard_type                     _shard_type;
    database&                                    _db;
    database&                                    _shared_db;
+   authorization_manager                        _authorization;
    deque<transaction_metadata_ptr>              _pending_trx_metas;
    deque<transaction_receipt>                   _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
    digests_t                                    _trx_mroot_or_receipt_digests;
@@ -175,8 +176,8 @@ struct building_shard {
    deque<transaction_id_type>                   _xsh_scheduled_trx_queue;
    flat_set<transaction_id_type>                _xsh_scheduled_trx_set;
 
-   building_shard(const shard_name& name, eosio::chain::shard_type& shard_type, database& db, database& shared_db):
-      _name(name), _shard_type(shard_type), _db(db), _shared_db(shared_db) {}
+   building_shard(controller &control, const shard_name& name, eosio::chain::shard_type& shard_type, database& db, database& shared_db):
+      _name(name), _shard_type(shard_type), _db(db), _shared_db(shared_db), _authorization(control, db, shared_db) {}
    building_shard(const building_shard&) = delete;
    building_shard() = delete;
    building_shard& operator=(const building_shard&) = delete;
@@ -360,7 +361,6 @@ struct controller_impl {
    block_state_ptr                 head;
    fork_database                   fork_db;
    resource_limits_manager         resource_limits;
-   authorization_manager           authorization;
    protocol_feature_manager        protocol_features;
    controller::config              conf;
    const chain_id_type             chain_id; // read by thread_pool threads, value will not be changed
@@ -438,7 +438,6 @@ struct controller_impl {
     blog( cfg.blocks_dir, cfg.blog ),
     fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
     resource_limits( dbm, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
-    authorization( s, dbm.main_db() ),
     protocol_features( std::move(pfs), [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); } ),
     conf( cfg ),
     chain_id( chain_id ),
@@ -970,7 +969,7 @@ struct controller_impl {
          auto& shared_db = (name == config::main_shard_name) ? dbm.main_db() : dbm.shared_db();
          auto new_ret = bb._shards.emplace( std::piecewise_construct,
                                         std::forward_as_tuple( name ),
-                                        std::forward_as_tuple( name, shard_type, *db_ptr, shared_db ) );
+                                        std::forward_as_tuple( self, name, shard_type, *db_ptr, shared_db ) );
          itr = new_ret.first;
       }
       return itr->second;
@@ -1095,6 +1094,7 @@ struct controller_impl {
 
       add_contract_tables_to_snapshot(db, snapshot);
 
+      authorization_manager authorization(self, db, db);
       // TODO: shared_db and sub shard db
       authorization.add_to_snapshot(snapshot);
       resource_limits.add_to_snapshot(snapshot);
@@ -1225,6 +1225,7 @@ struct controller_impl {
 
       read_contract_tables_from_snapshot(db, snapshot);
 
+      authorization_manager authorization(self, db, db);
       authorization.read_from_snapshot(snapshot);
       resource_limits.read_from_snapshot(snapshot);
 
@@ -1249,7 +1250,7 @@ struct controller_impl {
       return enc.result();
    }
 
-   void create_native_account( const fc::time_point& initial_timestamp, account_name name, const authority& owner, const authority& active, bool is_privileged = false ) {
+   void create_native_account( authorization_manager &authorization, const fc::time_point& initial_timestamp, account_name name, const authority& owner, const authority& active, bool is_privileged = false ) {
       auto&  db = dbm.main_db();
       // auto& sdb = dbm.shared_db();
       // TODO: write to shared_db
@@ -1322,18 +1323,20 @@ struct controller_impl {
 
       db.create<dynamic_global_property_object>([](auto&){});
 
+      authorization_manager authorization(self, db, db);
+
       authorization.initialize_database();
       resource_limits.initialize_database();
 
       authority system_auth(genesis.initial_key);
-      create_native_account( genesis.initial_timestamp, config::system_account_name, system_auth, system_auth, true );
+      create_native_account( authorization, genesis.initial_timestamp, config::system_account_name, system_auth, system_auth, true );
 
       auto empty_authority = authority(1, {}, {});
       auto active_producers_authority = authority(1, {}, {});
       active_producers_authority.accounts.push_back({{config::system_account_name, config::active_name}, 1});
 
-      create_native_account( genesis.initial_timestamp, config::null_account_name, empty_authority, empty_authority );
-      create_native_account( genesis.initial_timestamp, config::producers_account_name, empty_authority, active_producers_authority );
+      create_native_account( authorization, genesis.initial_timestamp, config::null_account_name, empty_authority, empty_authority );
+      create_native_account( authorization, genesis.initial_timestamp, config::producers_account_name, empty_authority, active_producers_authority );
       const auto& active_permission       = authorization.get_permission({config::producers_account_name, config::active_name});
       const auto& majority_permission     = authorization.create_permission( config::producers_account_name,
                                                                              config::majority_producers_permission_name,
@@ -1436,7 +1439,7 @@ struct controller_impl {
       transaction_checktime_timer trx_timer(timer);
       const packed_transaction trx( std::move( etrx ) );
       assert(trx.get_transaction().get_shard_name() == config::main_shard_name);
-      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), dbm.main_db(), dbm.main_db(), start );
+      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), shard._db, shard._shared_db, shard._authorization, start );
 
       if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
          dm_logger->on_onerror(etrx);
@@ -1636,7 +1639,7 @@ struct controller_impl {
       uint32_t cpu_time_to_bill_us = billed_cpu_time_us;
 
       transaction_checktime_timer trx_timer( timer );
-      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), shard._db, shard._shared_db );
+      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer), shard._db, shard._shared_db, shard._authorization );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
       trx_context.max_transaction_time_subjective = max_transaction_time;
@@ -1932,7 +1935,7 @@ struct controller_impl {
          }
 
          transaction_checktime_timer trx_timer(timer);
-         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), shard._db, shard._shared_db, start, trx->get_trx_type());
+         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), shard._db, shard._shared_db, shard._authorization, start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -1963,7 +1966,7 @@ struct controller_impl {
             trx_context.delay = fc::seconds(trn.delay_sec);
 
             if( check_auth ) {
-               authorization.check_authorization(
+               shard._authorization.check_authorization(
                        trn.actions,
                        trx->recovered_keys(),
                        {},
@@ -2209,6 +2212,7 @@ struct controller_impl {
             });
          }
 
+         auto& main_shard = init_building_shard(config::main_shard_name, shard_type::normal);
          try {
             transaction_metadata_ptr onbtrx =
                   transaction_metadata::create_no_recover_keys( std::make_shared<packed_transaction>( get_on_block_transaction() ),
@@ -2217,8 +2221,7 @@ struct controller_impl {
                   in_trx_requiring_checks = old_value;
                });
             in_trx_requiring_checks = true;
-            auto& shard = init_building_shard(config::main_shard_name, shard_type::normal);
-            auto trace = push_transaction( shard, onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
+            auto trace = push_transaction( main_shard, onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
                                            gpo.configuration.min_transaction_cpu_usage, true, 0 );
             if( trace->except ) {
                wlog("onblock ${block_num} is REJECTING: ${entire_trace}",("block_num", head->block_num + 1)("entire_trace", trace));
@@ -2240,7 +2243,7 @@ struct controller_impl {
          }
 
          clear_expired_input_transactions(deadline);
-         update_producers_authority();
+         update_producers_authority(main_shard);
       }
 
       guard_pending.cancel();
@@ -2995,10 +2998,10 @@ struct controller_impl {
       return merkle( move(trx_digests) );
    }
 
-   void update_producers_authority() {
+   void update_producers_authority(building_shard& main_shard) {
       const auto& producers = pending->get_pending_block_header_state().active_schedule.producers;
       // TODO: shared_db() ?
-      auto& db = dbm.main_db();
+      auto& db = main_shard._db;
 
       auto update_permission = [&]( auto& permission, auto threshold ) {
          auto auth = authority( threshold, {}, {});
@@ -3018,15 +3021,15 @@ struct controller_impl {
          return ( (num_producers * numerator) / denominator ) + 1;
       };
 
-      update_permission( authorization.get_permission({config::producers_account_name,
+      update_permission( main_shard._authorization.get_permission({config::producers_account_name,
                                                        config::active_name}),
                          calculate_threshold( 2, 3 ) /* more than two-thirds */                      );
 
-      update_permission( authorization.get_permission({config::producers_account_name,
+      update_permission( main_shard._authorization.get_permission({config::producers_account_name,
                                                        config::majority_producers_permission_name}),
                          calculate_threshold( 1, 2 ) /* more than one-half */                        );
 
-      update_permission( authorization.get_permission({config::producers_account_name,
+      update_permission( main_shard._authorization.get_permission({config::producers_account_name,
                                                        config::minority_producers_permission_name}),
                          calculate_threshold( 1, 3 ) /* more than one-third */                       );
 
@@ -3353,15 +3356,6 @@ const resource_limits_manager&   controller::get_resource_limits_manager()const
 resource_limits_manager&         controller::get_mutable_resource_limits_manager()
 {
    return my->resource_limits;
-}
-
-const authorization_manager&   controller::get_authorization_manager()const
-{
-   return my->authorization;
-}
-authorization_manager&         controller::get_mutable_authorization_manager()
-{
-   return my->authorization;
 }
 
 const protocol_feature_manager& controller::get_protocol_feature_manager()const

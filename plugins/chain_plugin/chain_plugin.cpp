@@ -1931,7 +1931,7 @@ read_only::get_shards( const read_only::get_shards_params& params, const fc::tim
    return result;
 }
 
-read_only::get_xshards_results 
+read_only::get_xshards_results
 read_only::get_xshards( const read_only::get_xshards_params& params, const fc::time_point& deadline )const{
    fc::microseconds params_time_limit = params.time_limit_ms ? fc::milliseconds(*params.time_limit_ms) : fc::milliseconds(10);
    fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
@@ -2598,7 +2598,7 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
       abi_serializer::from_variant(params.transaction, pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
    } EOS_RETHROW_EXCEPTIONS(chain::transaction_type_exception, "Invalid transaction")
 
-   auto required_keys_set = db.get_authorization_manager().get_required_keys( pretty_input, params.available_keys, fc::seconds( pretty_input.delay_sec ));
+   auto required_keys_set = authorization_manager::get_required_keys( db.dbm().shared_db(), pretty_input, params.available_keys, fc::seconds( pretty_input.delay_sec ));
    get_required_keys_result result;
    result.required_keys = required_keys_set;
    return result;

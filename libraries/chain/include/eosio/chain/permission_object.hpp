@@ -13,6 +13,7 @@ namespace eosio { namespace chain {
    };
 
    struct by_account_permission;
+   // only saved in main shard
    using permission_usage_index = chainbase::shared_multi_index_container<
       permission_usage_object,
       indexed_by<
@@ -21,6 +22,7 @@ namespace eosio { namespace chain {
    >;
 
 
+   // only saved in main shard
    class permission_object : public chainbase::object<permission_object_type, permission_object> {
       OBJECT_CTOR(permission_object, (auth) )
 
