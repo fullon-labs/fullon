@@ -567,8 +567,10 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
    std::vector<shared_ptr<eosio::state_history::partial_transaction>> get_partial_txns(eosio::state_history::trace_converter& log) {
       std::vector<shared_ptr<eosio::state_history::partial_transaction>> partial_txns;
 
-      for (auto ct : log.cached_traces) {
-         partial_txns.push_back(std::get<1>(ct).partial);
+      for (auto& ct : log.shard_traces) {
+         for (auto& trx : ct.second) {
+            partial_txns.push_back(trx.second.partial);
+         }
       }
 
       return partial_txns;
@@ -639,8 +641,7 @@ struct state_history_tester : state_history_tester_logs, tester {
          });
       });
       control.block_start.connect([this](uint32_t block_num) {
-         trace_converter.cached_traces.clear();
-         trace_converter.onblock_trace.reset();
+         trace_converter.clear();
       });
    }) {}
 };
