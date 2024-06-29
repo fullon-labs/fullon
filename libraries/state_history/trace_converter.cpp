@@ -17,11 +17,11 @@ void trace_converter::clear() {
 void trace_converter::add_transaction(const transaction_trace_ptr& trace, const chain::packed_transaction_ptr& transaction) {
 
    if (trace->receipt) {
-      if (chain::is_onblock(*trace)) {
-         // only in main shard, no need to lock
+      const auto& shard_name = transaction->get_shard_name();
+      if (chain::is_onblock(*trace) && shard_name == chain::config::main_shard_name) {
          onblock_trace.emplace(trace, transaction);
       } else {
-         auto& shard = init_shard(transaction->get_shard_name());
+         auto& shard = init_shard(shard_name);
          if (trace->failed_dtrx_trace) {
             shard[trace->failed_dtrx_trace->id] = augmented_transaction_trace{trace, transaction};
          } else {
@@ -33,10 +33,11 @@ void trace_converter::add_transaction(const transaction_trace_ptr& trace, const 
 
 void trace_converter::pack(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::database& db, bool trace_debug_mode, const block_state_ptr& block_state) {
    std::vector<augmented_transaction_trace> traces;
+   traces.reserve( block_state->block->transactions.size() + 1 );
+
    if (onblock_trace)
       traces.push_back(*onblock_trace);
 
-   // TODO: multi shard trx
    auto shard_itr = shard_traces.end();
    for (auto& r : block_state->block->transactions) {
       const auto& id = r.get_trx_id();

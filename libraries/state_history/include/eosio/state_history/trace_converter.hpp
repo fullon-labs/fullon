@@ -13,7 +13,7 @@ using chain::transaction_id_type;
 struct trace_converter {
    typedef std::map<transaction_id_type, augmented_transaction_trace> transaction_trace_map;
 
-   std::map<chain::shard_name, transaction_trace_map>                shard_traces;
+   std::map<chain::shard_name, transaction_trace_map>         shard_traces;
    std::optional<augmented_transaction_trace>                 onblock_trace;
    std::mutex                                                 mtx;
 
