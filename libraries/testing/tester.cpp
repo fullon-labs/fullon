@@ -548,7 +548,7 @@ namespace eosio { namespace testing {
       trx.max_net_usage_words = 0; // No limit
       trx.max_cpu_usage_ms = 0; // No limit
       trx.delay_sec = delay_sec;
-      if (!trx.has_shard_extension()) {
+      if (!trx.has_shard_extension() && !trx_shard_name.empty()) {
          trx.set_shard(trx_shard_name);
       }
   }
@@ -660,7 +660,8 @@ namespace eosio { namespace testing {
    transaction_trace_ptr base_tester::push_scheduled_transaction( const transaction_id_type& scheduled,
                                        fc::time_point block_deadline, fc::microseconds max_transaction_time,
                                        uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time ) {
-      return push_scheduled_transaction( trx_shard_name, scheduled, block_deadline,
+      const auto& shard_name = trx_shard_name.empty() ? config::main_shard_name : trx_shard_name;
+      return push_scheduled_transaction( shard_name, scheduled, block_deadline,
           max_transaction_time, billed_cpu_time_us, explicit_billed_cpu_time );
    }
 

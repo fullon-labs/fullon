@@ -2425,7 +2425,7 @@ struct activate_subcommand {
 
    activate_subcommand(CLI::App* actionRoot) {
       auto activate = actionRoot->add_subcommand("activate", localized("Activate protocol feature by name"));
-      activate->add_option("feature",  feature_name_str, localized("The name, can be found from \"cleos get supported_protoctol_features\" command"))->required();
+      activate->add_option("feature",  feature_name_str, localized("The name, can be found from \"cleos get supported_protocol_features\" command"))->required();
       activate->add_option("-a,--account", account_str, localized("The contract account name, default is eosio"));
       activate->add_option("-p,--permission", permission_str, localized("The permission level to authorize, default is eosio"));
       activate->fallthrough(false);

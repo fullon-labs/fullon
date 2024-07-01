@@ -30,8 +30,7 @@ namespace eosio { namespace chain { namespace webassembly {
       unpack_provided_permissions( provided_permissions, perms_data.data(), perms_data.size() );
 
       try {
-         context.control
-                .get_authorization_manager()
+         context.trx_context.auth_manager
                 .check_authorization( trx.actions,
                                       provided_keys,
                                       provided_permissions,
@@ -59,8 +58,7 @@ namespace eosio { namespace chain { namespace webassembly {
       unpack_provided_permissions( provided_permissions, perms_data.data(), perms_data.size() );
 
       try {
-         context.control
-                .get_authorization_manager()
+         context.trx_context.auth_manager
                 .check_authorization( account,
                                       permission,
                                       provided_keys,
@@ -76,7 +74,8 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    int64_t interface::get_permission_last_used( account_name account, permission_name permission ) const {
-      const auto& am = context.control.get_authorization_manager();
+      EOS_ASSERT( context.shard_name == config::main_shard_name, only_main_shard_allowed_exception, "get_permission_last_used only allowed in main shard");
+      const auto& am = context.trx_context.auth_manager;
       return am.get_permission_last_used( am.get_permission({account, permission}) ).time_since_epoch().count();
    };
 

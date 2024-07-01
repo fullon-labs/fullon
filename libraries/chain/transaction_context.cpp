@@ -121,6 +121,7 @@ namespace eosio { namespace chain {
                                              transaction_checktime_timer&& tmr,
                                              chainbase::database&         db,
                                              chainbase::database&         shared_db,
+                                             authorization_manager&       auth_manager,
                                              fc::time_point s,
                                              transaction_metadata::trx_type type)
    :control(c)
@@ -131,6 +132,7 @@ namespace eosio { namespace chain {
    ,start(s)
    ,db(db)
    ,shared_db(shared_db)
+   ,auth_manager(auth_manager)
    ,transaction_timer(std::move(tmr))
    ,trx_type(type)
    ,net_usage(trace->net_usage)
@@ -453,12 +455,11 @@ namespace eosio { namespace chain {
          return;
       }
 
-      if( is_input ) {
+      if( is_input && shard_name == config::main_shard_name ) {
          const transaction& trx = packed_trx.get_transaction();
-         auto& am = control.get_mutable_authorization_manager();
          for( const auto& act : trx.actions ) {
             for( const auto& auth : act.authorization ) {
-               am.update_permission_usage( am.get_permission(auth) );
+               auth_manager.update_permission_usage( auth_manager.get_permission(auth) );
             }
          }
       }
@@ -834,7 +835,7 @@ namespace eosio { namespace chain {
    }
 
    void transaction_context::execute_action( uint32_t action_ordinal, uint32_t recurse_depth ) {
-      apply_context acontext( control, *this, action_ordinal, db, shared_db, recurse_depth );
+      apply_context acontext( control, *this, action_ordinal, recurse_depth );
 
       if (recurse_depth == 0) {
          if (auto dm_logger = control.get_deep_mind_logger(is_transient())) {
@@ -903,8 +904,6 @@ namespace eosio { namespace chain {
 
    void transaction_context::validate_referenced_accounts( const transaction& trx, bool enforce_actor_whitelist_blacklist )const {
 
-      const auto& auth_manager = control.get_authorization_manager();
-
       if( !trx.context_free_actions.empty() && !control.skip_trx_checks() ) {
 
          for( const auto& a : trx.context_free_actions ) {
@@ -934,7 +933,7 @@ namespace eosio { namespace chain {
             auto* actor = shared_db.find<account_object, by_name>(auth.actor);
             EOS_ASSERT( actor  != nullptr, transaction_exception,
                         "action's authorizing actor '${account}' does not exist", ("account", auth.actor) );
-            EOS_ASSERT( auth_manager.find_permission(auth) != nullptr, transaction_exception,
+            EOS_ASSERT( auth_manager.find_permission(shared_db, auth) != nullptr, transaction_exception,
                         "action's authorizations include a non-existent permission: ${permission}",
                         ("permission", auth) );
             if( enforce_actor_whitelist_blacklist )

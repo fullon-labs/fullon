@@ -41,6 +41,7 @@ namespace eosio { namespace chain {
                               transaction_checktime_timer&& timer,
                               chainbase::database&          db, //block shards db
                               chainbase::database&          shared_db,//shards sharing db
+                              authorization_manager&        auth_manager,
                               fc::time_point start = fc::time_point::now(),
                               transaction_metadata::trx_type type = transaction_metadata::trx_type::input);
          ~transaction_context();
@@ -137,6 +138,7 @@ namespace eosio { namespace chain {
          eosio::chain::shard_name                    shard_name = config::main_shard_name;
          chainbase::database&                        db;
          chainbase::database&                        shared_db;
+         authorization_manager&                      auth_manager;
          fc::time_point                published;
 
 

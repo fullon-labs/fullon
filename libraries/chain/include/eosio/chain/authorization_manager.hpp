@@ -20,9 +20,12 @@ namespace eosio { namespace chain {
       public:
          using permission_id_type = permission_object::id_type;
 
-         explicit authorization_manager(controller& c, chainbase::database& d);
+         explicit authorization_manager(controller& c, chainbase::database& db, chainbase::database& shared_db);
 
          static void add_indices(chainbase::database& db);
+         static void add_shared_indices(chainbase::database& shared_db);
+         static void copy_data(chainbase::database& main_db, chainbase::database& shared_db);
+         static void copy_changes(chainbase::database& main_db, chainbase::database& shared_db);
          void initialize_database();
          void add_to_snapshot( const snapshot_writer_ptr& snapshot ) const;
          void read_from_snapshot( const snapshot_reader_ptr& snapshot );
@@ -47,12 +50,15 @@ namespace eosio { namespace chain {
 
          void remove_permission( const permission_object& permission, bool is_trx_transient );
 
+        // only call by main shard
          void update_permission_usage( const permission_object& permission );
 
          fc::time_point get_permission_last_used( const permission_object& permission )const;
 
          const permission_object*  find_permission( const permission_level& level )const;
+         static const permission_object*  find_permission( const chainbase::database& db, const permission_level& level );
          const permission_object&  get_permission( const permission_level& level )const;
+         static const permission_object& get_permission( const chainbase::database& db, const permission_level& level );
 
          /**
           * @brief Find the lowest authority level required for @ref authorizer_account to authorize a message of the
@@ -113,13 +119,17 @@ namespace eosio { namespace chain {
                                                       const flat_set<public_key_type>& candidate_keys,
                                                       fc::microseconds provided_delay = fc::microseconds(0)
                                                     )const;
-
+         static flat_set<public_key_type> get_required_keys(const chainbase::database& _db, const transaction& trx,
+                                                      const flat_set<public_key_type>& candidate_keys,
+                                                      fc::microseconds provided_delay = fc::microseconds(0)
+                                                    );
 
          static std::function<void()> _noop_checktime;
 
       private:
          const controller&    _control;
          chainbase::database& _db;
+         chainbase::database& _shared_db;
 
          void             check_updateauth_authorization( const updateauth& update, const vector<permission_level>& auths )const;
          void             check_deleteauth_authorization( const deleteauth& del, const vector<permission_level>& auths )const;

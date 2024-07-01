@@ -34,12 +34,12 @@ static inline void print_debug(account_name receiver, const action_trace& ar) {
    }
 }
 
-apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, chainbase::database& db, chainbase::database& shared_db,uint32_t depth)
+apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint32_t action_ordinal, uint32_t depth)
 :control(con)
-,db(db)
+,db(trx_ctx.db)
 ,trx_context(trx_ctx)
 ,shard_name(trx_ctx.shard_name)
-,shared_db(shared_db)
+,shared_db(trx_ctx.shared_db)
 ,recurse_depth(depth)
 ,first_receiver_action_ordinal(action_ordinal)
 ,action_ordinal(action_ordinal)
@@ -338,7 +338,7 @@ void apply_context::execute_inline( action&& a ) {
       auto* actor = shared_db.find<account_object, by_name>(auth.actor);
       EOS_ASSERT( actor != nullptr, action_validate_exception,
                   "inline action's authorizing actor ${account} does not exist", ("account", auth.actor) );
-      EOS_ASSERT( control.get_authorization_manager().find_permission(auth) != nullptr, action_validate_exception,
+      EOS_ASSERT( trx_context.auth_manager.find_permission(shared_db, auth) != nullptr, action_validate_exception,
                   "inline action's authorizations include a non-existent permission: ${permission}",
                   ("permission", auth) );
       if( enforce_actor_whitelist_blacklist )
@@ -362,7 +362,7 @@ void apply_context::execute_inline( action&& a ) {
    // No need to check authorization if replaying irreversible blocks or contract is privileged
    if( !control.skip_auth_check() && !privileged && !trx_context.is_read_only() ) {
       try {
-         control.get_authorization_manager()
+         trx_context.auth_manager
                 .check_authorization( {a},
                                       {},
                                       {{receiver, config::eosio_code_name}},
@@ -528,7 +528,7 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
       };
 
       try {
-         control.get_authorization_manager()
+         trx_context.auth_manager
                 .check_authorization( trx.actions,
                                       {},
                                       {{receiver, config::eosio_code_name}},
