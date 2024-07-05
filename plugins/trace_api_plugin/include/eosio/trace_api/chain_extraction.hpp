@@ -54,12 +54,17 @@ private:
           trace->receipt->status != chain::transaction_receipt_header::soft_fail)) {
          return;
       }
-      if( chain::is_onblock( *trace )) {
+
+      const auto& shard_name = t->get_shard_name();
+      if (chain::is_onblock( *trace ) && shard_name == chain::config::main_shard_name) {
          onblock_trace.emplace( cache_trace{trace, t} );
-      } else if( trace->failed_dtrx_trace ) {
-         cached_traces[trace->failed_dtrx_trace->id] = {trace, t};
       } else {
-         cached_traces[trace->id] = {trace, t};
+         auto& shard = init_shard(shard_name);
+         if( trace->failed_dtrx_trace ) {
+            shard[trace->failed_dtrx_trace->id] = {trace, t};
+         } else {
+            shard[trace->id] = {trace, t};
+         }
       }
    }
 
@@ -76,7 +81,7 @@ private:
    }
 
    void clear_caches() {
-      cached_traces.clear();
+      shard_traces.clear();
       onblock_trace.reset();
    }
 
@@ -91,13 +96,24 @@ private:
          traces.reserve( receipts.size() + 1 );
          block_trxs_entry tt;
          tt.ids.reserve(receipts.size() + 1);
+
          if( onblock_trace )
             traces.emplace_back( to_transaction_trace<transaction_trace_t>( *onblock_trace ));
+
+         auto shard_itr = shard_traces.end();
          for( const auto& r : receipts ) {
             auto const& id = r.get_trx_id();
-            const auto it = cached_traces.find( id );
-            if( it != cached_traces.end() ) {
-               traces.emplace_back( to_transaction_trace<transaction_trace_t>( it->second ));
+            const auto& shard_name = r.get_shard_name();
+            if (shard_itr == shard_traces.end() || shard_itr->first != shard_name) {
+               shard_itr = shard_traces.find(shard_name);
+            }
+
+            if (shard_itr != shard_traces.end() ) {
+               const auto& cached_trxs = shard_itr->second;
+               auto trx_itr = cached_trxs.find(id);
+               if( trx_itr != cached_trxs.end() ) {
+                  traces.emplace_back( to_transaction_trace<transaction_trace_t>( trx_itr->second ));
+               }
             }
             tt.ids.emplace_back(id);
          }
@@ -123,11 +139,18 @@ private:
    }
 
 private:
+   typedef std::map<transaction_id_type, cache_trace> transaction_trace_map;
+
    StoreProvider                                                store;
    exception_handler                                            except_handler;
-   std::map<transaction_id_type, cache_trace>                   cached_traces;
+   std::map<chain::shard_name, transaction_trace_map>           shard_traces;
    std::optional<cache_trace>                                   onblock_trace;
+   std::mutex                                                   mtx;
 
+   transaction_trace_map& init_shard(const chain::shard_name& name) {
+      std::lock_guard g(mtx);
+      return shard_traces[name];
+   }
 };
 
 }}
