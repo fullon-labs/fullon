@@ -541,7 +541,7 @@ BOOST_FIXTURE_TEST_CASE( shard_net_capacity_test, sharding_validating_tester ) t
    BOOST_CHECK_NO_THROW(create_account("alice"_n));
    produce_block();
 
-   //max_block_net 1024*1024 bytes, max_transaction_net max_block_net/2 bytes
+   //max_block_net 2*1024*1024 bytes, max_transaction_net max_block_net/2 bytes
    //dummy data 450000 bytes
    std::string dummy_string = dummy;
    uint32_t increment = 0;
@@ -549,8 +549,9 @@ BOOST_FIXTURE_TEST_CASE( shard_net_capacity_test, sharding_validating_tester ) t
    //3 consecutive concurrent transactions
    push_dummy( "alice"_n, dummy_string + std::to_string(0), increment );
    push_dummy( "alice"_n, dummy_string + std::to_string(1), increment , "shard1"_n);
-
-   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n ),
+   push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n );
+   push_dummy( "alice"_n, dummy_string + std::to_string(3), increment, "shard1"_n );
+   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(4), increment, "shard2"_n ),
                block_net_usage_exceeded,
                fc_exception_message_contains("not enough space left in block")
    );
@@ -559,22 +560,24 @@ BOOST_FIXTURE_TEST_CASE( shard_net_capacity_test, sharding_validating_tester ) t
    //3 consecutive concurrent transactions
    push_dummy( "alice"_n, dummy_string + std::to_string(1), increment , "shard1"_n);
    push_dummy( "alice"_n, dummy_string + std::to_string(0), increment );
-
-   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n ),
+   push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n );
+   push_dummy( "alice"_n, dummy_string + std::to_string(3), increment, "shard1"_n );
+   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(4), increment, "shard2"_n ),
                block_net_usage_exceeded,
                fc_exception_message_contains("not enough space left in block")
    );
    produce_block();
 
    //4 consecutive concurrent transactions
-   push_dummy( "alice"_n, dummy_string + std::to_string(1), increment , "shard1"_n );
+   push_dummy( "alice"_n, dummy_string + std::to_string(1), increment, "shard1"_n );
    push_dummy( "alice"_n, dummy_string + std::to_string(0), increment );
-
-   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n ),
+   push_dummy( "alice"_n, dummy_string + std::to_string(2), increment, "shard2"_n );
+   push_dummy( "alice"_n, dummy_string + std::to_string(3), increment, "shard1"_n );
+   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(4), increment, "shard2"_n ),
                block_net_usage_exceeded,
                fc_exception_message_contains("not enough space left in block")
    );
-   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(3), increment, "shard1"_n ),
+   BOOST_CHECK_EXCEPTION(push_dummy( "alice"_n, dummy_string + std::to_string(5), increment, "shard1"_n ),
                block_net_usage_exceeded,
                fc_exception_message_contains("not enough space left in block")
    );
