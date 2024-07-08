@@ -329,8 +329,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    // called from main thread
    void clear_caches() {
-      trace_converter.cached_traces.clear();
-      trace_converter.onblock_trace.reset();
+      trace_converter.clear();
    }
 
    // called from main thread
