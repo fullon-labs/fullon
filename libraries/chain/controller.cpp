@@ -4064,8 +4064,11 @@ wasm_interface& controller::get_wasm_interface() {
 
 const account_object& controller::get_account( account_name name )const
 { try {
-   // TODO: get from shared_db()?
-   auto& db = my->dbm.shared_db();
+   return get_account(name, my->dbm.shared_db());
+} FC_CAPTURE_AND_RETHROW( (name) ) }
+
+const account_object& controller::get_account( account_name name, const database& db )const
+{ try {
    return db.get<account_object, by_name>(name);
 } FC_CAPTURE_AND_RETHROW( (name) ) }
 

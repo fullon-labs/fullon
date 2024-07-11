@@ -198,6 +198,7 @@ namespace eosio { namespace chain {
          const fork_database& fork_db()const;
 
          const account_object&                 get_account( account_name n )const;
+         const account_object&                 get_account( account_name n, const database& db )const;
          const global_property_object&         get_global_properties()const;
          const dynamic_global_property_object& get_dynamic_global_properties()const;
          const resource_limits_manager&        get_resource_limits_manager()const;

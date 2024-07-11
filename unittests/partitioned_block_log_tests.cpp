@@ -48,9 +48,9 @@ struct restart_from_block_log_test_fixture {
       cutoff_block_num  = cutoff_block->block_num();
       chain.produce_blocks(10);
 
-      BOOST_REQUIRE_NO_THROW(chain.control->get_account("replay1"_n));
-      BOOST_REQUIRE_NO_THROW(chain.control->get_account("replay2"_n));
-      BOOST_REQUIRE_NO_THROW(chain.control->get_account("replay3"_n));
+      BOOST_REQUIRE_NO_THROW(chain.get_account("replay1"_n));
+      BOOST_REQUIRE_NO_THROW(chain.get_account("replay2"_n));
+      BOOST_REQUIRE_NO_THROW(chain.get_account("replay3"_n));
 
       chain.close();
    }
@@ -58,7 +58,7 @@ struct restart_from_block_log_test_fixture {
    void restart_chain() {
       eosio::chain::controller::config copied_config = chain.get_config();
 
-      auto genesis = eosio::chain::block_log::extract_genesis_state(copied_config.blocks_dir, 
+      auto genesis = eosio::chain::block_log::extract_genesis_state(copied_config.blocks_dir,
                                                                     get_retained_dir(copied_config));
       BOOST_REQUIRE(genesis);
 
@@ -70,9 +70,9 @@ struct restart_from_block_log_test_fixture {
       //TODO: start_with_corrupted_log_and_index
       eosio::testing::tester from_block_log_chain(copied_config, *genesis);
       using namespace eosio::chain;
-      BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account("replay1"_n));
-      BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account("replay2"_n));
-      BOOST_REQUIRE_NO_THROW(from_block_log_chain.control->get_account("replay3"_n));
+      BOOST_REQUIRE_NO_THROW(from_block_log_chain.get_account("replay1"_n));
+      BOOST_REQUIRE_NO_THROW(from_block_log_chain.get_account("replay2"_n));
+      BOOST_REQUIRE_NO_THROW(from_block_log_chain.get_account("replay3"_n));
    }
 };
 
