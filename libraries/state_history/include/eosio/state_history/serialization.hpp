@@ -150,8 +150,8 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper<eosi
 template <typename ST>
 datastream<ST>& operator<<(datastream<ST>&                                                      ds,
                            const history_serial_wrapper<eosio::chain::account_metadata_object>& obj) {
-   // @see eosio::ship_protocol::account_metadata_v1
-   fc::raw::pack(ds, fc::unsigned_int(1));
+   // @see eosio::ship_protocol::account_metadata_v0
+   fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.name.to_uint64_t()));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.recv_sequence));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.auth_sequence));
