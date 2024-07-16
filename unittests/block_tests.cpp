@@ -265,10 +265,7 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions, validating_tester) { try {
       trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
       auto trace = push_transaction( trx );
 
-      BOOST_REQUIRE_EXCEPTION(get_account( a ), fc::exception,
-                              [a] (const fc::exception& e)->bool {
-                                 return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
-                              }); // throws if it does not exist
+      get_account( a ); // throws if it does not exist
 
       auto unapplied_trxs = control->abort_block();
 
