@@ -346,9 +346,9 @@ class NodeosQueries:
         msg="( getEosAccount(name=%s) )" % (name);
         return self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError, exitMsg=msg, returnType=returnType)
 
-    def getTable(self, contract, scope, table, exitOnError=False):
+    def getTable(self, contract, scope, table, shard="main", exitOnError=False ):
         cmdDesc = "get table"
-        cmd=f"{cmdDesc} {self.cleosLimit} {contract} {scope} {table}"
+        cmd=f"{cmdDesc} --shard={shard} {self.cleosLimit} {contract} {scope} {table}"
         msg=f"contract={contract}, scope={scope}, table={table}"
         return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
 
@@ -839,3 +839,15 @@ class NodeosQueries:
         res = self.getShards(name, 1)
         shards = res["shards"]
         return shards and len(shards) > 0 and shards[0]["name"] == name
+    
+    def getXshards(self, lower_bound="", limit=50, time_limit_ms=1000):
+        param = {
+            "lower_bound": lower_bound,
+            "limit": limit,
+            "time_limit_ms": time_limit_ms
+        }
+        res = self.processUrllibRequest("chain", "get_xshards", param)
+        code = res["code"]
+        payload = res["payload"]
+        assert code == 200, f"ERROR: Invalid response code '{code}' of get_shards, payload:'{payload}'"
+        return payload
