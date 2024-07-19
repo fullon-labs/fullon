@@ -116,7 +116,20 @@ try:
     waitForShardRegistered("shard1")
 
     testNode.xTransferOut(account1, Utils.MainShardName, "shard1", Utils.SysTokenAccount, testNode.currencyIntToStr(10), waitForTransBlock=True)
-
+    xobj = testNode.getXshards()
+    print("xshard id: %s"%(xobj["xshards"][0]["xsh_id"]))
+    testNode.xTransferIn(account1, "shard1",xobj["xshards"][0]["xsh_id"])
+    def isXshardBalanceFound():
+        return testNode.getTable(Utils.SysTokenAccount, account1, Utils.AccountsTable, "shard1", exitOnError=True)
+    query = Utils.waitForObj( isXshardBalanceFound, timeout=60 )
+    #print("xshard outcome: %s"%(query)) 
+    
+    try:
+        print(query["rows"][0]["balance"])
+    except (TypeError, KeyError) as _:
+        print("query[rows][0][balance] not found. Query: %s" % (query))
+        raise
+    
     testSuccessful=True
 
 finally:

@@ -382,3 +382,18 @@ class Transactions(NodeosQueries):
         self.trackCmdTransaction(trans)
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
+    def xTransferIn(self, owner, to_shard, xshard_id, waitForTransBlock=False, exitOnError=False, sign=False):
+        assert(isinstance(owner, Account))
+        signStr = NodeosQueries.sign_str(sign, [ owner.activePublicKey ])
+        acc = f"{owner.name}"
+        xid = f"{xshard_id}"
+        cmdDesc = f"push action --shard={to_shard} flon xshin '[\"{acc}\", \"{xid}\"]'"
+        cmdArr = cmdDesc.split()
+        if signStr:
+            cmdArr += signStr.split()
+        #cmdArr += [owner.name, xshard_id]
+        msg = " ".join(cmdArr)
+        trans=self.processCleosCmdArr(cmdArr, cmdDesc, silentErrors = False, exitOnError=exitOnError, exitMsg=msg)
+
+        self.trackCmdTransaction(trans)
+        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)

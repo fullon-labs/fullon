@@ -72,7 +72,7 @@ class Utils:
     SysAccount="flon"
     SysTokenAccount="flon.token"
     MainShardName="main"
-
+    AccountsTable="accounts"
     ShuttingDown=False
 
     FileDivider="================================================================="
