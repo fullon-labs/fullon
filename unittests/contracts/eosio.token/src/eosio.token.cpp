@@ -6,8 +6,8 @@ namespace eosio {
 
 void token::create( const name&   issuer,
                     const asset&  maximum_supply )
-{   //TODO: remove
-    print("create token shard name: ", get_shard_name(), "\n");
+{
+    require_main_shard_only();
     require_auth( get_self() );
 
     auto sym = maximum_supply.symbol;
@@ -27,8 +27,8 @@ void token::create( const name&   issuer,
 
 
 void token::issue( const name& to, const asset& quantity, const string& memo )
-{   //TODO: remove
-    print("issue token shard name: ", get_shard_name(), "\n");
+{
+    require_main_shard_only();
     auto sym = quantity.symbol;
     check( sym.is_valid(), "invalid symbol name" );
     check( memo.size() <= 256, "memo has more than 256 bytes" );
@@ -55,6 +55,7 @@ void token::issue( const name& to, const asset& quantity, const string& memo )
 
 void token::retire( const asset& quantity, const string& memo )
 {
+    require_main_shard_only();
     auto sym = quantity.symbol;
     check( sym.is_valid(), "invalid symbol name" );
     check( memo.size() <= 256, "memo has more than 256 bytes" );
@@ -82,8 +83,6 @@ void token::transfer( const name&    from,
                       const asset&   quantity,
                       const string&  memo )
 {
-    //TODO: remove
-    print("transfer token shard name: ", get_shard_name(), "\n");
     check( from != to, "cannot transfer to self" );
     require_auth( from );
     check( is_account( to ), "to account does not exist");
@@ -106,8 +105,6 @@ void token::transfer( const name&    from,
 }
 
 void token::sub_balance( const name& owner, const asset& value ) {
-   //TODO: remove
-   print("sub balance shard name: ", get_shard_name(),"\n");
    accounts from_acnts( get_self(), owner.value );
 
    const auto& from = from_acnts.get( value.symbol.code().raw(), "no balance object found" );
@@ -119,8 +116,7 @@ void token::sub_balance( const name& owner, const asset& value ) {
 }
 
 void token::add_balance( const name& owner, const asset& value, const name& ram_payer )
-{  //TODO: remove
-   print("add balance shard name: ", get_shard_name(), "\n");
+{
    accounts to_acnts( get_self(), owner.value );
    auto to = to_acnts.find( value.symbol.code().raw() );
    if( to == to_acnts.end() ) {
@@ -170,7 +166,6 @@ void token::xshout( const name& owner, const name& to_shard, const asset& quanti
     require_auth( system_account );
     auto sym = quantity.symbol.code();
     stats statstable( get_self(), sym.raw() );
-    // TODO: issuer must init the currency in to shard before xshout
     const auto& st = statstable.get( sym.raw(), "currency not found" );
 
    //  require_recipient( owner );
@@ -204,6 +199,10 @@ void token::xshin( const name& owner, const name& from_shard, const asset& quant
 
    add_balance( owner, quantity, owner ); // TODO: payer??
    // TODO: st.shard_balance += quantity;
+}
+
+void token::require_main_shard_only() {
+   check( get_shard_name() == "main"_n, "only allowed in main shard" );
 }
 
 } /// namespace eosio
