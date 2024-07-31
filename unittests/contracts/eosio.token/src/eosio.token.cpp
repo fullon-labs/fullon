@@ -171,7 +171,7 @@ void token::xshout( const name& owner, const name& to_shard, const asset& quanti
     auto sym = quantity.symbol.code();
     stats statstable( get_self(), sym.raw() );
     // TODO: issuer must init the currency in to shard before xshout
-    const auto& st = statstable.get( sym.raw() );
+    const auto& st = statstable.get( sym.raw(), "currency not found" );
 
    //  require_recipient( owner );
 
