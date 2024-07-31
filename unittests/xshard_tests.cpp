@@ -91,7 +91,11 @@ public:
       );
    }
 
+   template<typename T = contract_tables>
    vector<char> get_row_by_account( const database& db, name code, name scope, name table, const account_name& act ) const {
+      using table_id_object = typename T::table_id_object;
+      using key_value_object = typename T::key_value_object;
+      using key_value_index = typename chainbase::get_index_type<key_value_object>::type;
       vector<char> data;
       const auto* t_id = db.find<table_id_object, by_code_scope_table>( boost::make_tuple( code, scope, table ) );
       if ( !t_id ) {
@@ -115,6 +119,21 @@ public:
       vector<char> data = get_row_by_account( db, "flon.token"_n, act, "accounts"_n, name(symbol(CORE_SYMBOL).to_symbol_code().value) );
       return data.empty() ? asset(0, symbol(CORE_SYMBOL)) : token_abi_ser.binary_to_variant("account", data, abi_serializer::create_yield_function( abi_serializer_max_time ))["balance"].as<asset>();
    }
+   fc::variant get_stats( const database& db, const eosio::chain::symbol_code& symb_code ) {
+      auto symb_name =  name(symb_code.value);
+      vector<char> data = get_row_by_account<contract_shared_tables>(
+            db, "flon.token"_n, symb_name, "stat"_n, symb_name );
+      return data.empty() ? fc::variant() : token_abi_ser.binary_to_variant( "currency_stats", data, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+   }
+
+   fc::variant get_stats( const database& db, const eosio::chain::symbol& symb ) {
+      return get_stats(db, symb.to_symbol_code());
+   }
+
+   fc::variant get_stats( const database& db, const string& symb ) {
+      return get_stats(db, eosio::chain::symbol::from_string(symb));
+   }
+
 };
 
 
@@ -133,11 +152,16 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
    const auto& shared_db = dbm.shared_db();
    const auto* shard1_db = dbm.find_shard_db(shard1_name);
 
+   wdump((get_stats(main_db, core_symbol))(get_stats(shared_db, core_symbol)));
+
+   REQUIRE_EQUAL_OBJECTS( get_stats(main_db, core_symbol), get_stats(shared_db, core_symbol));
+
    if (!shard1_db) BOOST_ERROR("shard1 db not found");
-   transfer(config::system_account_name, "alice1111111"_n, core_from_string("100.0000"));
-   auto xshout_data = fc::raw::pack( xtransfer{core_from_string("1.0000"), ""} );
+   transfer(config::system_account_name, "alice1111111"_n, core_from_string("1000.0000"));
+   BOOST_REQUIRE_EQUAL(get_balance(main_db, "alice1111111"_n), core_from_string("1000.0000"));
+
+   auto xshout_data = fc::raw::pack( xtransfer{core_from_string("100.0000"), ""} );
    auto xshout_trx = xshout( "alice1111111"_n, shard1_name, "flon.token"_n, "xtransfer"_n, xshout_data );
-   BOOST_REQUIRE_EQUAL(get_balance(main_db, "alice1111111"_n), core_from_string("99.0000"));
 
    const auto& xsh_indx = shared_db.get_index<xshard_index, by_id>();
    const auto& gen_trx_indx = shared_db.get_index<generated_transaction_multi_index, by_trx_id>();
@@ -181,19 +205,19 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
       shard_name_scope scope(*this, shard1_name);
       xshin("alice1111111"_n, xsh_id);
    }
-   BOOST_REQUIRE_EQUAL(get_balance(*shard1_db, "alice1111111"_n), core_from_string("1.0000"));
+   BOOST_REQUIRE_EQUAL(get_balance(*shard1_db, "alice1111111"_n), core_from_string("100.0000"));
    produce_blocks();
 
    BOOST_REQUIRE_EQUAL(xsh_indx.size(), 0);
    BOOST_REQUIRE_EQUAL(gen_trx_indx.size(), 0);
    BOOST_REQUIRE(gen_trx_indx.find(scheduled_xshin_trx) == gen_trx_indx.end());
 
-   auto xshout_data2 = fc::raw::pack( xtransfer{core_from_string("1.0000"), ""} );
+   auto xshout_data2 = fc::raw::pack( xtransfer{core_from_string("100.0000"), ""} );
 
-   transfer(config::system_account_name, "bob111111111"_n, core_from_string("100.0000"));
+   transfer(config::system_account_name, "bob111111111"_n, core_from_string("1000.0000"));
 
    auto xshout_trx2 = xshout( "bob111111111"_n, shard1_name, "flon.token"_n, "xtransfer"_n, xshout_data2 );
-   BOOST_REQUIRE_EQUAL(get_balance(main_db, "bob111111111"_n), core_from_string("99.0000"));
+   BOOST_REQUIRE_EQUAL(get_balance(main_db, "bob111111111"_n), core_from_string("900.0000"));
 
    auto xsh_id2 = xshard_object::make_xsh_id(xshout_trx2->id, 0);
 
@@ -241,13 +265,76 @@ BOOST_FIXTURE_TEST_CASE( xshard_transfer_test, xshard_tester ) try {
       auto billed_cpu_time_us = gpo.configuration.min_transaction_cpu_usage;
       auto scheduled_trx_trace = push_scheduled_transaction(shard1_name, scheduled_xshin_trx2, fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
       BOOST_REQUIRE( !scheduled_trx_trace->except_ptr && !scheduled_trx_trace->except );
-      BOOST_REQUIRE_EQUAL(get_balance(*shard1_db, "bob111111111"_n), core_from_string("1.0000"));
+      BOOST_REQUIRE_EQUAL(get_balance(*shard1_db, "bob111111111"_n), core_from_string("100.0000"));
    }
 
    produce_blocks();
 
    BOOST_REQUIRE_EQUAL(xsh_indx.size(), 0);
    BOOST_REQUIRE(gen_trx_indx.find(scheduled_xshin_trx2) == gen_trx_indx.end());
+
+   // xtransfer from shard1 to main shard
+   xshard_id_type xsh_id3;
+   auto xshout_data3 = fc::raw::pack( xtransfer{core_from_string("10.0000"), ""} );
+   {
+      shard_name_scope scope(*this, shard1_name);
+      auto xshout_trx3 = xshout( "bob111111111"_n, config::main_shard_name, "flon.token"_n, "xtransfer"_n, xshout_data3 );
+      xsh_id3 = xshard_object::make_xsh_id(xshout_trx3->id, 0);
+   }
+   BOOST_REQUIRE_EQUAL(get_balance(*shard1_db, "bob111111111"_n), core_from_string("90.0000"));
+
+
+   BOOST_REQUIRE_EQUAL(xsh_indx.size(), 0);
+
+   produce_blocks();
+
+   BOOST_REQUIRE_EQUAL(xsh_indx.size(), 1);
+   auto xsh_itr3 = xsh_indx.begin();
+   BOOST_REQUIRE(xsh_itr3 != xsh_indx.end());
+
+   BOOST_REQUIRE_EQUAL(xsh_itr3->xsh_id, xsh_id3);
+   BOOST_REQUIRE_EQUAL(xsh_itr3->owner, "bob111111111"_n);
+   BOOST_REQUIRE_EQUAL(xsh_itr3->from_shard, shard1_name);
+   BOOST_REQUIRE_EQUAL(xsh_itr3->to_shard, config::main_shard_name);
+   BOOST_REQUIRE_EQUAL(xsh_itr3->contract, "flon.token"_n);
+   BOOST_REQUIRE_EQUAL(xsh_itr3->action_type, "xtransfer"_n);
+   BOOST_REQUIRE(bytes(xsh_itr3->action_data.begin(), xsh_itr3->action_data.end())  == xshout_data3);
+   auto scheduled_xshin_trx3 = xsh_itr3->scheduled_xshin_trx;
+   BOOST_REQUIRE(scheduled_xshin_trx3 != transaction_id_type());
+   BOOST_REQUIRE(scheduled_xshin_trx3 != scheduled_xshin_trx2);
+
+   auto schedule_trx_obj3 = gen_trx_indx.find(scheduled_xshin_trx3);
+   BOOST_REQUIRE(schedule_trx_obj3 != gen_trx_indx.end());
+   BOOST_REQUIRE_EQUAL(schedule_trx_obj3->sender, xsh_itr3->owner);
+   BOOST_REQUIRE(uint64_t(schedule_trx_obj3->sender_id >> 64) == ("xshard"_n).to_uint64_t());
+   BOOST_REQUIRE(uint64_t(schedule_trx_obj3->sender_id) == xsh_itr3->id._id);
+   BOOST_REQUIRE_EQUAL(schedule_trx_obj3->payer, name());
+   BOOST_REQUIRE(schedule_trx_obj3->published == control->head_block_time());
+   BOOST_REQUIRE(schedule_trx_obj3->delay_until == schedule_trx_obj3->published + fc::milliseconds(config::block_interval_ms));
+   BOOST_REQUIRE(schedule_trx_obj3->expiration == schedule_trx_obj3->delay_until + fc::seconds(gpo.configuration.deferred_trx_expiration_window));
+   BOOST_REQUIRE_EQUAL(schedule_trx_obj3->is_xshard, true);
+   BOOST_REQUIRE_EQUAL(schedule_trx_obj3->shard_name, config::main_shard_name);
+
+   {
+      fc::datastream<const char*> ds( schedule_trx_obj3->packed_trx.data(), schedule_trx_obj3->packed_trx.size() );
+      signed_transaction schedule_trx3;
+      fc::raw::unpack(ds, static_cast<transaction&>(schedule_trx3) );
+      BOOST_REQUIRE(schedule_trx3.has_shard_extension());
+      BOOST_REQUIRE_EQUAL(schedule_trx3.get_shard_name(), config::main_shard_name);
+   }
+
+   {
+      // shard_name_scope scope(*this, shard1_name);
+      auto billed_cpu_time_us = gpo.configuration.min_transaction_cpu_usage;
+      auto scheduled_trx_trace = push_scheduled_transaction(config::main_shard_name, scheduled_xshin_trx3, fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
+      BOOST_REQUIRE( !scheduled_trx_trace->except_ptr && !scheduled_trx_trace->except );
+      BOOST_REQUIRE_EQUAL(get_balance(main_db, "bob111111111"_n), core_from_string("910.0000"));
+   }
+
+   produce_blocks();
+
+   BOOST_REQUIRE_EQUAL(xsh_indx.size(), 0);
+   BOOST_REQUIRE(gen_trx_indx.find(scheduled_xshin_trx3) == gen_trx_indx.end());
 
 } FC_LOG_AND_RETHROW()
 

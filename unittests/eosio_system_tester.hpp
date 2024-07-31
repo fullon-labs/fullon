@@ -22,6 +22,8 @@ using mvo = fc::mutable_variant_object;
 #endif
 #endif
 
+static const eosio::chain::symbol core_symbol = symbol(CORE_SYMBOL);
+
 namespace eosio_system {
 
 class eosio_system_tester : public TESTER {
