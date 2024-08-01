@@ -2,6 +2,12 @@
 #include <eosio/transaction.hpp>
 
 
+#define CHECK(exp, msg) { if (!(exp)) eosio::check(false, msg); }
+
+#ifndef ASSERT
+    #define ASSERT(exp) CHECK(exp, #exp)
+#endif
+
 namespace eosio {
 
 void token::create( const name&   issuer,
@@ -22,6 +28,12 @@ void token::create( const name&   issuer,
        s.supply.symbol = maximum_supply.symbol;
        s.max_supply    = maximum_supply;
        s.issuer        = issuer;
+    });
+
+    xshstats xsh_stats_table( get_self(), sym.code().raw() );
+    xsh_stats_table.emplace( get_self(), [&]( auto& s ) {
+       s.supply = asset(0, maximum_supply.symbol);
+       s.payer  = issuer;
     });
 }
 
@@ -47,6 +59,13 @@ void token::issue( const name& to, const asset& quantity, const string& memo )
     check( quantity.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
 
     statstable.modify( st, same_payer, [&]( auto& s ) {
+       s.supply += quantity;
+    });
+
+    xshstats xsh_stats_table( get_self(), sym.code().raw() );
+    const auto& xsh_stat = xsh_stats_table.get( sym.code().raw(), "token xshard with symbol does not exist, create token before issue" );
+    ASSERT(xsh_stat.payer == st.issuer);
+    xsh_stats_table.modify( xsh_stat, same_payer, [&]( auto& s ) {
        s.supply += quantity;
     });
 
@@ -160,13 +179,36 @@ void token::close( const name& owner, const symbol& symbol )
    acnts.erase( it );
 }
 
+
+void token::xshinit( const name& payer, const symbol& currency_symbol ) {
+    require_auth( payer );
+    auto sym = currency_symbol.code();
+    stats statstable( get_self(), sym.raw() );
+    const auto& st = statstable.get( sym.raw(), "token with symbol does not exist" );
+    check( currency_symbol == st.supply.symbol, "symbol precision mismatch" );
+
+    xshstats xsh_stats_table( get_self(), sym.raw() );
+    auto xsh_stat_itr = xsh_stats_table.find( sym.raw());
+    if (xsh_stat_itr == xsh_stats_table.end()) {
+      check(xsh_stat_itr->payer != payer, "payer has initialized the currency xshard information");
+      xsh_stats_table.modify( xsh_stat_itr, payer, [&]( auto& s ) {
+         s.payer = payer;
+      });
+    } else {
+      xsh_stats_table.emplace( get_self(), [&]( auto& s ) {
+         s.supply = asset(0, currency_symbol);
+         s.payer  = payer;
+      });
+    }
+}
+
 void token::xshout( const name& owner, const name& to_shard, const asset& quantity, const string& memo ) {
 
     require_auth( owner );
     require_auth( system_account );
     auto sym = quantity.symbol.code();
     stats statstable( get_self(), sym.raw() );
-    const auto& st = statstable.get( sym.raw(), "currency not found" );
+    const auto& st = statstable.get( sym.raw(), "token with symbol does not exist" );
 
    //  require_recipient( owner );
 
@@ -175,30 +217,50 @@ void token::xshout( const name& owner, const name& to_shard, const asset& quanti
     check( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
     check( memo.size() <= 256, "memo has more than 256 bytes" );
 
-    sub_balance( owner, quantity );
+    xshstats xsh_stats_table( get_self(), sym.raw() );
+    auto xsh_stat_itr = xsh_stats_table.find( sym.raw());
+    check(xsh_stat_itr != xsh_stats_table.end(), "token xshard does not exist");
+    check(xsh_stat_itr->supply >= quantity, "insufficient supply of token xshard");
 
-   // TODO:  st.shard_balance -= quantity;
+    xsh_stats_table.modify( xsh_stat_itr, same_payer, [&]( auto& s ) {
+       s.supply -= quantity;
+    });
+
+    sub_balance( owner, quantity );
 }
 
 void token::xshin( const name& owner, const name& from_shard, const asset& quantity, const string& memo ) {
 
     require_auth( owner );
     require_auth( system_account );
-   //  check(get_first_receiver() == system_account, "this action can only be called by system_account");
-   //  auto sym = quantity.symbol.code();
-   //  stats statstable( get_self(), sym.raw() );
-    // TODO: issuer must init the currency in to shard before xshout
-   //  const auto& st = statstable.get( sym.raw() );
+    // the from_shard was validated by native code of chain before transaction execution,
+    // so no need to validate from_shard here
+    auto sym = quantity.symbol.code();
+    stats statstable( get_self(), sym.raw() );
+    const auto& st = statstable.get( sym.raw(), "token with symbol does not exist" );
+
+    check( quantity.is_valid(), "invalid quantity" );
+    check( quantity.amount > 0, "must transfer positive quantity" );
+    check( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
+    check( memo.size() <= 256, "memo has more than 256 bytes" );
 
    //  require_recipient( owner );
 
-   // check( quantity.is_valid(), "invalid quantity" );
-   check( quantity.amount > 0, "must transfer positive quantity" );
-   // check( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
-   check( memo.size() <= 256, "memo has more than 256 bytes" );
+    xshstats xsh_stats_table( get_self(), sym.raw() );
+    auto xsh_stat_itr = xsh_stats_table.find( sym.raw());
+    if (xsh_stat_itr != xsh_stats_table.end()) {
+      xsh_stats_table.modify( xsh_stat_itr, same_payer, [&]( auto& s ) {
+         s.supply += quantity;
+      });
+    } else {
+      // TODO: the issuer must init the token xshard before xshin?
+      xsh_stats_table.emplace( get_self(), [&]( auto& s ) {
+         s.supply = quantity;
+         s.payer  = owner;
+      });
+    }
 
    add_balance( owner, quantity, owner ); // TODO: payer??
-   // TODO: st.shard_balance += quantity;
 }
 
 void token::require_main_shard_only() {
