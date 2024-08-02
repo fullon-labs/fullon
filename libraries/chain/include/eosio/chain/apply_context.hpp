@@ -111,6 +111,7 @@ class apply_context {
 
       bool is_context_free()const { return context_free; }
       bool is_privileged()const { return privileged; }
+      bool is_main_shard()const { return shard_name == config::main_shard_name; }
       const account_name& get_receiver()const { return receiver; }
       const action& get_action()const { return *act; }
 
