@@ -47,7 +47,7 @@ namespace eosio {
           *
           * @param to - the account to issue tokens to, it must be the same as the issuer,
           * @param quantity - the amount of tokens to be issued,
-          * @memo - the memo string that accompanies the token issue transaction.
+          * @param memo - the memo string that accompanies the token issue transaction.
           */
          [[eosio::action]]
          void issue( const name& to, const asset& quantity, const string& memo );
@@ -132,6 +132,18 @@ namespace eosio {
          [[eosio::action]]
          void xshin( const name& owner, const name& from_shard, const asset& quantity, const string& memo );
 
+         /**
+          * init xshard information of currency symbol in current executing shard,
+          *
+          * @param payer - the payer account to pay the RAM,
+          * @param currency_symbol - the currency symbol to initialize.
+          *
+          * @pre The currency symbol must exists in `stat` table.
+          * @pre If the currency symbol was existed, but the payer is not same, update the payer.
+          */
+         [[eosio::action]]
+         void xshinit( const name& payer, const symbol& currency_symbol );
+
          static asset get_supply( const name& token_contract_account, const symbol_code& sym_code )
          {
             stats statstable( token_contract_account, sym_code.raw() );
@@ -169,11 +181,21 @@ namespace eosio {
             uint64_t primary_key()const { return supply.symbol.code().raw(); }
          };
 
+         // scope: supply.symbol.code.raw()
+         struct [[eosio::table]] xshard_stats {
+            asset    supply;
+            name     payer;
+
+            uint64_t primary_key()const { return supply.symbol.code().raw(); }
+         };
+
          typedef eosio::multi_index< "accounts"_n, account > accounts;
-         typedef eosio::multi_index< "stat"_n, currency_stats > stats;
+         typedef eosio::shared_multi_index< "stat"_n, currency_stats > stats;
+         typedef eosio::multi_index< "xshstat"_n, xshard_stats > xshstats;
 
          void sub_balance( const name& owner, const asset& value );
          void add_balance( const name& owner, const asset& value, const name& ram_payer );
+         void require_main_shard_only();
    };
 
 }

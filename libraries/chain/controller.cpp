@@ -1634,6 +1634,7 @@ struct controller_impl {
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
          undo_session.squash();
+         shard_trx_restore.cancel();
          return trace;
       }
 
@@ -1726,10 +1727,11 @@ struct controller_impl {
       } catch ( const boost::interprocess::bad_alloc& ) {
          throw;
       } catch( const fc::exception& e ) {
-        handle_exception(e);
+         elog("exception thrown while executing schedule trx {$trx}: ${e}", ("trx", gtrx.trx_id)("e", e.to_detail_string()));
+         handle_exception(e);
       } catch ( const std::exception& e) {
-        auto wrapper = fc::std_exception_wrapper::from_current_exception(e);
-        handle_exception(wrapper);
+         auto wrapper = fc::std_exception_wrapper::from_current_exception(e);
+         handle_exception(wrapper);
       }
 
       trx_context.undo();
@@ -1751,6 +1753,7 @@ struct controller_impl {
             dmlog_applied_transaction(trace);
             emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
             undo_session.squash();
+            shard_trx_restore.cancel();
             pending->_block_report.total_net_usage += trace->net_usage;
             if( trace->receipt ) pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
             pending->_block_report.total_elapsed_time += trace->elapsed;
@@ -1797,8 +1800,8 @@ struct controller_impl {
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
 
-         shard_trx_restore.cancel();
          undo_session.squash();
+         shard_trx_restore.cancel();
       } else {
          emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
@@ -4064,8 +4067,11 @@ wasm_interface& controller::get_wasm_interface() {
 
 const account_object& controller::get_account( account_name name )const
 { try {
-   // TODO: get from shared_db()?
-   auto& db = my->dbm.shared_db();
+   return get_account(name, my->dbm.shared_db());
+} FC_CAPTURE_AND_RETHROW( (name) ) }
+
+const account_object& controller::get_account( account_name name, const database& db )const
+{ try {
    return db.get<account_object, by_name>(name);
 } FC_CAPTURE_AND_RETHROW( (name) ) }
 

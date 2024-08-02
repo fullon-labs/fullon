@@ -747,19 +747,19 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
    BOOST_REQUIRE_EQUAL( trace3->id, (++(++c.get_unapplied_transaction_queue().begin()))->id() );
    BOOST_REQUIRE_EQUAL( trace4->id, (++(++(++c.get_unapplied_transaction_queue().begin())))->id() );
 
-   BOOST_REQUIRE_EXCEPTION(c.control->get_account( "test1"_n ), fc::exception,
+   BOOST_REQUIRE_EXCEPTION(c.get_account( "test1"_n ), fc::exception,
                            [a="test1"_n] (const fc::exception& e)->bool {
                               return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
                            }) ;
-   BOOST_REQUIRE_EXCEPTION(c.control->get_account( "test2"_n ), fc::exception,
+   BOOST_REQUIRE_EXCEPTION(c.get_account( "test2"_n ), fc::exception,
                            [a="test2"_n] (const fc::exception& e)->bool {
                               return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
                            }) ;
-   BOOST_REQUIRE_EXCEPTION(c.control->get_account( "test3"_n ), fc::exception,
+   BOOST_REQUIRE_EXCEPTION(c.get_account( "test3"_n ), fc::exception,
                            [a="test3"_n] (const fc::exception& e)->bool {
                               return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
                            }) ;
-   BOOST_REQUIRE_EXCEPTION(c.control->get_account( "test4"_n ), fc::exception,
+   BOOST_REQUIRE_EXCEPTION(c.get_account( "test4"_n ), fc::exception,
                            [a="test4"_n] (const fc::exception& e)->bool {
                               return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
                            }) ;
@@ -781,12 +781,12 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
    BOOST_CHECK( traces.at(3)->except );
 
    // verify unapplied transactions ran
-   BOOST_REQUIRE_EQUAL( c.control->get_account( "test1"_n ).name,  "test1"_n );
-   BOOST_REQUIRE_EQUAL( c.control->get_account( "test2"_n ).name,  "test2"_n );
-   BOOST_REQUIRE_EQUAL( c.control->get_account( "test3"_n ).name,  "test3"_n );
+   BOOST_REQUIRE_EQUAL( c.get_account( "test1"_n ).name,  "test1"_n );
+   BOOST_REQUIRE_EQUAL( c.get_account( "test2"_n ).name,  "test2"_n );
+   BOOST_REQUIRE_EQUAL( c.get_account( "test3"_n ).name,  "test3"_n );
 
    // failed because of tapos to forked out block
-   BOOST_REQUIRE_EXCEPTION(c.control->get_account( "test4"_n ), fc::exception,
+   BOOST_REQUIRE_EXCEPTION(c.get_account( "test4"_n ), fc::exception,
                            [a="test4"_n] (const fc::exception& e)->bool {
                               return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
                            }) ;

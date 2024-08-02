@@ -248,7 +248,7 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions, validating_tester) { try {
       account_name creator = config::system_account_name;
 
       // account does not exist before test
-      BOOST_REQUIRE_EXCEPTION(control->get_account( a ), fc::exception,
+      BOOST_REQUIRE_EXCEPTION(get_account( a ), fc::exception,
                               [a] (const fc::exception& e)->bool {
                                  return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
                               }) ;
@@ -265,10 +265,7 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions, validating_tester) { try {
       trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
       auto trace = push_transaction( trx );
 
-      BOOST_REQUIRE_EXCEPTION(control->get_account( a ), fc::exception,
-                              [a] (const fc::exception& e)->bool {
-                                 return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
-                              }); // throws if it does not exist
+      get_account( a ); // throws if it does not exist
 
       auto unapplied_trxs = control->abort_block();
 
@@ -280,7 +277,7 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions, validating_tester) { try {
       BOOST_REQUIRE_EQUAL( trx.id(), main_shard_itr->second.at(0)->id() );
 
       // account does not exist block was aborted which had transaction
-      BOOST_REQUIRE_EXCEPTION(control->get_account( a ), fc::exception,
+      BOOST_REQUIRE_EXCEPTION(get_account( a ), fc::exception,
                               [a] (const fc::exception& e)->bool {
                                  return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
                               }) ;
@@ -301,7 +298,7 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions_tester, validating_tester) { t
       account_name creator = config::system_account_name;
 
       // account does not exist before test
-      BOOST_REQUIRE_EXCEPTION(control->get_account( a ), fc::exception,
+      BOOST_REQUIRE_EXCEPTION(get_account( a ), fc::exception,
                               [a] (const fc::exception& e)->bool {
                                  return std::string( e.what() ).find( a.to_string() ) != std::string::npos;
                               }) ;
@@ -318,11 +315,11 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions_tester, validating_tester) { t
       trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
       auto trace = push_transaction( trx );
       produce_block();
-      control->get_account( a ); // throws if it does not exist
+      get_account( a ); // throws if it does not exist
 
       produce_block( fc::milliseconds(config::block_interval_ms*2) ); // aborts block, tester should reapply trx
 
-      control->get_account( a ); // throws if it does not exist
+      get_account( a ); // throws if it does not exist
 
       auto unapplied_trxs = control->abort_block(); // should be empty now
       BOOST_REQUIRE_EQUAL( 0,  unapplied_trxs.size() ); // no any shard

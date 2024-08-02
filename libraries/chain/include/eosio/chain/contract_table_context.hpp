@@ -516,11 +516,11 @@ class contract_table_context_base {
       generic_index<index_double_object>                             idx_double;
       generic_index<index_long_double_object>                        idx_long_double;
 
-      contract_table_context_base(apply_context& c)
+      contract_table_context_base(apply_context& c, chainbase::database& db)
       :context(c)
       ,trx_context(c.trx_context)
       ,control(c.control)
-      ,db(c.db)
+      ,db(db)
       ,receiver(c.get_receiver())
       ,idx64(*this)
       ,idx128(*this)

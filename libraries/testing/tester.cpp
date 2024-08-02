@@ -554,6 +554,10 @@ namespace eosio { namespace testing {
   }
 
 
+   const account_object& base_tester::get_account( account_name n )const {
+      return control->get_account( n, control->dbm().main_db() );
+   }
+
    transaction_trace_ptr base_tester::create_account( account_name a, account_name creator, bool multisig, bool include_code ) {
       signed_transaction trx;
       set_transaction_headers(trx);
@@ -747,7 +751,7 @@ namespace eosio { namespace testing {
 
    action base_tester::get_action( account_name code, action_name acttype, vector<permission_level> auths,
                                    const variant_object& data )const { try {
-      const auto& acnt = control->get_account(code);
+      const auto& acnt = get_account(code);
       auto abi = acnt.get_abi();
       chain::abi_serializer abis(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
 
