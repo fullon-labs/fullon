@@ -468,7 +468,7 @@ void apply_flon_canceldelay(apply_context& context) {
 }
 
 void apply_flon_xshout(apply_context& context) {
-   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "xshout ot allowed in read-only transaction" );
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "xshout not allowed in read-only transaction" );
    // auto& shared_db  = context.shared_db;
    auto  xsh_out = context.get_action().data_as<xshout>();
 

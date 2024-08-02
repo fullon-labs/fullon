@@ -118,6 +118,12 @@ namespace eosio { namespace chain { namespace webassembly {
                        "${code} does not have permission to call this API", ("code", ctx.get_host().get_context().get_receiver()));
          }));
 
+   EOS_VM_PRECONDITION(main_shard_only_check,
+         EOS_VM_INVOKE_ONCE([&](auto&&...) {
+            EOS_ASSERT(ctx.get_host().get_context().is_main_shard(), only_main_shard_allowed_exception,
+                       "this API may only be called in main shard");
+         }));
+
    namespace detail {
       template<typename T>
       vm::span<const char> to_span(const vm::argument_proxy<T*>& val) {
