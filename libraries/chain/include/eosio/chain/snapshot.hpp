@@ -113,6 +113,47 @@ namespace eosio { namespace chain {
       }
    }
 
+   class snapshot_writer;
+
+   class snapshot_shards_writer {
+      public:
+         snapshot_shards_writer(snapshot_writer& writer) : writer(writer) {}
+
+         template<typename F>
+         void write(F f) {
+            assert(!is_write_started);
+            is_write_started = true;
+            write_start();
+            f();
+            write_end();
+            is_write_started = false;
+         }
+
+         template<typename F>
+         void add_shard( const chain::shard_name& shard_name, const chainbase::database& db, F f ) {
+            add_shard_start(shard_name, db);
+            f(*this, db);
+            add_shard_end(shard_name, db);
+         }
+
+         virtual ~snapshot_shards_writer(){};
+
+         snapshot_writer& writer;
+      protected:
+         virtual void write_start( ) = 0;
+         virtual void write_end() = 0;
+         virtual void add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) = 0;
+         virtual void add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) = 0;
+
+         bool is_write_started = false;
+   };
+   using snapshot_shards_writer_ptr = std::shared_ptr<snapshot_shards_writer>;
+
+   #define DECLEAR_MAKE_SHARDS_WRITER(T) \
+      std::shared_ptr<snapshot_shards_writer> make_shards_writer() override { \
+         return std::make_shared<T>(*this); \
+      }
+
    class snapshot_writer {
       public:
          class section_writer {
@@ -145,8 +186,9 @@ namespace eosio { namespace chain {
             write_section(detail::snapshot_section_traits<T>::section_name(), f);
          }
 
-      virtual ~snapshot_writer(){};
+         virtual std::shared_ptr<snapshot_shards_writer> make_shards_writer() = 0;
 
+         virtual ~snapshot_writer(){};
       protected:
          virtual void write_start_section( const std::string& section_name ) = 0;
          virtual void write_row( const detail::abstract_snapshot_row_writer& row_writer ) = 0;
@@ -288,6 +330,25 @@ namespace eosio { namespace chain {
 
    using snapshot_reader_ptr = std::shared_ptr<snapshot_reader>;
 
+   class variant_snapshot_writer;
+   class variant_snapshot_shards_writer: public snapshot_shards_writer {
+      public:
+         variant_snapshot_shards_writer(variant_snapshot_writer& writer);
+
+      protected:
+         void write_start() override;
+         void write_end() override;
+         void add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) override;
+         void add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) override;
+         fc::mutable_variant_object& snapshot;
+         fc::variants* snapshot_sections;
+         fc::variants shards;
+         fc::variants current_shard_sections;
+
+      private:
+         variant_snapshot_writer& get_writer();
+   };
+
    class variant_snapshot_writer : public snapshot_writer {
       public:
          variant_snapshot_writer(fc::mutable_variant_object& snapshot);
@@ -297,8 +358,13 @@ namespace eosio { namespace chain {
          void write_end_section( ) override;
          void finalize();
 
+         DECLEAR_MAKE_SHARDS_WRITER(variant_snapshot_shards_writer)
+
       private:
+         friend class variant_snapshot_shards_writer;
+
          fc::mutable_variant_object& snapshot;
+         fc::variants *sections;
          std::string current_section_name;
          fc::variants current_rows;
    };
@@ -320,6 +386,25 @@ namespace eosio { namespace chain {
          uint64_t cur_row;
    };
 
+   class ostream_snapshot_writer;
+
+   class ostream_snapshot_shards_writer: public snapshot_shards_writer {
+      public:
+         ostream_snapshot_shards_writer(ostream_snapshot_writer& writer);
+
+      protected:
+         void write_start() override;
+         void write_end() override;
+         void add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) override;
+         void add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) override;
+
+         detail::ostream_wrapper &snapshot;
+         std::streampos          shard_header_pos;
+         uint64_t                total_shard_size = 0;
+         uint64_t                shard_count = 0;
+         std::streampos          current_shard_pos;
+   };
+
    class ostream_snapshot_writer : public snapshot_writer {
       public:
          explicit ostream_snapshot_writer(std::ostream& snapshot);
@@ -329,13 +414,32 @@ namespace eosio { namespace chain {
          void write_end_section( ) override;
          void finalize();
 
+         DECLEAR_MAKE_SHARDS_WRITER(ostream_snapshot_shards_writer)
+
          static const uint32_t magic_number = 0x30510550;
 
       private:
+         friend class ostream_snapshot_shards_writer;
          detail::ostream_wrapper snapshot;
          std::streampos          header_pos;
          std::streampos          section_pos;
          uint64_t                row_count;
+   };
+
+   class ostream_json_snapshot_writer;
+
+   class ostream_json_snapshot_shards_writer: public snapshot_shards_writer {
+      public:
+         ostream_json_snapshot_shards_writer(ostream_json_snapshot_writer& writer);
+
+      protected:
+         void write_start() override;
+         void write_end() override;
+         void add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) override;
+         void add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) override;
+
+         detail::ostream_wrapper &snapshot;
+         uint64_t                shard_count = 0;
    };
 
    class ostream_json_snapshot_writer : public snapshot_writer {
@@ -347,9 +451,12 @@ namespace eosio { namespace chain {
          void write_end_section() override;
          void finalize();
 
+         DECLEAR_MAKE_SHARDS_WRITER(ostream_json_snapshot_shards_writer)
+
          static const uint32_t magic_number = 0x30510550;
 
       private:
+         friend class ostream_json_snapshot_shards_writer;
          detail::ostream_wrapper snapshot;
          uint64_t                row_count;
    };
@@ -392,6 +499,21 @@ namespace eosio { namespace chain {
          std::unique_ptr<struct istream_json_snapshot_reader_impl> impl;
    };
 
+   class integrity_hash_snapshot_writer;
+
+   class integrity_hash_snapshot_shards_writer: public snapshot_shards_writer {
+      public:
+         integrity_hash_snapshot_shards_writer(integrity_hash_snapshot_writer& writer);
+
+      protected:
+         void write_start() override ;
+         void write_end() override;
+         void add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) override;
+         void add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) override;
+
+         fc::sha256::encoder&  enc;
+   };
+
    class integrity_hash_snapshot_writer : public snapshot_writer {
       public:
          explicit integrity_hash_snapshot_writer(fc::sha256::encoder&  enc);
@@ -400,8 +522,10 @@ namespace eosio { namespace chain {
          void write_row( const detail::abstract_snapshot_row_writer& row_writer ) override;
          void write_end_section( ) override;
          void finalize();
+         DECLEAR_MAKE_SHARDS_WRITER(integrity_hash_snapshot_shards_writer)
 
       private:
+      friend class integrity_hash_snapshot_shards_writer;
          fc::sha256::encoder&  enc;
 
    };

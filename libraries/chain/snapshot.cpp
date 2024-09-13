@@ -14,11 +14,43 @@ using namespace eosio_rapidjson;
 
 namespace eosio { namespace chain {
 
+variant_snapshot_shards_writer::variant_snapshot_shards_writer(variant_snapshot_writer& writer)
+: snapshot_shards_writer(writer)
+, snapshot(writer.snapshot)
+{
+}
+
+void variant_snapshot_shards_writer::write_start() {
+   snapshot_sections = get_writer().sections;
+   shards.clear();
+   get_writer().sections = &current_shard_sections;
+}
+
+void variant_snapshot_shards_writer::write_end() {
+   snapshot.set("shards", std::move(shards));
+   get_writer().sections = snapshot_sections;
+}
+
+void variant_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) {
+   current_shard_sections.clear();
+
+}
+
+void variant_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) {
+   shards.emplace_back(fc::mutable_variant_object()("name", std::move(shard_name))("rows", std::move(current_shard_sections)));
+}
+
+variant_snapshot_writer& variant_snapshot_shards_writer::get_writer() {
+   return dynamic_cast<variant_snapshot_writer&>(writer);
+}
+
 variant_snapshot_writer::variant_snapshot_writer(fc::mutable_variant_object& snapshot)
 : snapshot(snapshot)
 {
-   snapshot.set("sections", fc::variants());
    snapshot.set("version", current_snapshot_version );
+   snapshot.set("sections", fc::variants());
+
+   sections = &snapshot["sections"].get_array();
 }
 
 void variant_snapshot_writer::write_start_section( const std::string& section_name ) {
@@ -31,7 +63,7 @@ void variant_snapshot_writer::write_row( const detail::abstract_snapshot_row_wri
 }
 
 void variant_snapshot_writer::write_end_section( ) {
-   snapshot["sections"].get_array().emplace_back(fc::mutable_variant_object()("name", std::move(current_section_name))("rows", std::move(current_rows)));
+   sections->emplace_back(fc::mutable_variant_object()("name", std::move(current_section_name))("rows", std::move(current_rows)));
 }
 
 void variant_snapshot_writer::finalize() {
@@ -118,6 +150,69 @@ void variant_snapshot_reader::return_to_header() {
    clear_section();
 }
 
+ostream_snapshot_shards_writer::ostream_snapshot_shards_writer(ostream_snapshot_writer& writer)
+: snapshot_shards_writer(writer)
+, snapshot(writer.snapshot)
+{
+}
+
+void ostream_snapshot_shards_writer::write_start() {
+   EOS_ASSERT(shard_header_pos == std::streampos(-1), snapshot_exception, "Shards have been written");
+   shard_header_pos = snapshot.tellp();
+   shard_count = 0;
+
+   uint64_t placeholder = std::numeric_limits<uint64_t>::max();
+
+   // write a placeholder for the total shard size
+   snapshot.write((char*)&placeholder, sizeof(placeholder));
+
+   // write placeholder for shard count
+   snapshot.write((char*)&placeholder, sizeof(placeholder));
+
+}
+
+void ostream_snapshot_shards_writer::write_end() {
+   auto restore = snapshot.tellp();
+
+   uint64_t total_shard_size = restore - shard_header_pos - sizeof(uint64_t);
+
+   snapshot.seekp(shard_header_pos);
+
+   // write a the total shard size
+   snapshot.write((char*)&total_shard_size, sizeof(total_shard_size));
+
+   // write the shard count
+   snapshot.write((char*)&shard_count, sizeof(shard_count));
+
+   snapshot.seekp(restore);
+
+   shard_header_pos = std::streampos(-1);
+   shard_count = 0;
+}
+
+void ostream_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) {
+   // current_shard_sections.clear();
+   shard_count++;
+   current_shard_pos = snapshot.tellp();
+   uint64_t shard_name_value = shard_name.to_uint64_t();
+   snapshot.write((char*)&shard_name_value, sizeof(shard_name_value));
+}
+
+void ostream_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) {
+   auto restore = snapshot.tellp();
+
+   uint64_t shard_size = restore - current_shard_pos - sizeof(uint64_t);
+
+   snapshot.seekp(current_shard_pos);
+
+   // write the current shard size
+   snapshot.write((char*)&shard_size, sizeof(shard_size));
+
+   snapshot.seekp(restore);
+
+   current_shard_pos = std::streampos(-1);
+}
+
 ostream_snapshot_writer::ostream_snapshot_writer(std::ostream& snapshot)
 :snapshot(snapshot)
 ,header_pos(snapshot.tellp())
@@ -189,6 +284,34 @@ void ostream_snapshot_writer::finalize() {
    snapshot.write((char*)&end_marker, sizeof(end_marker));
 }
 
+ostream_json_snapshot_shards_writer::ostream_json_snapshot_shards_writer(ostream_json_snapshot_writer& writer)
+: snapshot_shards_writer(writer)
+, snapshot(writer.snapshot)
+{
+}
+
+void ostream_json_snapshot_shards_writer::write_start() {
+   shard_count = 0;
+   snapshot.inner << ", \"shards\":[\n";
+
+}
+
+void ostream_json_snapshot_shards_writer::write_end() {
+   snapshot.inner << "],\n\"num_shards\":" << shard_count << "\n";
+   shard_count = 0;
+}
+
+void ostream_json_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) {
+
+   if(shard_count != 0) snapshot.inner << ",";
+   snapshot.inner << ",{\n\"shard_name\":" << fc::json::to_string(shard_name.to_string(), fc::time_point::maximum()) << "\n";
+   ++shard_count;
+}
+
+void ostream_json_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) {
+   snapshot.inner << "}\n";
+}
+
 ostream_json_snapshot_writer::ostream_json_snapshot_writer(std::ostream& snapshot)
       :snapshot(snapshot)
       ,row_count(0)
@@ -226,7 +349,6 @@ void ostream_json_snapshot_writer::finalize() {
    snapshot.inner << "}\n";
    snapshot.inner.flush();
 }
-
 
 istream_snapshot_reader::istream_snapshot_reader(std::istream& snapshot)
 :snapshot(snapshot)
@@ -429,6 +551,24 @@ void istream_json_snapshot_reader::clear_section() {
 
 void istream_json_snapshot_reader::return_to_header() {
    clear_section();
+}
+
+integrity_hash_snapshot_shards_writer::integrity_hash_snapshot_shards_writer(integrity_hash_snapshot_writer& writer)
+: snapshot_shards_writer(writer)
+, enc(writer.enc)
+{
+}
+
+void integrity_hash_snapshot_shards_writer::write_start() {
+}
+
+void integrity_hash_snapshot_shards_writer::write_end() {
+}
+
+void integrity_hash_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) {
+}
+
+void integrity_hash_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) {
 }
 
 integrity_hash_snapshot_writer::integrity_hash_snapshot_writer(fc::sha256::encoder& enc)
