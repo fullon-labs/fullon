@@ -430,7 +430,7 @@ REGISTER_LEGACY_CF_HOST_FUNCTION(ripemd160);
 // permission api
 REGISTER_LEGACY_HOST_FUNCTION(check_transaction_authorization);
 REGISTER_LEGACY_HOST_FUNCTION(check_permission_authorization);
-REGISTER_HOST_FUNCTION(get_permission_last_used);
+REGISTER_HOST_FUNCTION(get_permission_last_used, main_shard_only_check);
 REGISTER_HOST_FUNCTION(get_account_creation_time);
 
 // authorization api

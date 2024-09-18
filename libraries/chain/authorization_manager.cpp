@@ -21,7 +21,10 @@ namespace eosio { namespace chain {
       permission_link_index
    >;
 
-   //TODO: shared db
+   using authorization_shared_index_set = index_set<
+      permission_index,
+      permission_link_index
+   >;
 
    authorization_manager::authorization_manager(controller& c, database& db, chainbase::database& shared_db)
    :_control(c),_db(db), _shared_db(shared_db) {}
@@ -30,15 +33,15 @@ namespace eosio { namespace chain {
       authorization_index_set::add_indices(db);
    }
    void authorization_manager::add_shared_indices(chainbase::database& shared_db) {
-      authorization_index_set::add_indices(shared_db);
+      authorization_shared_index_set::add_indices(shared_db);
    }
 
 void authorization_manager::copy_data(chainbase::database& main_db, chainbase::database& shared_db) {
-   authorization_index_set::copy_data(main_db, shared_db);
+   authorization_shared_index_set::copy_data(main_db, shared_db);
 }
 
 void authorization_manager::copy_changes(chainbase::database& main_db, chainbase::database& shared_db) {
-   authorization_index_set::copy_changes(main_db, shared_db);
+   authorization_shared_index_set::copy_changes(main_db, shared_db);
 }
 
    void authorization_manager::initialize_database() {
