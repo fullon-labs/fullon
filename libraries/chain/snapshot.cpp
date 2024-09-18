@@ -31,12 +31,12 @@ void variant_snapshot_shards_writer::write_end() {
    get_writer().sections = snapshot_sections;
 }
 
-void variant_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) {
+void variant_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name ) {
    current_shard_sections.clear();
 
 }
 
-void variant_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) {
+void variant_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name) {
    shards.emplace_back(fc::mutable_variant_object()("name", std::move(shard_name))("rows", std::move(current_shard_sections)));
 }
 
@@ -190,7 +190,7 @@ void ostream_snapshot_shards_writer::write_end() {
    shard_count = 0;
 }
 
-void ostream_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) {
+void ostream_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name ) {
    // current_shard_sections.clear();
    shard_count++;
    current_shard_pos = snapshot.tellp();
@@ -198,7 +198,7 @@ void ostream_snapshot_shards_writer::add_shard_start( const chain::shard_name& s
    snapshot.write((char*)&shard_name_value, sizeof(shard_name_value));
 }
 
-void ostream_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) {
+void ostream_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name) {
    auto restore = snapshot.tellp();
 
    uint64_t shard_size = restore - current_shard_pos - sizeof(uint64_t);
@@ -301,14 +301,14 @@ void ostream_json_snapshot_shards_writer::write_end() {
    shard_count = 0;
 }
 
-void ostream_json_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) {
+void ostream_json_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name ) {
 
    if(shard_count != 0) snapshot.inner << ",";
    snapshot.inner << ",{\n\"shard_name\":" << fc::json::to_string(shard_name.to_string(), fc::time_point::maximum()) << "\n";
    ++shard_count;
 }
 
-void ostream_json_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) {
+void ostream_json_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name) {
    snapshot.inner << "}\n";
 }
 
@@ -565,10 +565,10 @@ void integrity_hash_snapshot_shards_writer::write_start() {
 void integrity_hash_snapshot_shards_writer::write_end() {
 }
 
-void integrity_hash_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) {
+void integrity_hash_snapshot_shards_writer::add_shard_start( const chain::shard_name& shard_name ) {
 }
 
-void integrity_hash_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) {
+void integrity_hash_snapshot_shards_writer::add_shard_end(const chain::shard_name& shard_name) {
 }
 
 integrity_hash_snapshot_writer::integrity_hash_snapshot_writer(fc::sha256::encoder& enc)

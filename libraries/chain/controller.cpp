@@ -1063,19 +1063,7 @@ struct controller_impl {
       });
    }
 
-   void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
-      // clear in case the previous call to clear did not finish in time of deadline
-      clear_expired_input_transactions( fc::time_point::maximum() );
-      // TODO: write shared_db and every shard db to snapshot
-
-      auto& db = dbm.main_db();
-      snapshot->write_section<chain_snapshot_header>([&db]( auto &section ){
-         section.add_row(chain_snapshot_header(), db);
-      });
-
-      snapshot->write_section<block_state>([&db, this]( auto &section ){
-         section.template add_row<block_header_state>(*head, db);
-      });
+   void add_db_tables_to_snapshot( database& db, const snapshot_writer_ptr& snapshot ) {
 
       controller_index_set::walk_indices([&db, &snapshot]( auto utils ){
          using value_t = typename decltype(utils)::index_t::value_type;
@@ -1099,10 +1087,35 @@ struct controller_impl {
 
       add_contract_tables_to_snapshot(db, snapshot);
 
-      authorization_manager authorization(self, db, db);
-      // TODO: shared_db and sub shard db
-      authorization.add_to_snapshot(snapshot);
-      resource_limits.add_to_snapshot(snapshot);
+      authorization_manager::add_to_snapshot(db, snapshot);
+      resource_limits_manager::add_to_snapshot(db, snapshot);
+   }
+
+   void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
+      // clear in case the previous call to clear did not finish in time of deadline
+      clear_expired_input_transactions( fc::time_point::maximum() );
+      // TODO: write shared_db and every shard db to snapshot
+
+      auto& main_db = dbm.main_db();
+      snapshot->write_section<chain_snapshot_header>([&main_db]( auto &section ){
+         section.add_row(chain_snapshot_header(), main_db);
+      });
+
+      snapshot->write_section<block_state>([&main_db, this]( auto &section ){
+         section.template add_row<block_header_state>(*head, main_db);
+      });
+
+      add_db_tables_to_snapshot(main_db, snapshot);
+      // TODO: add shared contract tables to snapshot
+
+      auto shards_writer = snapshot->make_shards_writer();
+      shards_writer->write([this, &shards_writer, &snapshot]() {
+         for( auto& sdb : dbm.shard_dbs() ) {
+            shards_writer->add_shard(sdb.first, [this, &db=sdb.second, &snapshot]() {
+               add_db_tables_to_snapshot(db, snapshot);
+            });
+         }
+      });
    }
 
    static std::optional<genesis_state> extract_legacy_genesis_state( snapshot_reader& snapshot, uint32_t version ) {
@@ -3082,9 +3095,7 @@ struct controller_impl {
 
       //Look for expired transactions in the deduplication list in sub shard, and remove them.
       for( auto& sdb : dbm.shard_dbs() ) {
-         auto sname = sdb.first;
-         auto& db = dbm.shard_db( sname );
-         remove_from_shard( db , sname );
+         remove_from_shard( sdb.second , sdb.first );
       }
    }
 

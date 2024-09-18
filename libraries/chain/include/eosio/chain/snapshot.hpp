@@ -130,10 +130,10 @@ namespace eosio { namespace chain {
          }
 
          template<typename F>
-         void add_shard( const chain::shard_name& shard_name, const chainbase::database& db, F f ) {
-            add_shard_start(shard_name, db);
-            f(*this, db);
-            add_shard_end(shard_name, db);
+         void add_shard( const chain::shard_name& shard_name, F f ) {
+            add_shard_start(shard_name);
+            f();
+            add_shard_end(shard_name);
          }
 
          virtual ~snapshot_shards_writer(){};
@@ -142,8 +142,8 @@ namespace eosio { namespace chain {
       protected:
          virtual void write_start( ) = 0;
          virtual void write_end() = 0;
-         virtual void add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) = 0;
-         virtual void add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) = 0;
+         virtual void add_shard_start( const chain::shard_name& shard_name ) = 0;
+         virtual void add_shard_end(const chain::shard_name& shard_name) = 0;
 
          bool is_write_started = false;
    };
@@ -338,8 +338,8 @@ namespace eosio { namespace chain {
       protected:
          void write_start() override;
          void write_end() override;
-         void add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) override;
-         void add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) override;
+         void add_shard_start( const chain::shard_name& shard_name ) override;
+         void add_shard_end(const chain::shard_name& shard_name) override;
          fc::mutable_variant_object& snapshot;
          fc::variants* snapshot_sections;
          fc::variants shards;
@@ -395,8 +395,8 @@ namespace eosio { namespace chain {
       protected:
          void write_start() override;
          void write_end() override;
-         void add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) override;
-         void add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) override;
+         void add_shard_start( const chain::shard_name& shard_name ) override;
+         void add_shard_end(const chain::shard_name& shard_name) override;
 
          detail::ostream_wrapper &snapshot;
          std::streampos          shard_header_pos;
@@ -435,8 +435,8 @@ namespace eosio { namespace chain {
       protected:
          void write_start() override;
          void write_end() override;
-         void add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) override;
-         void add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) override;
+         void add_shard_start( const chain::shard_name& shard_name ) override;
+         void add_shard_end(const chain::shard_name& shard_name) override;
 
          detail::ostream_wrapper &snapshot;
          uint64_t                shard_count = 0;
@@ -508,8 +508,8 @@ namespace eosio { namespace chain {
       protected:
          void write_start() override ;
          void write_end() override;
-         void add_shard_start( const chain::shard_name& shard_name, const chainbase::database& db ) override;
-         void add_shard_end(const chain::shard_name& shard_name, const chainbase::database& db) override;
+         void add_shard_start( const chain::shard_name& shard_name ) override;
+         void add_shard_end(const chain::shard_name& shard_name) override;
 
          fc::sha256::encoder&  enc;
    };

@@ -21,6 +21,8 @@ namespace eosio { namespace chain {
       permission_link_index
    >;
 
+   //TODO: shared db
+
    authorization_manager::authorization_manager(controller& c, database& db, chainbase::database& shared_db)
    :_control(c),_db(db), _shared_db(shared_db) {}
 
@@ -104,8 +106,8 @@ void authorization_manager::copy_changes(chainbase::database& main_db, chainbase
       };
    }
 
-   void authorization_manager::add_to_snapshot( const snapshot_writer_ptr& snapshot ) const {
-      authorization_index_set::walk_indices([this, &snapshot]( auto utils ){
+   void authorization_manager::add_to_snapshot( chainbase::database& db, const snapshot_writer_ptr& snapshot ) {
+      authorization_index_set::walk_indices([&db, &snapshot]( auto utils ){
          using section_t = typename decltype(utils)::index_t::value_type;
 
          // skip the permission_usage_index as its inlined with permission_index
@@ -113,9 +115,9 @@ void authorization_manager::copy_changes(chainbase::database& main_db, chainbase
             return;
          }
 
-         snapshot->write_section<section_t>([this]( auto& section ){
-            decltype(utils)::walk(_db, [this, &section]( const auto &row ) {
-               section.add_row(row, _db);
+         snapshot->write_section<section_t>([&db]( auto& section ){
+            decltype(utils)::walk(db, [&db, &section]( const auto &row ) {
+               section.add_row(row, db);
             });
          });
       });
