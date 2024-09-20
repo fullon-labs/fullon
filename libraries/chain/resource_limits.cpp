@@ -88,7 +88,7 @@ void resource_limits_manager::initialize_database() {
    }
 }
 
-void resource_limits_manager::add_to_snapshot( chainbase::database& db, const snapshot_writer_ptr& snapshot ) {
+void resource_limits_manager::add_to_snapshot( chainbase::database& db, const snapshot_shard_writer_ptr& snapshot ) {
    resource_index_set::walk_indices([&db, &snapshot]( auto utils ){
       snapshot->write_section<typename decltype(utils)::index_t::value_type>([&db]( auto& section ){
          decltype(utils)::walk(db, [&section, &db]( const auto &row ) {

@@ -84,7 +84,7 @@ namespace eosio { namespace chain {
          static void copy_data(chainbase::database& main_db, chainbase::database& shared_db);
          static void copy_changes(chainbase::database& main_db, chainbase::database& shared_db);
          void initialize_database();
-         static void add_to_snapshot( chainbase::database& db, const snapshot_writer_ptr& snapshot );
+         static void add_to_snapshot( chainbase::database& db, const snapshot_shard_writer_ptr& snapshot );
          void read_from_snapshot( const snapshot_reader_ptr& snapshot );
 
          void initialize_account( const account_name& account, bool is_trx_transient );

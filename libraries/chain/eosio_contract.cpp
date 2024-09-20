@@ -79,7 +79,6 @@ void apply_flon_newaccount(apply_context& context) {
    EOS_ASSERT( validate(create.active), action_validate_exception, "Invalid active authority");
 
    auto& db = context.db;
-   auto& shared_db = context.shared_db;
    auto name_str = name(create.name).to_string();
 
    EOS_ASSERT( !create.name.empty(), action_validate_exception, "account name cannot be empty" );

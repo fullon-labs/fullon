@@ -109,7 +109,7 @@ void authorization_manager::copy_changes(chainbase::database& main_db, chainbase
       };
    }
 
-   void authorization_manager::add_to_snapshot( chainbase::database& db, const snapshot_writer_ptr& snapshot ) {
+   void authorization_manager::add_to_snapshot( chainbase::database& db, const snapshot_shard_writer_ptr& snapshot ) {
       authorization_index_set::walk_indices([&db, &snapshot]( auto utils ){
          using section_t = typename decltype(utils)::index_t::value_type;
 

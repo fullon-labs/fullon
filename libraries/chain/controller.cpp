@@ -1006,7 +1006,7 @@ struct controller_impl {
                   */
    }
 
-   void add_contract_tables_to_snapshot( database& db, const snapshot_writer_ptr& snapshot ) const {
+   void add_contract_tables_to_snapshot( database& db, const snapshot_shard_writer_ptr& snapshot ) const {
       // TODO: support shared_table_id_multi_index
       snapshot->write_section("contract_tables", [&db]( auto& section ) {
          index_utils<table_id_multi_index>::walk(db, [&db, &section]( const table_id_object& table_row ){
@@ -1063,7 +1063,7 @@ struct controller_impl {
       });
    }
 
-   void add_db_tables_to_snapshot( database& db, const snapshot_writer_ptr& snapshot ) {
+   void add_db_tables_to_snapshot( database& db, const snapshot_shard_writer_ptr& snapshot ) {
 
       controller_index_set::walk_indices([&db, &snapshot]( auto utils ){
          using value_t = typename decltype(utils)::index_t::value_type;
@@ -1094,28 +1094,28 @@ struct controller_impl {
    void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
       // clear in case the previous call to clear did not finish in time of deadline
       clear_expired_input_transactions( fc::time_point::maximum() );
-      // TODO: write shared_db and every shard db to snapshot
 
       auto& main_db = dbm.main_db();
-      snapshot->write_section<chain_snapshot_header>([&main_db]( auto &section ){
-         section.add_row(chain_snapshot_header(), main_db);
+
+      snapshot->add_shard( config::main_shard_name, [this, &main_db]( snapshot_shard_writer_ptr &shard ){
+         shard->write_section<chain_snapshot_header>([&main_db]( auto &section ){
+            section.add_row(chain_snapshot_header(), main_db);
+         });
+
+         shard->write_section<block_state>([this, &main_db]( auto &section ){
+            section.template add_row<block_header_state>(*head, main_db);
+         });
+
+         add_db_tables_to_snapshot(main_db, shard);
       });
 
-      snapshot->write_section<block_state>([&main_db, this]( auto &section ){
-         section.template add_row<block_header_state>(*head, main_db);
-      });
 
-      add_db_tables_to_snapshot(main_db, snapshot);
-      // TODO: add shared contract tables to snapshot
-
-      auto shards_writer = snapshot->make_shards_writer();
-      shards_writer->write([this, &shards_writer, &snapshot]() {
-         for( auto& sdb : dbm.shard_dbs() ) {
-            shards_writer->add_shard(sdb.first, [this, &db=sdb.second, &snapshot]() {
-               add_db_tables_to_snapshot(db, snapshot);
-            });
-         }
-      });
+      // TODO: how to get shard_dbs
+      for( auto& sdb : dbm.shard_dbs() ) {
+         snapshot->add_shard( sdb.first, [this, &db = sdb.second]( snapshot_shard_writer_ptr &shard ) {
+            add_db_tables_to_snapshot(db, shard);
+         });
+      }
    }
 
    static std::optional<genesis_state> extract_legacy_genesis_state( snapshot_reader& snapshot, uint32_t version ) {
