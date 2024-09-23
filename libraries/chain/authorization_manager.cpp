@@ -126,8 +126,8 @@ void authorization_manager::copy_changes(chainbase::database& main_db, chainbase
       });
    }
 
-   void authorization_manager::read_from_snapshot( const snapshot_reader_ptr& snapshot ) {
-      authorization_index_set::walk_indices([this, &snapshot]( auto utils ){
+   void authorization_manager::read_from_snapshot( chainbase::database& db, const snapshot_shard_reader_ptr& snapshot ) {
+      authorization_index_set::walk_indices([&db, &snapshot]( auto utils ){
          using section_t = typename decltype(utils)::index_t::value_type;
 
          // skip the permission_usage_index as its inlined with permission_index
@@ -135,11 +135,11 @@ void authorization_manager::copy_changes(chainbase::database& main_db, chainbase
             return;
          }
 
-         snapshot->read_section<section_t>([this]( auto& section ) {
+         snapshot->read_section<section_t>([&db]( auto& section ) {
             bool more = !section.empty();
             while(more) {
-               decltype(utils)::create(_db, [this, &section, &more]( auto &row ) {
-                  more = section.read_row(row, _db);
+               decltype(utils)::create(db, [&db, &section, &more]( auto &row ) {
+                  more = section.read_row(row, db);
                });
             }
          });

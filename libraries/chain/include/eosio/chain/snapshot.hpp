@@ -145,7 +145,11 @@ namespace eosio { namespace chain {
             write_section(detail::snapshot_section_traits<T>::section_name(), f);
          }
 
+         snapshot_shard_writer(const chain::shard_name& shard_name): shard_name(shard_name){};
+
          virtual ~snapshot_shard_writer(){};
+
+         chain::shard_name shard_name;
       protected:
          virtual void write_start_section( const std::string& section_name ) = 0;
          virtual void write_row( const detail::abstract_snapshot_row_writer& row_writer ) = 0;
@@ -237,35 +241,7 @@ namespace eosio { namespace chain {
       }
    }
 
-   class snapshot_reader;
-
-   class snapshot_shards_reader {
-      public:
-         snapshot_shards_reader(snapshot_reader& reader) : reader(reader) {}
-
-         virtual void validate() const = 0;
-
-         virtual bool empty() = 0;  // no more shards can be read
-
-         template<typename F>
-         void read_shard(F f) {
-            read_shard_start();
-            f(current_shard_name);
-            read_shard_end();
-         }
-
-         virtual ~snapshot_shards_reader(){};
-
-         snapshot_reader& reader;
-      protected:
-         virtual void read_shard_start( ) = 0;
-         virtual void read_shard_end() = 0;
-
-         chain::shard_name current_shard_name; // must set in read_shard_start
-   };
-   using snapshot_shards_reader_ptr = std::shared_ptr<snapshot_shards_reader>;
-
-   class snapshot_reader {
+   class snapshot_shard_reader {
       public:
          class section_reader {
             public:
@@ -294,39 +270,58 @@ namespace eosio { namespace chain {
                }
 
             private:
-               friend class snapshot_reader;
-               section_reader(snapshot_reader& _reader)
+               friend class snapshot_shard_reader;
+               section_reader(snapshot_shard_reader& _reader)
                :_reader(_reader)
                {}
 
-               snapshot_reader& _reader;
-
+               snapshot_shard_reader& _reader;
          };
 
-      template<typename F>
-      void read_section(const std::string& section_name, F f) {
-         set_section(section_name);
-         auto section = section_reader(*this);
-         f(section);
-         clear_section();
-      }
+         template<typename F>
+         void read_section(const std::string& section_name, F f) {
+            set_section(section_name);
+            auto section = section_reader(*this);
+            f(section);
+            clear_section();
+         }
 
-      template<typename T, typename F>
-      void read_section(F f) {
-         read_section(detail::snapshot_section_traits<T>::section_name(), f);
-      }
+         template<typename T, typename F>
+         void read_section(F f) {
+            read_section(detail::snapshot_section_traits<T>::section_name(), f);
+         }
 
-      virtual void validate() const = 0;
+         snapshot_shard_reader(const chain::shard_name& shard_name): shard_name(shard_name) {};
+         virtual ~snapshot_shard_reader(){};
 
-      virtual void return_to_header() = 0;
-
-      virtual ~snapshot_reader(){};
-
+         chain::shard_name shard_name;
       protected:
          virtual void set_section( const std::string& section_name ) = 0;
          virtual bool read_row( detail::abstract_snapshot_row_reader& row_reader ) = 0;
          virtual bool empty( ) = 0;
          virtual void clear_section() = 0;
+   };
+
+   using snapshot_shard_reader_ptr = std::shared_ptr<snapshot_shard_reader>;
+
+   class snapshot_reader {
+      public:
+         template<typename F>
+         void read_shard(const chain::shard_name& shard_name, F f) {
+            snapshot_shard_reader_ptr shard = read_shard_start(shard_name);
+            f(shard);
+            read_shard_end();
+         }
+
+         virtual void validate() const = 0;
+
+         virtual void return_to_header() = 0;
+
+         virtual ~snapshot_reader(){};
+
+      protected:
+         virtual snapshot_shard_reader_ptr read_shard_start( const chain::shard_name& shard_name ) = 0;
+         virtual void read_shard_end() = 0;
    };
 
    using snapshot_reader_ptr = std::shared_ptr<snapshot_reader>;
@@ -363,46 +358,21 @@ namespace eosio { namespace chain {
 
          fc::mutable_variant_object& snapshot;
 
-         fc::variants* shards;
+         fc::mutable_variant_object shards;
          variant_snapshot_shard_writer_ptr current_shard;
    };
 
-   class variant_snapshot_reader;
-
-   class variant_snapshot_shards_reader: public snapshot_shards_reader {
+   class variant_snapshot_shard_reader : public snapshot_shard_reader {
       public:
-         variant_snapshot_shards_reader(variant_snapshot_reader& reader);
-         void validate() const override;
-         bool empty() override;
-      protected:
-         void read_shard_start( ) override;
-         void read_shard_end() override;
-      private:
-         const fc::variant& snapshot;
-         bool is_shards_got = false;
-         const fc::variants* snapshot_sections = nullptr;
-         const fc::variants* shards = nullptr;
-         uint64_t cur_shard_idx = 0;
+         explicit variant_snapshot_shard_reader(const chain::shard_name& shard_name, const fc::variant& snapshot);
 
-         variant_snapshot_reader& get_reader();
-         const variant_snapshot_reader& get_reader() const;
-
-         const fc::variants* get_shards();
-   };
-
-   class variant_snapshot_reader : public snapshot_reader {
-      public:
-         explicit variant_snapshot_reader(const fc::variant& snapshot);
-
-         void validate() const override;
+         void validate() const;
          void set_section( const string& section_name ) override;
          bool read_row( detail::abstract_snapshot_row_reader& row_reader ) override;
          bool empty ( ) override;
          void clear_section() override;
-         void return_to_header() override;
 
       private:
-         friend class variant_snapshot_shards_reader;
          const fc::variant& snapshot;
          const fc::variants *sections = nullptr;
          const fc::variant_object* cur_section = nullptr;
@@ -411,9 +381,29 @@ namespace eosio { namespace chain {
          void validate_sections(const fc::variant_object& snapshot, const string& title) const;
    };
 
+   using variant_snapshot_shard_reader_ptr = std::shared_ptr<variant_snapshot_shard_reader>;
+
+
+   class variant_snapshot_reader : public snapshot_reader {
+      public:
+         explicit variant_snapshot_reader(const fc::variant& snapshot);
+
+         void validate() const override;
+         void return_to_header() override;
+      protected:
+         snapshot_shard_reader_ptr read_shard_start( const chain::shard_name& shard_name ) override;
+         void read_shard_end() override;
+      private:
+         const fc::variant& snapshot;
+         const fc::variant_object *shards = nullptr;
+         variant_snapshot_shard_reader_ptr cur_shard;
+
+         void validate_sections(const fc::variant_object& snapshot) const;
+   };
+
    class ostream_snapshot_shard_writer : public snapshot_shard_writer {
       public:
-         explicit ostream_snapshot_shard_writer(detail::ostream_wrapper& snapshot, const chain::shard_name& shard_name);
+         explicit ostream_snapshot_shard_writer(const chain::shard_name& shard_name, detail::ostream_wrapper& snapshot);
 
          void write_start_section( const std::string& section_name ) override;
          void write_row( const detail::abstract_snapshot_row_writer& row_writer ) override;
@@ -456,7 +446,7 @@ namespace eosio { namespace chain {
 
    class ostream_json_snapshot_shard_writer : public snapshot_shard_writer {
       public:
-         explicit ostream_json_snapshot_shard_writer(detail::ostream_wrapper& snapshot, const chain::shard_name& shard_name);
+         explicit ostream_json_snapshot_shard_writer(const chain::shard_name& shard_name, detail::ostream_wrapper& snapshot);
 
          void write_start_section( const std::string& section_name ) override;
          void write_row( const detail::abstract_snapshot_row_writer& row_writer ) override;
@@ -489,50 +479,92 @@ namespace eosio { namespace chain {
          ostream_json_snapshot_shard_writer_ptr cur_shard;
    };
 
-   class istream_snapshot_reader;
-
-   class istream_snapshot_shards_reader: public snapshot_shards_reader {
+   class istream_snapshot_shard_reader : public snapshot_shard_reader {
       public:
-         istream_snapshot_shards_reader(istream_snapshot_reader& reader);
-         void validate() const override;
-         bool empty() override;
-      protected:
-         void read_shard_start( ) override;
-         void read_shard_end() override;
+         struct shard_info {
+            std::streampos shard_pos = -1;
+            uint64_t shard_size = 0;
+            uint64_t section_count = 0;
+            chain::shard_name shard_name;
+
+            std::streampos get_first_section_pos() const {
+               return shard_pos + std::streampos(sizeof(shard_size) + sizeof(section_count) + sizeof(uint64_t));
+            }
+         };
+
+         struct section_info {
+            std::streampos section_pos = -1;
+            uint64_t section_size = 0;
+            uint64_t row_count = 0;
+            uint32_t section_name_size = 0;
+            std::string section_name = 0;
+            std::streampos get_first_row_pos() const {
+               return section_pos + std::streampos(sizeof(section_size) + sizeof(row_count) + sizeof(section_name_size) + section_name_size);
+            }
+         };
+
+         explicit istream_snapshot_shard_reader(const chain::shard_name& shard_name, std::istream& snapshot, const shard_info& shard);
+
+         void set_section( const string& section_name ) override;
+         bool read_row( detail::abstract_snapshot_row_reader& row_reader ) override;
+         bool empty ( ) override;
+         void clear_section() override;
       private:
-         std::istream& snapshot;
-         // std::streampos header_pos;
-         // uint64_t       num_rows;
-         // uint64_t       cur_row;
+         void init_sections();
 
-         // variant_snapshot_reader& get_reader();
-         // const variant_snapshot_reader& get_reader() const;
-
-         // const fc::variants* get_shards();
-
+         std::istream&  snapshot;
+         const shard_info& shard;
+         std::map<std::string, section_info> sections;
+         std::map<std::string, section_info>::const_iterator cur_section_itr;
+         std::streampos header_pos;
+         uint64_t       num_rows;
+         uint64_t       cur_row;
    };
+   using istream_snapshot_shard_reader_ptr = std::shared_ptr<istream_snapshot_shard_reader>;
+
 
    class istream_snapshot_reader : public snapshot_reader {
       public:
          explicit istream_snapshot_reader(std::istream& snapshot);
 
          void validate() const override;
+         void return_to_header() override;
+
+      protected:
+         snapshot_shard_reader_ptr read_shard_start( const chain::shard_name& shard_name ) override;
+         void read_shard_end() override;
+      private:
+         typedef istream_snapshot_shard_reader::shard_info shard_info;
+
+         void validate_shard() const;
+         void validate_section() const;
+         void init_shards();
+
+         std::istream&  snapshot;
+         std::streampos header_pos;
+         std::map<chain::shard_name, shard_info> shards;
+         bool is_shards_init = false;
+         istream_snapshot_shard_reader_ptr cur_shard;
+   };
+
+   class istream_json_snapshot_shard_reader : public snapshot_shard_reader {
+      public:
+         typedef std::shared_ptr<struct istream_json_snapshot_shard_reader_impl> impl_type_ptr;
+         explicit istream_json_snapshot_shard_reader(const chain::shard_name& shard_name, impl_type_ptr impl);
+         ~istream_json_snapshot_shard_reader();
+
+         // void validate() const override;
          void set_section( const string& section_name ) override;
          bool read_row( detail::abstract_snapshot_row_reader& row_reader ) override;
          bool empty ( ) override;
          void clear_section() override;
-         void return_to_header() override;
 
       private:
-         friend class istream_snapshot_shards_reader;
-
          bool validate_section() const;
 
-         std::istream&  snapshot;
-         std::streampos header_pos;
-         uint64_t       num_rows;
-         uint64_t       cur_row;
+         impl_type_ptr impl;
    };
+
 
    class istream_json_snapshot_reader : public snapshot_reader {
       public:
@@ -540,21 +572,21 @@ namespace eosio { namespace chain {
          ~istream_json_snapshot_reader();
 
          void validate() const override;
-         void set_section( const string& section_name ) override;
-         bool read_row( detail::abstract_snapshot_row_reader& row_reader ) override;
-         bool empty ( ) override;
-         void clear_section() override;
          void return_to_header() override;
 
+      protected:
+         snapshot_shard_reader_ptr read_shard_start( const chain::shard_name& shard_name ) override;
+         void read_shard_end() override;
       private:
          bool validate_section() const;
 
          std::unique_ptr<struct istream_json_snapshot_reader_impl> impl;
+         std::shared_ptr<istream_json_snapshot_shard_reader> cur_shard;
    };
 
    class integrity_hash_snapshot_shard_writer : public snapshot_shard_writer {
       public:
-         explicit integrity_hash_snapshot_shard_writer(fc::sha256::encoder&  enc);
+         explicit integrity_hash_snapshot_shard_writer(const chain::shard_name& shard_name, fc::sha256::encoder& enc);
 
          void write_start_section( const std::string& section_name ) override;
          void write_row( const detail::abstract_snapshot_row_writer& row_writer ) override;
