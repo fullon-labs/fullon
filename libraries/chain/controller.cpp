@@ -979,8 +979,15 @@ struct controller_impl {
       return itr->second;
    }
 
+   // sync all data from main_db to shared_db
+   void sync_shared_db_data() {
+      shared_index_set::copy_data(dbm.main_db(), dbm.shared_db());
+      resource_limits_manager::copy_data(dbm.main_db(), dbm.shared_db());
+      authorization_manager::copy_data(dbm.main_db(), dbm.shared_db());
+   }
+
    // sync changes from main db to shared db
-   void sync_shared_db() {
+   void sync_shared_db_changes() {
       // apply shared changes of main_db to shared_db
       // TODO: del me
       // wdump(("copy block state changes from main to shared db")(pbhs.block_num));
@@ -1270,6 +1277,7 @@ struct controller_impl {
          );
       });
 
+      sync_shared_db_data();
 
    }
 
@@ -1383,9 +1391,7 @@ struct controller_impl {
                                                                              false,
                                                                              genesis.initial_timestamp );
 
-      shared_index_set::copy_data(dbm.main_db(), dbm.shared_db());
-      resource_limits_manager::copy_data(dbm.main_db(), dbm.shared_db());
-      authorization_manager::copy_data(dbm.main_db(), dbm.shared_db());
+      sync_shared_db_data();
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
@@ -2430,7 +2436,7 @@ struct controller_impl {
          }
          dbm.main_db().remove( *itr );
       }
-      sync_shared_db();
+      sync_shared_db_changes();
 
       // Create (unsigned) block:
       auto block_ptr = std::make_shared<signed_block>( pbhs.make_block_header(

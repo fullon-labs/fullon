@@ -58,14 +58,14 @@ void variant_snapshot_writer::finalize() {
    snapshot.set("shards", std::move(shards));
 }
 
-variant_snapshot_shard_reader::variant_snapshot_shard_reader(const chain::shard_name& shard_name, const fc::variant& snapshot)
+variant_snapshot_shard_reader::variant_snapshot_shard_reader(const chain::shard_name& shard_name, const fc::variant_object& shard)
 :snapshot_shard_reader(shard_name)
-,snapshot(snapshot)
+,shard(shard)
 {}
 
 void variant_snapshot_shard_reader::set_section( const string& section_name ) {
    if (sections == nullptr) {
-      sections = &snapshot["sections"].get_array();
+      sections = &shard["sections"].get_array();
    }
    for( const auto& section: *sections ) {
       if (section["name"].as_string() == section_name) {
@@ -168,7 +168,11 @@ snapshot_shard_reader_ptr variant_snapshot_reader::read_shard_start( const chain
    if (shards == nullptr) {
       shards = &snapshot["shards"].get_object();
    }
-   const auto& so = (*shards)[shard_name.to_string()].get_object();
+
+   auto itr = shards->find(shard_name.to_string());
+   EOS_ASSERT(itr != shards->end(), snapshot_exception,
+               "Variant snapshot has no shard named ${n}", ("n", shard_name));
+   const auto& so = itr->value().get_object();
    cur_shard = std::make_shared<variant_snapshot_shard_reader>(shard_name, so);
    return cur_shard;
 }

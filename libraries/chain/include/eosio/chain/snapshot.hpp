@@ -364,7 +364,7 @@ namespace eosio { namespace chain {
 
    class variant_snapshot_shard_reader : public snapshot_shard_reader {
       public:
-         explicit variant_snapshot_shard_reader(const chain::shard_name& shard_name, const fc::variant& snapshot);
+         explicit variant_snapshot_shard_reader(const chain::shard_name& shard_name, const fc::variant_object& shard);
 
          void validate() const;
          void set_section( const string& section_name ) override;
@@ -373,12 +373,10 @@ namespace eosio { namespace chain {
          void clear_section() override;
 
       private:
-         const fc::variant& snapshot;
+         const fc::variant_object& shard;
          const fc::variants *sections = nullptr;
          const fc::variant_object* cur_section = nullptr;
          uint64_t cur_row = 0;
-
-         void validate_sections(const fc::variant_object& snapshot, const string& title) const;
    };
 
    using variant_snapshot_shard_reader_ptr = std::shared_ptr<variant_snapshot_shard_reader>;
