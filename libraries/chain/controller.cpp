@@ -953,13 +953,14 @@ struct controller_impl {
       resource_limits_manager::add_indices(db);
    }
 
-   void add_shard_db(const shard_name& name) {
+   database& add_shard_db(const shard_name& name) {
       // TODO: conf.shard_state_size
       auto db_ptr = dbm.find_shard_db(name);
       if (!db_ptr) {
          db_ptr = dbm.add_shard_db(name, conf.state_size);
          add_indices_to_shard_db(*db_ptr);
       }
+      return *db_ptr;
    }
 
    inline building_shard& init_building_shard(const shard_name& name, eosio::chain::shard_type shard_type) {
@@ -1224,7 +1225,6 @@ struct controller_impl {
    }
 
    void read_from_snapshot( const snapshot_reader_ptr& snapshot, uint32_t blog_start, uint32_t blog_end ) {
-      // TODO: global_db and sub shard db
       chain_snapshot_header header;
       auto& main_db = dbm.main_db();
       snapshot->read_shard(config::main_shard_name, [this, &blog_start, &blog_end, &main_db, &header](snapshot_shard_reader_ptr& shard_reader) {
@@ -1279,6 +1279,16 @@ struct controller_impl {
 
       sync_shared_db_data();
 
+      const auto& sc_indx = dbm.main_db().get_index<shard_index, by_id>();
+      for(  auto itr = sc_indx.begin(); itr != sc_indx.end(); itr++ ) {
+         // TODO: is enable shard in config??
+         if (itr->enabled) {
+            auto& db = add_shard_db(itr->name);
+            snapshot->read_shard(itr->name, [this, &db, &header](snapshot_shard_reader_ptr& shard_reader) {
+               read_db_tables_from_snapshot(db, shard_reader, header);
+            });
+         }
+      }
    }
 
    sha256 calculate_integrity_hash() {
