@@ -222,6 +222,7 @@ void ostream_snapshot_shard_writer::write_start_section( const std::string& sect
    uint32_t section_name_size = section_name.size();
    snapshot.write((char*)&section_name_size, sizeof(section_name_size));
    snapshot.write(section_name.data(), section_name.size());
+   section_count++;
 }
 
 void ostream_snapshot_shard_writer::write_row( const detail::abstract_snapshot_row_writer& row_writer ) {
@@ -261,7 +262,7 @@ void ostream_snapshot_shard_writer::finalize() {
 
    snapshot.seekp(shard_pos);
 
-   // // write a the shard size
+   // // write the shard size
    snapshot.write((char*)&shard_size, sizeof(shard_size));
 
    // // write the section count
@@ -312,9 +313,9 @@ void ostream_snapshot_writer::add_shard_end(const chain::shard_name& shard_name)
 void ostream_snapshot_writer::finalize() {
    auto restore = snapshot.tellp();
 
-   uint64_t shards_size = restore - shards_pos + sizeof(uint64_t);
+   uint64_t shards_size = restore - shards_pos - sizeof(uint64_t);
 
-   snapshot.seekp(shards_size);
+   snapshot.seekp(shards_pos);
 
    // write a the section size
    snapshot.write((char*)&shards_size, sizeof(shards_size));
@@ -325,7 +326,6 @@ void ostream_snapshot_writer::finalize() {
    snapshot.seekp(restore);
 
    uint64_t end_marker = std::numeric_limits<uint64_t>::max();
-   // write a placeholder for the section size
    snapshot.write((char*)&end_marker, sizeof(end_marker));
 }
 
@@ -412,9 +412,6 @@ istream_snapshot_shard_reader::istream_snapshot_shard_reader(const chain::shard_
    auto first_pos = shard.get_first_section_pos();
    snapshot.seekg(first_pos);
 
-   uint64_t shard_count = 0;
-   snapshot.read((char*)&shard_count, sizeof(shard_count));
-
    for (size_t i = 0; i < shard.section_count; i++) {
       section_info section;
       section.section_pos = snapshot.tellg();
@@ -427,6 +424,7 @@ istream_snapshot_shard_reader::istream_snapshot_shard_reader(const chain::shard_
          c = snapshot.get();
       }
       sections[section.section_name] = section;
+      snapshot.seekg(section.section_pos + std::streampos(sizeof(section.section_size) + section.section_size));
    }
    snapshot.seekg(first_pos);
 }
@@ -435,7 +433,8 @@ void istream_snapshot_shard_reader::set_section( const string& section_name ) {
    cur_section_itr = sections.find(section_name);
 
    EOS_ASSERT(cur_section_itr != sections.end(), snapshot_exception,
-               "Binary snapshot shard has no section named ${n}.", ("n", section_name));
+               "Binary snapshot shard ${shard} has no section named ${n}.",
+               ("shard", shard_name.to_string())("n", section_name));
 
    const auto& section = cur_section_itr->second;
    snapshot.seekg(section.get_first_row_pos());
@@ -498,6 +497,7 @@ void istream_snapshot_reader::validate() const {
       }
 
       uint64_t actual_shards_size = snapshot.tellg() - shards_pos;
+
       EOS_ASSERT(actual_shards_size == shards_size, snapshot_exception,
                   "Binary snapshot shards size invalid.  Expected : ${expected}, Got: ${actual}",
                   ("expected", shards_size)("actual", actual_shards_size));
@@ -543,11 +543,10 @@ void istream_snapshot_reader::validate_section() const {
 }
 
 void istream_snapshot_reader::init_shards() {
-
-   if (header_pos != snapshot.tellg()) {
-      snapshot.seekg(header_pos);
-   }
-
+   static const size_t shards_size = sizeof(uint64_t);
+   const std::streamoff header_size = sizeof(ostream_snapshot_writer::magic_number) + sizeof(current_snapshot_version) + shards_size;
+   auto shards_pos = header_pos + header_size;
+   snapshot.seekg(shards_pos);
    uint64_t shard_count = 0;
    snapshot.read((char*)&shard_count, sizeof(shard_count));
 
@@ -565,7 +564,7 @@ void istream_snapshot_reader::init_shards() {
 }
 
 snapshot_shard_reader_ptr istream_snapshot_reader::read_shard_start( const chain::shard_name& shard_name ) {
-   if (is_shards_init) {
+   if (!is_shards_init) {
       init_shards();
       is_shards_init = true;
    }

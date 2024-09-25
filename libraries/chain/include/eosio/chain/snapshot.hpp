@@ -495,7 +495,7 @@ namespace eosio { namespace chain {
             uint64_t section_size = 0;
             uint64_t row_count = 0;
             uint32_t section_name_size = 0;
-            std::string section_name = 0;
+            std::string section_name;
             std::streampos get_first_row_pos() const {
                return section_pos + std::streampos(sizeof(section_size) + sizeof(row_count) + sizeof(section_name_size) + section_name_size);
             }
