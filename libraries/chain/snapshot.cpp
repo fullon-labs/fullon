@@ -340,7 +340,7 @@ ostream_json_snapshot_shard_writer::ostream_json_snapshot_shard_writer( const ch
 void ostream_json_snapshot_shard_writer::write_start_section( const std::string& section_name )
 {
    row_count = 0;
-   if (section_count == 0) {
+   if (section_count != 0) {
       snapshot.inner << ",";
    }
    snapshot.inner << fc::json::to_string(section_name, fc::time_point::maximum()) << ":{\n\"rows\":[\n";
@@ -590,8 +590,8 @@ struct istream_json_snapshot_shard_reader_impl {
    eosio_rapidjson::Document::ValueType& shard;
    eosio_rapidjson::Document::ValueType& sections;
    eosio_rapidjson::Document::ValueType* cur_section_rows = nullptr;
-   uint64_t num_rows;
-   uint64_t cur_row;
+   uint64_t num_rows = 0;
+   uint64_t cur_row = 0;
    std::string section_name;
 
    istream_json_snapshot_shard_reader_impl(eosio_rapidjson::Document::ValueType& shard,
@@ -713,11 +713,13 @@ snapshot_shard_reader_ptr istream_json_snapshot_reader::read_shard_start( const 
    auto& shard = shards[shard_name_str.c_str()];
    EOS_ASSERT(shard.HasMember("sections"), snapshot_exception, "JSON snapshot shard has no sections");
    auto& sections = shard["sections"];
+   EOS_ASSERT(shard.HasMember("num_sections"), snapshot_exception, "JSON snapshot shard has no num_sections");
+   auto num_sections = shard["num_sections"].GetUint();
 
    auto shard_impl = std::make_shared<istream_json_snapshot_shard_reader_impl>(shard, sections);
    cur_shard = std::make_shared<istream_json_snapshot_shard_reader>(shard_name, shard_impl);
 
-   ilog( "reading shard ${shard_name}, num_sections: ${num_sections}", ("shard_name", shard_name)( "num_sections", sections.Size() ) );
+   ilog( "reading shard ${shard_name}, num_sections: ${num_sections}", ("shard_name", shard_name)("num_sections", num_sections) );
    return cur_shard;
 }
 
