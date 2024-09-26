@@ -318,6 +318,7 @@ namespace eosio { namespace testing {
    }
 
    void base_tester::open( protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot ) {
+      snapshot->validate();
       const auto& snapshot_chain_id = controller::extract_chain_id( *snapshot );
       snapshot->return_to_header();
       open(std::move(pfs), snapshot_chain_id, [&snapshot,&control=this->control]() {

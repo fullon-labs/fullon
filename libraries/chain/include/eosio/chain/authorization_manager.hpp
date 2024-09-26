@@ -26,9 +26,9 @@ namespace eosio { namespace chain {
          static void add_shared_indices(chainbase::database& shared_db);
          static void copy_data(chainbase::database& main_db, chainbase::database& shared_db);
          static void copy_changes(chainbase::database& main_db, chainbase::database& shared_db);
+         static void add_to_snapshot( chainbase::database& db, const snapshot_shard_writer_ptr& snapshot );
          void initialize_database();
-         void add_to_snapshot( const snapshot_writer_ptr& snapshot ) const;
-         void read_from_snapshot( const snapshot_reader_ptr& snapshot );
+         static void read_from_snapshot( chainbase::database& db, const snapshot_shard_reader_ptr& snapshot );
 
          const permission_object& create_permission( account_name account,
                                                      permission_name name,

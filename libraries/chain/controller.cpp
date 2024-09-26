@@ -953,13 +953,14 @@ struct controller_impl {
       resource_limits_manager::add_indices(db);
    }
 
-   void add_shard_db(const shard_name& name) {
+   database& add_shard_db(const shard_name& name) {
       // TODO: conf.shard_state_size
       auto db_ptr = dbm.find_shard_db(name);
       if (!db_ptr) {
          db_ptr = dbm.add_shard_db(name, conf.state_size);
          add_indices_to_shard_db(*db_ptr);
       }
+      return *db_ptr;
    }
 
    inline building_shard& init_building_shard(const shard_name& name, eosio::chain::shard_type shard_type) {
@@ -979,8 +980,15 @@ struct controller_impl {
       return itr->second;
    }
 
+   // sync all data from main_db to shared_db
+   void sync_shared_db_data() {
+      shared_index_set::copy_data(dbm.main_db(), dbm.shared_db());
+      resource_limits_manager::copy_data(dbm.main_db(), dbm.shared_db());
+      authorization_manager::copy_data(dbm.main_db(), dbm.shared_db());
+   }
+
    // sync changes from main db to shared db
-   void sync_shared_db() {
+   void sync_shared_db_changes() {
       // apply shared changes of main_db to shared_db
       // TODO: del me
       // wdump(("copy block state changes from main to shared db")(pbhs.block_num));
@@ -1006,7 +1014,7 @@ struct controller_impl {
                   */
    }
 
-   void add_contract_tables_to_snapshot( database& db, const snapshot_writer_ptr& snapshot ) const {
+   void add_contract_tables_to_snapshot( database& db, const snapshot_shard_writer_ptr& snapshot ) const {
       // TODO: support shared_table_id_multi_index
       snapshot->write_section("contract_tables", [&db]( auto& section ) {
          index_utils<table_id_multi_index>::walk(db, [&db, &section]( const table_id_object& table_row ){
@@ -1033,9 +1041,9 @@ struct controller_impl {
       });
    }
 
-   void read_contract_tables_from_snapshot( database& db, const snapshot_reader_ptr& snapshot ) {
-      // TODO: support shared_table_id_multi_index
-      snapshot->read_section("contract_tables", [&db]( auto& section ) {
+   void read_contract_tables_from_snapshot( database& db, const snapshot_shard_reader_ptr& shard_reader ) {
+
+      shard_reader->read_section("contract_tables", [&db]( auto& section ) {
          bool more = !section.empty();
          while (more) {
             // read the row for the table
@@ -1063,19 +1071,7 @@ struct controller_impl {
       });
    }
 
-   void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
-      // clear in case the previous call to clear did not finish in time of deadline
-      clear_expired_input_transactions( fc::time_point::maximum() );
-      // TODO: write shared_db and every shard db to snapshot
-
-      auto& db = dbm.main_db();
-      snapshot->write_section<chain_snapshot_header>([&db]( auto &section ){
-         section.add_row(chain_snapshot_header(), db);
-      });
-
-      snapshot->write_section<block_state>([&db, this]( auto &section ){
-         section.template add_row<block_header_state>(*head, db);
-      });
+   void add_db_tables_to_snapshot( database& db, const snapshot_shard_writer_ptr& snapshot ) {
 
       controller_index_set::walk_indices([&db, &snapshot]( auto utils ){
          using value_t = typename decltype(utils)::index_t::value_type;
@@ -1099,64 +1095,54 @@ struct controller_impl {
 
       add_contract_tables_to_snapshot(db, snapshot);
 
-      authorization_manager authorization(self, db, db);
-      // TODO: shared_db and sub shard db
-      authorization.add_to_snapshot(snapshot);
-      resource_limits.add_to_snapshot(snapshot);
+      authorization_manager::add_to_snapshot(db, snapshot);
+      resource_limits_manager::add_to_snapshot(db, snapshot);
    }
 
-   static std::optional<genesis_state> extract_legacy_genesis_state( snapshot_reader& snapshot, uint32_t version ) {
+   void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
+      // clear in case the previous call to clear did not finish in time of deadline
+      clear_expired_input_transactions( fc::time_point::maximum() );
+
+      auto& main_db = dbm.main_db();
+
+      snapshot->add_shard( config::main_shard_name, [this, &main_db]( snapshot_shard_writer_ptr &shard ){
+         shard->write_section<chain_snapshot_header>([&main_db]( auto &section ){
+            section.add_row(chain_snapshot_header(), main_db);
+         });
+
+         shard->write_section<block_state>([this, &main_db]( auto &section ){
+            section.template add_row<block_header_state>(*head, main_db);
+         });
+
+         add_db_tables_to_snapshot(main_db, shard);
+      });
+
+
+      // TODO: how to get shard_dbs
+      for( auto& sdb : dbm.shard_dbs() ) {
+         snapshot->add_shard( sdb.first, [this, &db = sdb.second]( snapshot_shard_writer_ptr &shard ) {
+            add_db_tables_to_snapshot(db, shard);
+         });
+      }
+   }
+
+   static std::optional<genesis_state> extract_legacy_genesis_state( snapshot_shard_reader_ptr& shard_reader, uint32_t version ) {
       std::optional<genesis_state> genesis;
       using v2 = legacy::snapshot_global_property_object_v2;
 
       if (std::clamp(version, v2::minimum_version, v2::maximum_version) == version ) {
          genesis.emplace();
-         snapshot.read_section<genesis_state>([&genesis=*genesis]( auto &section ){
+         shard_reader->read_section<genesis_state>([&genesis=*genesis]( auto &section ){
             section.read_row(genesis);
          });
       }
       return genesis;
    }
 
-   void read_from_snapshot( const snapshot_reader_ptr& snapshot, uint32_t blog_start, uint32_t blog_end ) {
-      // TODO: global_db and sub shard db
-      auto& db = dbm.main_db();
-      chain_snapshot_header header;
-      snapshot->read_section<chain_snapshot_header>([&db, &header]( auto &section ){
-         section.read_row(header, db);
-         header.validate();
-      });
+   void read_db_tables_from_snapshot(database& db, snapshot_shard_reader_ptr shard_reader, const chain_snapshot_header &header) {
 
-      { /// load and upgrade the block header state
-         block_header_state head_header_state;
-         using v2 = legacy::snapshot_block_header_state_v2;
 
-         if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
-            snapshot->read_section<block_state>([&db, &head_header_state]( auto &section ) {
-               legacy::snapshot_block_header_state_v2 legacy_header_state;
-               section.read_row(legacy_header_state, db);
-               head_header_state = block_header_state(std::move(legacy_header_state));
-            });
-         } else {
-            snapshot->read_section<block_state>([&db,&head_header_state]( auto &section ){
-               section.read_row(head_header_state, db);
-            });
-         }
-
-         snapshot_head_block = head_header_state.block_num;
-         EOS_ASSERT( blog_start <= (snapshot_head_block + 1) && snapshot_head_block <= blog_end,
-                     block_log_exception,
-                     "Block log is provided with snapshot but does not contain the head block from the snapshot nor a block right after it",
-                     ("snapshot_head_block", snapshot_head_block)
-                     ("block_log_first_num", blog_start)
-                     ("block_log_last_num", blog_end)
-         );
-
-         head = std::make_shared<block_state>();
-         static_cast<block_header_state&>(*head) = head_header_state;
-      }
-
-      controller_index_set::walk_indices([&db, &snapshot, &header]( auto utils ){
+      controller_index_set::walk_indices([&db, &shard_reader, &header]( auto utils ){
          using value_t = typename decltype(utils)::index_t::value_type;
 
          // skip the table_id_object as its inlined with contract tables section
@@ -1171,16 +1157,20 @@ struct controller_impl {
 
          // special case for in-place upgrade of global_property_object
          if (std::is_same<value_t, global_property_object>::value) {
+            // skip in sub shard db
+            if (shard_reader->shard_name != config::main_shard_name)
+               return;
+
             using v2 = legacy::snapshot_global_property_object_v2;
             using v3 = legacy::snapshot_global_property_object_v3;
             using v4 = legacy::snapshot_global_property_object_v4;
 
             if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
-               std::optional<genesis_state> genesis = extract_legacy_genesis_state(*snapshot, header.version);
+               std::optional<genesis_state> genesis = extract_legacy_genesis_state(shard_reader, header.version);
                EOS_ASSERT( genesis, snapshot_exception,
                            "Snapshot indicates chain_snapshot_header version 2, but does not contain a genesis_state. "
                            "It must be corrupted.");
-               snapshot->read_section<global_property_object>([&db,gs_chain_id=genesis->compute_chain_id()]( auto &section ) {
+               shard_reader->read_section<global_property_object>([&db,gs_chain_id=genesis->compute_chain_id()]( auto &section ) {
                   v2 legacy_global_properties;
                   section.read_row(legacy_global_properties, db);
 
@@ -1193,7 +1183,7 @@ struct controller_impl {
             }
 
             if (std::clamp(header.version, v3::minimum_version, v3::maximum_version) == header.version ) {
-               snapshot->read_section<global_property_object>([&db]( auto &section ) {
+               shard_reader->read_section<global_property_object>([&db]( auto &section ) {
                   v3 legacy_global_properties;
                   section.read_row(legacy_global_properties, db);
 
@@ -1206,7 +1196,7 @@ struct controller_impl {
             }
 
             if (std::clamp(header.version, v4::minimum_version, v4::maximum_version) == header.version) {
-               snapshot->read_section<global_property_object>([&db](auto& section) {
+               shard_reader->read_section<global_property_object>([&db](auto& section) {
                   v4 legacy_global_properties;
                   section.read_row(legacy_global_properties, db);
 
@@ -1218,7 +1208,7 @@ struct controller_impl {
             }
          }
 
-         snapshot->read_section<value_t>([&db]( auto& section ) {
+         shard_reader->read_section<value_t>([&db]( auto& section ) {
             bool more = !section.empty();
             while(more) {
                decltype(utils)::create(db, [&db, &section, &more]( auto &row ) {
@@ -1228,22 +1218,77 @@ struct controller_impl {
          });
       });
 
-      read_contract_tables_from_snapshot(db, snapshot);
+      read_contract_tables_from_snapshot(db, shard_reader);
 
-      authorization_manager authorization(self, db, db);
-      authorization.read_from_snapshot(snapshot);
-      resource_limits.read_from_snapshot(snapshot);
+      authorization_manager::read_from_snapshot(db, shard_reader);
+      resource_limits_manager::read_from_snapshot(db, shard_reader);
+   }
 
-      db.set_revision( head->block_num );
-      db.create<database_header_object>([](const auto& header){
-         // nothing to do
+   void read_from_snapshot( const snapshot_reader_ptr& snapshot, uint32_t blog_start, uint32_t blog_end ) {
+      chain_snapshot_header header;
+      auto& main_db = dbm.main_db();
+      snapshot->read_shard(config::main_shard_name, [this, &blog_start, &blog_end, &main_db, &header](snapshot_shard_reader_ptr& shard_reader) {
+         shard_reader->read_section<chain_snapshot_header>([&main_db, &header]( auto &section ){
+            section.read_row(header, main_db);
+            header.validate();
+         });
+
+
+         { /// load and upgrade the block header state
+            block_header_state head_header_state;
+            using v2 = legacy::snapshot_block_header_state_v2;
+
+            if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
+               shard_reader->read_section<block_state>([&main_db, &head_header_state]( auto &section ) {
+                  legacy::snapshot_block_header_state_v2 legacy_header_state;
+                  section.read_row(legacy_header_state, main_db);
+                  head_header_state = block_header_state(std::move(legacy_header_state));
+               });
+            } else {
+               shard_reader->read_section<block_state>([&main_db,&head_header_state]( auto &section ){
+                  section.read_row(head_header_state, main_db);
+               });
+            }
+
+            snapshot_head_block = head_header_state.block_num;
+            EOS_ASSERT( blog_start <= (snapshot_head_block + 1) && snapshot_head_block <= blog_end,
+                        block_log_exception,
+                        "Block log is provided with snapshot but does not contain the head block from the snapshot nor a block right after it",
+                        ("snapshot_head_block", snapshot_head_block)
+                        ("block_log_first_num", blog_start)
+                        ("block_log_last_num", blog_end)
+            );
+
+            head = std::make_shared<block_state>();
+            static_cast<block_header_state&>(*head) = head_header_state;
+         }
+
+         read_db_tables_from_snapshot(main_db, shard_reader, header);
+
+         main_db.set_revision( head->block_num );
+         main_db.create<database_header_object>([](const auto& header){
+            // nothing to do
+         });
+
+         const auto& gpo = main_db.get<global_property_object>();
+         EOS_ASSERT( gpo.chain_id == chain_id, chain_id_type_exception,
+                     "chain ID in snapshot (${snapshot_chain_id}) does not match the chain ID that controller was constructed with (${controller_chain_id})",
+                     ("snapshot_chain_id", gpo.chain_id)("controller_chain_id", chain_id)
+         );
       });
 
-      const auto& gpo = db.get<global_property_object>();
-      EOS_ASSERT( gpo.chain_id == chain_id, chain_id_type_exception,
-                  "chain ID in snapshot (${snapshot_chain_id}) does not match the chain ID that controller was constructed with (${controller_chain_id})",
-                  ("snapshot_chain_id", gpo.chain_id)("controller_chain_id", chain_id)
-      );
+      sync_shared_db_data();
+
+      const auto& sc_indx = dbm.main_db().get_index<shard_index, by_id>();
+      for(  auto itr = sc_indx.begin(); itr != sc_indx.end(); itr++ ) {
+         // TODO: is enable shard in config??
+         if (itr->enabled) {
+            auto& db = add_shard_db(itr->name);
+            snapshot->read_shard(itr->name, [this, &db, &header](snapshot_shard_reader_ptr& shard_reader) {
+               read_db_tables_from_snapshot(db, shard_reader, header);
+            });
+         }
+      }
    }
 
    sha256 calculate_integrity_hash() {
@@ -1356,9 +1401,7 @@ struct controller_impl {
                                                                              false,
                                                                              genesis.initial_timestamp );
 
-      shared_index_set::copy_data(dbm.main_db(), dbm.shared_db());
-      resource_limits_manager::copy_data(dbm.main_db(), dbm.shared_db());
-      authorization_manager::copy_data(dbm.main_db(), dbm.shared_db());
+      sync_shared_db_data();
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
@@ -2403,7 +2446,7 @@ struct controller_impl {
          }
          dbm.main_db().remove( *itr );
       }
-      sync_shared_db();
+      sync_shared_db_changes();
 
       // Create (unsigned) block:
       auto block_ptr = std::make_shared<signed_block>( pbhs.make_block_header(
@@ -3082,9 +3125,7 @@ struct controller_impl {
 
       //Look for expired transactions in the deduplication list in sub shard, and remove them.
       for( auto& sdb : dbm.shard_dbs() ) {
-         auto sname = sdb.first;
-         auto& db = dbm.shard_db( sname );
-         remove_from_shard( db , sname );
+         remove_from_shard( sdb.second , sdb.first );
       }
    }
 
@@ -4285,35 +4326,38 @@ std::optional<uint64_t> controller::convert_exception_to_error_code( const fc::e
 }
 
 chain_id_type controller::extract_chain_id(snapshot_reader& snapshot) {
-   chain_snapshot_header header;
-   snapshot.read_section<chain_snapshot_header>([&header]( auto &section ){
-      section.read_row(header);
-      header.validate();
-   });
-
-   // check if this is a legacy version of the snapshot, which has a genesis state instead of chain id
-   std::optional<genesis_state> genesis = controller_impl::extract_legacy_genesis_state(snapshot, header.version);
-   if (genesis) {
-      return genesis->compute_chain_id();
-   }
-
    chain_id_type chain_id;
 
-   using v4 = legacy::snapshot_global_property_object_v4;
-   if (header.version <= v4::maximum_version) {
-      snapshot.read_section<global_property_object>([&chain_id]( auto &section ){
-         v4 global_properties;
-         section.read_row(global_properties);
-         chain_id = global_properties.chain_id;
+   snapshot.read_shard(chain::config::main_shard_name, [&chain_id](snapshot_shard_reader_ptr& shard_reader) {
+      chain_snapshot_header header;
+      shard_reader->read_section<chain_snapshot_header>([&header]( auto &section ){
+         section.read_row(header);
+         header.validate();
       });
-   }
-   else {
-      snapshot.read_section<global_property_object>([&chain_id]( auto &section ){
-         snapshot_global_property_object global_properties;
-         section.read_row(global_properties);
-         chain_id = global_properties.chain_id;
-      });
-   }
+
+      // check if this is a legacy version of the snapshot, which has a genesis state instead of chain id
+      std::optional<genesis_state> genesis = controller_impl::extract_legacy_genesis_state(shard_reader, header.version);
+      if (genesis) {
+         chain_id = genesis->compute_chain_id();
+         return;
+      }
+
+      using v4 = legacy::snapshot_global_property_object_v4;
+      if (header.version <= v4::maximum_version) {
+         shard_reader->read_section<global_property_object>([&chain_id]( auto &section ){
+            v4 global_properties;
+            section.read_row(global_properties);
+            chain_id = global_properties.chain_id;
+         });
+      } else {
+         shard_reader->read_section<global_property_object>([&chain_id]( auto &section ){
+            snapshot_global_property_object global_properties;
+            section.read_row(global_properties);
+            chain_id = global_properties.chain_id;
+         });
+      }
+   });
+
 
    return chain_id;
 }

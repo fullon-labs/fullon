@@ -87,11 +87,10 @@ void resource_limits_manager::initialize_database() {
       dm_logger->on_init_resource_limits(config, state);
    }
 }
-//TODO: subshard snapshot resource process.
-void resource_limits_manager::add_to_snapshot( const snapshot_writer_ptr& snapshot ) const {
-   resource_index_set::walk_indices([this, &snapshot]( auto utils ){
-      snapshot->write_section<typename decltype(utils)::index_t::value_type>([this]( auto& section ){
-         auto& db = _dbm.main_db();
+
+void resource_limits_manager::add_to_snapshot( chainbase::database& db, const snapshot_shard_writer_ptr& snapshot ) {
+   resource_index_set::walk_indices([&db, &snapshot]( auto utils ){
+      snapshot->write_section<typename decltype(utils)::index_t::value_type>([&db]( auto& section ){
          decltype(utils)::walk(db, [&section, &db]( const auto &row ) {
             section.add_row(row, db);
          });
@@ -99,11 +98,10 @@ void resource_limits_manager::add_to_snapshot( const snapshot_writer_ptr& snapsh
    });
 }
 //TODO: subshard snapshot resource process.
-void resource_limits_manager::read_from_snapshot( const snapshot_reader_ptr& snapshot ) {
-   resource_index_set::walk_indices([this, &snapshot]( auto utils ){
-      snapshot->read_section<typename decltype(utils)::index_t::value_type>([this]( auto& section ) {
+void resource_limits_manager::read_from_snapshot( chainbase::database& db, const snapshot_shard_reader_ptr& snapshot ) {
+   resource_index_set::walk_indices([&db, &snapshot]( auto utils ){
+      snapshot->read_section<typename decltype(utils)::index_t::value_type>([&db]( auto& section ) {
          bool more = !section.empty();
-         auto& db = _dbm.main_db();
          while(more) {
             decltype(utils)::create(db, [&section, &more, &db]( auto &row ) {
                more = section.read_row(row, db);

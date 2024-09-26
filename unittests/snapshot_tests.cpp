@@ -1,4 +1,4 @@
-#ifdef enable_snapshot_tests
+// #ifdef enable_snapshot_tests
 #include <sstream>
 
 #include <eosio/chain/block_log.hpp>
@@ -658,4 +658,4 @@ BOOST_AUTO_TEST_CASE(json_snapshot_validity_test)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-#endif//enable_snapshot_tests
+// #endif//enable_snapshot_tests

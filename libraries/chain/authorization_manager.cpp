@@ -21,6 +21,11 @@ namespace eosio { namespace chain {
       permission_link_index
    >;
 
+   using authorization_shared_index_set = index_set<
+      permission_index,
+      permission_link_index
+   >;
+
    authorization_manager::authorization_manager(controller& c, database& db, chainbase::database& shared_db)
    :_control(c),_db(db), _shared_db(shared_db) {}
 
@@ -28,15 +33,15 @@ namespace eosio { namespace chain {
       authorization_index_set::add_indices(db);
    }
    void authorization_manager::add_shared_indices(chainbase::database& shared_db) {
-      authorization_index_set::add_indices(shared_db);
+      authorization_shared_index_set::add_indices(shared_db);
    }
 
 void authorization_manager::copy_data(chainbase::database& main_db, chainbase::database& shared_db) {
-   authorization_index_set::copy_data(main_db, shared_db);
+   authorization_shared_index_set::copy_data(main_db, shared_db);
 }
 
 void authorization_manager::copy_changes(chainbase::database& main_db, chainbase::database& shared_db) {
-   authorization_index_set::copy_changes(main_db, shared_db);
+   authorization_shared_index_set::copy_changes(main_db, shared_db);
 }
 
    void authorization_manager::initialize_database() {
@@ -104,8 +109,8 @@ void authorization_manager::copy_changes(chainbase::database& main_db, chainbase
       };
    }
 
-   void authorization_manager::add_to_snapshot( const snapshot_writer_ptr& snapshot ) const {
-      authorization_index_set::walk_indices([this, &snapshot]( auto utils ){
+   void authorization_manager::add_to_snapshot( chainbase::database& db, const snapshot_shard_writer_ptr& snapshot ) {
+      authorization_index_set::walk_indices([&db, &snapshot]( auto utils ){
          using section_t = typename decltype(utils)::index_t::value_type;
 
          // skip the permission_usage_index as its inlined with permission_index
@@ -113,16 +118,16 @@ void authorization_manager::copy_changes(chainbase::database& main_db, chainbase
             return;
          }
 
-         snapshot->write_section<section_t>([this]( auto& section ){
-            decltype(utils)::walk(_db, [this, &section]( const auto &row ) {
-               section.add_row(row, _db);
+         snapshot->write_section<section_t>([&db]( auto& section ){
+            decltype(utils)::walk(db, [&db, &section]( const auto &row ) {
+               section.add_row(row, db);
             });
          });
       });
    }
 
-   void authorization_manager::read_from_snapshot( const snapshot_reader_ptr& snapshot ) {
-      authorization_index_set::walk_indices([this, &snapshot]( auto utils ){
+   void authorization_manager::read_from_snapshot( chainbase::database& db, const snapshot_shard_reader_ptr& snapshot ) {
+      authorization_index_set::walk_indices([&db, &snapshot]( auto utils ){
          using section_t = typename decltype(utils)::index_t::value_type;
 
          // skip the permission_usage_index as its inlined with permission_index
@@ -130,11 +135,11 @@ void authorization_manager::copy_changes(chainbase::database& main_db, chainbase
             return;
          }
 
-         snapshot->read_section<section_t>([this]( auto& section ) {
+         snapshot->read_section<section_t>([&db]( auto& section ) {
             bool more = !section.empty();
             while(more) {
-               decltype(utils)::create(_db, [this, &section, &more]( auto &row ) {
-                  more = section.read_row(row, _db);
+               decltype(utils)::create(db, [&db, &section, &more]( auto &row ) {
+                  more = section.read_row(row, db);
                });
             }
          });
